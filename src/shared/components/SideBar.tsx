@@ -16,7 +16,7 @@ import { NavLink } from 'react-router'
 import { motion } from 'framer-motion'
 import { Home, Search, Star, History, Settings } from 'lucide-react'
 import { OkiLogo } from '@/shared/components/icons'
-import { useVersionStore } from '../store'
+// import { useVersionStore } from '../store'
 import { cn } from '@/shared/lib'
 
 interface SideBarProps {
@@ -75,7 +75,7 @@ export default function SideBar({
     ],
   }
   // 获取版本信息
-  const { currentVersion } = useVersionStore()
+  // const { currentVersion } = useVersionStore()
   return (
     <Sidebar
       className={cn(
@@ -102,7 +102,7 @@ export default function SideBar({
             <div>
               <OkiLogo />
             </div>
-            <p className="text-accent-foreground text-lg font-bold">OUONNKI TV</p>
+            <p className="text-accent-foreground text-lg font-bold">I TV</p>
           </div>
         </NavLink>
       </SidebarHeader>
@@ -150,7 +150,7 @@ export default function SideBar({
                   <item.icon />
                   <span className="flex w-full items-center justify-between">
                     <span>{item.title}</span>
-                    <span className="text-muted-foreground text-xs">v{currentVersion}</span>
+                    {/* <span className="text-muted-foreground text-xs">v{currentVersion}</span> */}
                   </span>
                 </NavLink>
               </SidebarMenuButton>

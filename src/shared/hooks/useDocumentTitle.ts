@@ -5,7 +5,7 @@ import { useEffect } from 'react'
  * @param title - 页面标题（不包含站点名称）
  * @param siteName - 站点名称，默认为 'Ouonnki TV'
  */
-export function useDocumentTitle(title: string, siteName: string = 'Ouonnki TV') {
+export function useDocumentTitle(title: string, siteName: string = 'I TV') {
   useEffect(() => {
     const previousTitle = document.title
 
