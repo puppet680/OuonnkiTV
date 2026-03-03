@@ -2,13 +2,27 @@ import { useLocation, useNavigate } from 'react-router'
 import { cn } from '@/shared/lib'
 import { Badge } from '@/shared/components/ui/badge'
 import { Button } from '@/shared/components/ui/button'
-import { ArrowLeft, Compass, FolderCog, Info, ListVideo, Play, Settings2 } from 'lucide-react'
+import { ArrowLeft, Compass, FolderCog, ListVideo, Play, Settings2, type LucideIcon } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { CustomAnimatedOutlet } from '@/shared/components/AnimatedOutlet'
 import { animationPresets } from '@/shared/lib/animationVariants'
 import { UnderlineTabs } from '@/shared/components/common/UnderlineTabs'
 
-const settingsModules = [
+interface SettingsModule {
+  id: string
+  name: string
+  shortName: string
+  icon: LucideIcon
+  path: string
+  description: string
+  badges: string[]
+  dotClass: string
+  iconClass: string
+  badgeClass: string
+  showGuide?: boolean // 关键点：设置为可选属性
+}
+
+const settingsModules: SettingsModule[] = [
   {
     id: 'source',
     name: '视频源管理',
@@ -56,19 +70,6 @@ const settingsModules = [
     dotClass: 'bg-amber-500',
     iconClass: 'text-amber-700 dark:text-amber-300',
     badgeClass: 'border-amber-500/28 text-amber-700 dark:text-amber-300',
-  },
-  {
-    id: 'about',
-    name: '关于项目',
-    shortName: '关于',
-    icon: Info,
-    path: '/settings/about',
-    description: '查看项目概览、资源入口与版本迭代信息。',
-    badges: ['项目概览', '版本信息', '资源入口'],
-    showGuide: false,
-    dotClass: 'bg-rose-500',
-    iconClass: 'text-rose-700 dark:text-rose-300',
-    badgeClass: 'border-rose-500/28 text-rose-700 dark:text-rose-300',
   },
 ]
 
@@ -135,7 +136,7 @@ export default function SettingsLayout() {
 
       <main className="w-full px-0 pt-2 md:px-4 md:pt-4">
         <AnimatePresence initial={false} mode="wait">
-          {activeModule.showGuide !== false ? (
+          {activeModule?.showGuide !== false ? (
             <motion.section
               key={`guide-${activeModule.id}`}
               initial={{ opacity: 0, y: 10 }}
