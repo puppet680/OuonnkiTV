@@ -39,7 +39,7 @@ export default function SystemSettings() {
         icon={<Cog className="size-4" />}
         tone="cyan"
       >
-        <SettingsItem
+        {/* <SettingsItem
           title="自动显示更新日志"
           description="检测到新版本时自动弹出更新说明窗口。"
           controlClassName="self-end mt-1"
@@ -49,7 +49,7 @@ export default function SystemSettings() {
               onCheckedChange={checked => setSystemSettings({ isUpdateLogEnabled: checked })}
             />
           }
-        />
+        /> */}
         <SettingsItem
           title="滚动收起导航动画"
           description={
