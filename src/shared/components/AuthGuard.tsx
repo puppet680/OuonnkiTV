@@ -119,8 +119,7 @@ export default function AuthGuard({ children }: AuthGuardProps) {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.6, ease: easeOutQuad }}
-          className="relative flex shrink-0 flex-col items-center justify-center overflow-hidden bg-muted/40 px-8 py-12 md:w-1/2 md:py-0"
-        >
+          className="relative hidden md:flex shrink-0 flex-col items-center justify-center overflow-hidden bg-muted/40 px-8 py-12 md:w-1/2 md:py-0"        >
           {/* 装饰性模糊光晕 */}
           <div className="pointer-events-none absolute -top-20 -left-20 size-72 rounded-full bg-primary/10 blur-3xl" />
           <div className="pointer-events-none absolute -right-16 -bottom-16 size-56 rounded-full bg-primary/5 blur-3xl" />
