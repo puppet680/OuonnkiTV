@@ -1,6 +1,7 @@
 import { create } from 'zustand'
-import { devtools, persist } from 'zustand/middleware'
+import { devtools, persist, createJSONStorage } from 'zustand/middleware'
 import { immer } from 'zustand/middleware/immer'
+import { get, set, del } from 'idb-keyval'
 import type {
   PlaylistMatchItem,
   SeasonSourceMatches,
@@ -96,6 +97,11 @@ export const useTmdbMatchCacheStore = create<TmdbMatchCacheStore>()(
       {
         name: 'ouonnki-tv-tmdb-match-cache-store',
         version: 1,
+        storage: createJSONStorage(() => ({
+          getItem: async (name) => (await get<string>(name)) ?? null,
+          setItem: async (name, value) => await set(name, value),
+          removeItem: async (name) => await del(name),
+        })),
         partialize: state => ({ entries: state.entries }),
       },
     ),
