@@ -6,6 +6,7 @@ interface AuthState {
   salt: string | null
   isInitialized: boolean
   expiresAt: number | null
+  expiresAt: number | null
 }
 
 interface AuthActions {
@@ -57,14 +58,22 @@ export const useAuthStore = create<AuthStore>()(
           const expiresAt = Date.now() + sevenDays
 
           set({ sessionToken: token, salt, isInitialized: true, expiresAt })
+
+          // 设置过期时间：当前时间 + 7天的毫秒数
+          const sevenDays = 7 * 24 * 60 * 60 * 1000
+          const expiresAt = Date.now() + sevenDays
+
+          set({ sessionToken: token, salt, isInitialized: true, expiresAt })
           return true
         }
         return false
       },
 
       logout: () => set({ sessionToken: null, salt: null, expiresAt: null, isInitialized: true }),
+      logout: () => set({ sessionToken: null, salt: null, expiresAt: null, isInitialized: true }),
 
       validateSession: async () => {
+        const { sessionToken, salt, expiresAt } = get()
         const { sessionToken, salt, expiresAt } = get()
         const correctPassword = import.meta.env.OKI_ACCESS_PASSWORD
 
@@ -107,6 +116,8 @@ export const useAuthStore = create<AuthStore>()(
     }),
     {
       name: 'auth-storage',
+      storage: createJSONStorage(() => localStorage),
+      partialize: state => ({ sessionToken: state.sessionToken, salt: state.salt,expiresAt: state.expiresAt }),
       storage: createJSONStorage(() => localStorage),
       partialize: state => ({ sessionToken: state.sessionToken, salt: state.salt,expiresAt: state.expiresAt }),
     },
