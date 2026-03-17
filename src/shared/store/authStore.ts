@@ -68,6 +68,11 @@ export const useAuthStore = create<AuthStore>()(
         const { sessionToken, salt, expiresAt } = get()
         const correctPassword = import.meta.env.OKI_ACCESS_PASSWORD
 
+        // 检查是否完全没有 Session 信息
+        if (!sessionToken || !salt || !expiresAt) {
+          return false
+        }
+
         // 检查是否过期
         if (expiresAt && Date.now() > expiresAt) {
           set({ sessionToken: null, salt: null, expiresAt: null })
@@ -87,10 +92,15 @@ export const useAuthStore = create<AuthStore>()(
         // Re-compute hash to verify
         const expectedToken = await computeHash(correctPassword + salt)
         if (sessionToken === expectedToken) {
+          // --- 自动续期逻辑 ---
+          // 只要验证通过，就将过期时间重新设置为当前时间 + 7天
+          const sevenDays = 7 * 24 * 60 * 60 * 1000
+          const newExpiresAt = Date.now() + sevenDays
+          set({ expiresAt: newExpiresAt })
           return true
         } else {
           // Invalid token (tampered or changed password), clear it
-          set({ sessionToken: null, salt: null })
+          set({ sessionToken: null, salt: null, expiresAt: null })
           return false
         }
       },
