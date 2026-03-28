@@ -218,7 +218,7 @@ export function FeaturedCarousel({
                   {/* 背景图片 */}
                   <img
                     className="h-full w-full rounded-lg object-cover object-center md:object-top-right"
-                    src={getBackdropUrl(item.backdropPath)}
+                    src={getBackdropUrl(item.backdropPath) || undefined}
                     alt={item.title}
                   />
 
@@ -232,7 +232,7 @@ export function FeaturedCarousel({
                     >
                       {item.logoPath ? (
                         <img
-                          src={getLogoUrl(item.logoPath)}
+                          src={getLogoUrl(item.logoPath) || undefined}
                           alt={item.title}
                           className="max-h-12 max-w-[180px] object-contain md:max-h-16 md:max-w-[240px]"
                         />
@@ -360,7 +360,7 @@ export function FeaturedCarousel({
                     >
                       {item.logoPath ? (
                         <img
-                          src={getLogoUrl(item.logoPath)}
+                          src={getLogoUrl(item.logoPath) || undefined}
                           alt={item.title}
                           className="max-h-35 max-w-md object-contain xl:max-h-40 xl:max-w-lg"
                         />
