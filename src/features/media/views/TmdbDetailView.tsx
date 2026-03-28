@@ -178,7 +178,7 @@ export default function TmdbDetailView() {
     )
   }
 
-  if (loading) {
+  if (!detail && loading) {
     return <DetailLoadingSkeleton />
   }
 

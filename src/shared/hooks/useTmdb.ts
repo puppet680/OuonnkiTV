@@ -306,80 +306,83 @@ export function useTmdbRecommendations(
   }
 }
 
+const detailCache = new Map<string, unknown>();
+
 /**
- * 详情 Hook (独立状态，不存入 Global Store)
+ * 详情 Hook - 引入核心数据与次要数据分阶段加载及缓存机制
  */
 export function useTmdbDetail<T extends TmdbMovieDetail | TmdbTvDetail>(
   id: number | undefined,
   mediaType: TmdbMediaType,
   language = useSettingStore.getState().system.tmdbLanguage,
 ) {
-  const [detail, setDetail] = useState<T | null>(null)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const cacheKey = `${mediaType}-${id}-${language}`;
+  
+  const [detail, setDetail] = useState<T | null>((detailCache.get(cacheKey) as T) || null);
+  const [loading, setLoading] = useState(!detailCache.has(cacheKey));
+  const [error, setError] = useState<string | null>(null);
 
-  const fetchDetail = useCallback(async () => {
-    if (!id) return
+  const fetchDetail = useCallback(async (isInitial = true) => {
+    if (!id) return;
 
-    setLoading(true)
-    setError(null)
-    const client = getTmdbClient()
+    if (isInitial && !detailCache.has(cacheKey)) {
+      setLoading(true);
+    }
+    setError(null);
+    const client = getTmdbClient();
 
     try {
-      let data: unknown
-      const movieAppendToResponse: AppendToResponseMovieKey[] = [
-        'credits',
-        'images',
-        'videos',
-        'reviews',
-        'recommendations',
-        'keywords',
-        'release_dates',
-        'external_ids',
-        'translations',
-        'watch/providers',
-        'similar',
-      ]
-      const tvAppendToResponse: AppendToResponseTvKey[] = [
-        'credits',
-        'aggregate_credits',
-        'images',
-        'videos',
-        'reviews',
-        'recommendations',
-        'keywords',
-        'content_ratings',
-        'episode_groups',
-        'external_ids',
-        'translations',
-        'watch/providers',
-        'similar',
-      ]
+      // 1. 核心数据类型定义
+      const coreAppendMovie: AppendToResponseMovieKey[] = ['credits', 'images', 'external_ids', 'release_dates'];
+      const coreAppendTv: AppendToResponseTvKey[] = ['credits', 'images', 'external_ids', 'content_ratings'];
 
-      if (mediaType === 'movie') {
-        data = await client.movies.details(id, movieAppendToResponse, language)
-      } else {
-        data = await client.tvShows.details(id, tvAppendToResponse, language)
-      }
+      // 2. 次要数据类型定义
+      const secondaryAppendMovie: AppendToResponseMovieKey[] = [
+        'videos', 'reviews', 'recommendations', 'keywords', 'translations', 'watch/providers', 'similar'
+      ];
+      const secondaryAppendTv: AppendToResponseTvKey[] = [
+        'videos', 'reviews', 'recommendations', 'keywords', 'translations', 'watch/providers', 'similar'
+      ];
 
-      // 简单转换，保留大部分原始字段，同时确保基础 MediaItem 字段存在
-      const rawData = data as Record<string, unknown>
-      const base = normalizeToMediaItem(rawData, mediaType)
-      const fullDetail = { ...rawData, ...base } // 合并原始数据和归一化数据
+      // 执行核心请求
+      const data = mediaType === 'movie' 
+        ? await client.movies.details(id, coreAppendMovie, language)
+        : await client.tvShows.details(id, coreAppendTv, language);
 
-      setDetail(fullDetail as T)
+      const rawData = data as Record<string, unknown>;
+      const base = normalizeToMediaItem(rawData, mediaType);
+      const fullDetail = { ...rawData, ...base } as T;
+
+      setDetail(fullDetail);
+      detailCache.set(cacheKey, fullDetail);
+      setLoading(false);
+
+      // 3. 异步静默加载剩余数据
+      void (async () => {
+        try {
+          const secondaryData = mediaType === 'movie'
+            ? await client.movies.details(id, secondaryAppendMovie, language)
+            : await client.tvShows.details(id, secondaryAppendTv, language);
+          
+          const merged = { ...fullDetail, ...(secondaryData as Record<string, unknown>) } as T;
+          setDetail(merged);
+          detailCache.set(cacheKey, merged);
+        } catch (e) {
+          console.warn('[TMDB] Secondary data fetch failed', e);
+        }
+      })();
+
     } catch (err: unknown) {
-      setError((err as Error).message || 'Fetch detail failed')
-    } finally {
-      setLoading(false)
+      setError((err as Error).message || 'Fetch detail failed');
+      setLoading(false);
     }
-  }, [id, mediaType, language])
+  }, [id, mediaType, language, cacheKey]);
 
   useEffect(() => {
-    fetchDetail()
-  }, [fetchDetail])
+    if (id) fetchDetail(true);
+  }, [id, fetchDetail]);
 
-  return { detail, loading, error, refetch: fetchDetail }
+  return { detail, loading, error, refetch: () => fetchDetail(false) };
 }
 
 /**
