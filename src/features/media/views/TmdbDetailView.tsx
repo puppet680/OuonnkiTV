@@ -28,11 +28,13 @@ import {
   type DetailTab,
   type TmdbRichDetail,
   extractRecommendations,
+  extractTranslationTitles,
   formatCurrencyUSD,
   formatLargeNumber,
   formatRuntime,
   getReleaseYear,
-  mapAdultLevel,
+  getCertShort,
+  getCertFull,
   mapBooleanLabel,
   mapCountryCodeToName,
   mapLanguageCodeToName,
@@ -128,12 +130,33 @@ export default function TmdbDetailView() {
 
   const safeRichDetail = detail as TmdbRichDetail | undefined
   const safeSeasons = safeRichDetail?.seasons || []
+
+  const translationEntries = useMemo(() => {
+    if (!detail) return []
+    return extractTranslationTitles(safeRichDetail?.translations, [detail.title, detail.originalTitle])
+  }, [detail, safeRichDetail?.translations])
+
+  const alternativeTitles = useMemo(
+    () => translationEntries.map(entry => entry.title),
+    [translationEntries],
+  )
+
+  const translationFields: DetailInfoField[] = useMemo(
+    () =>
+      translationEntries.map(entry => ({
+        label: entry.countryName,
+        value: entry.title,
+      })),
+    [translationEntries],
+  )
+
   const playlistMatches = usePlaylistMatches({
     active: activeTab === 'playlist' && Boolean(detail) && isValidRoute,
     tmdbType,
     tmdbId: parsedTmdbId,
     title: detail?.title || '',
     originalTitle: detail?.originalTitle || '',
+    alternativeTitles,
     releaseDate: detail?.releaseDate || '',
     seasons: safeSeasons,
   })
@@ -207,7 +230,8 @@ export default function TmdbDetailView() {
 
   const releaseYear = getReleaseYear(detail.releaseDate)
   const heroLogo = pickHeroLogo(richDetail.images?.logos || [])
-  const adultLevel = mapAdultLevel(richDetail.adult)
+  const certShort = getCertShort(richDetail.adult, richDetail.release_dates)
+  const certFull = getCertFull(richDetail.adult, richDetail.release_dates)
   const runtimeLabel =
     tmdbType === 'movie'
       ? formatRuntime(richDetail.runtime || 0)
@@ -264,7 +288,7 @@ export default function TmdbDetailView() {
     { label: '原始语言', value: mappedOriginalLanguage },
     { label: '原产国家', value: mappedOriginCountries },
     { label: '剧集形式', value: tmdbType === 'tv' ? mapTvTypeLabel(richDetail.type) : '' },
-    { label: '成人内容', value: adultLevel },
+    { label: '分级', value: certFull },
   ].filter(field => field.value)
 
   const movieInfoFields: DetailInfoField[] = [
@@ -327,7 +351,7 @@ export default function TmdbDetailView() {
         tmdbType={tmdbType}
         releaseYear={releaseYear}
         runtimeLabel={runtimeLabel}
-        adultLevel={adultLevel}
+        adultLevel={certShort}
         heroLogo={heroLogo}
         favorited={favorited}
         onBack={() => navigate(TMDB_SEARCH_PATH)}
@@ -367,6 +391,7 @@ export default function TmdbDetailView() {
                 movieInfoFields={movieInfoFields}
                 tvInfoFields={tvInfoFields}
                 recommendationItems={recommendationItems}
+                translationFields={translationFields}
               />
             )}
 

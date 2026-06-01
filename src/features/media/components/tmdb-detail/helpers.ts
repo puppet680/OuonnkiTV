@@ -1,3 +1,4 @@
+import { t2s } from 'chinese-s2t'
 import { getCountryChineseName } from '@/shared/constants/countries'
 import type { TmdbMediaItem, TmdbMediaType } from '@/shared/types/tmdb'
 import type {
@@ -33,9 +34,109 @@ export const mapBooleanLabel = (value: boolean | undefined) => {
   return value ? '是' : '否'
 }
 
-export const mapAdultLevel = (value: boolean | undefined) => {
-  if (value === undefined) return ''
-  return value ? 'NSFW' : 'SFW'
+/** 优先级：TW > HK > CN > US，取第一个非空分级 */
+const CERT_PRIORITY_COUNTRIES = ['TW', 'HK', 'CN', 'US']
+
+/** 分级说明映射 */
+const CERT_DESCRIPTIONS: Record<string, string> = {
+  '普遍級': '适合任何年龄人士观看',
+  '保護級': '未满 6 岁不得观看，6-12 岁需家长陪同',
+  '輔12級': '未满 12 岁不得观看，12-18 岁需家长辅导',
+  '輔12': '未满 12 岁不得观看，12-18 岁需家长辅导',
+  '輔15級': '未满 15 岁不得观看',
+  '輔15': '未满 15 岁不得观看',
+  '限制級': '只准 18 岁或以上人士观看',
+  I: '适合任何年龄人士观看',
+  IIA: '儿童不宜',
+  IIB: '青少年及儿童不宜',
+  III: '只准 18 岁或以上人士观看',
+  R: '限制级 — 17 岁以下需家长陪同',
+  'NC-17': '17 岁以下不得观看',
+  'PG-13': '13 岁以下需家长陪同',
+  PG: '建议家长陪同观看',
+  G: '一般观众皆可观赏',
+  '18+': '只准 18 岁或以上人士观看',
+  '18': '只准 18 岁或以上人士观看',
+  '0+': '适合所有年龄观看',
+}
+
+export const describeCertification = (cert: string): string => {
+  if (!cert) return ''
+  const desc = CERT_DESCRIPTIONS[cert]
+  return desc ? `${cert} — ${desc}` : cert
+}
+
+/** 分级颜色 */
+const CERT_COLOR_CLASS: Record<string, string> = {
+  // 成人/限制
+  '成人': 'bg-red-600/80 hover:bg-red-600',
+  '限制級': 'bg-red-600/80 hover:bg-red-600',
+  '18+': 'bg-red-600/80 hover:bg-red-600',
+  '18': 'bg-red-600/80 hover:bg-red-600',
+  III: 'bg-red-600/80 hover:bg-red-600',
+  R: 'bg-red-600/80 hover:bg-red-600',
+  'NC-17': 'bg-red-600/80 hover:bg-red-600',
+  // 辅导/中度
+  '輔15級': 'bg-orange-500/80 hover:bg-orange-500',
+  '輔15': 'bg-orange-500/80 hover:bg-orange-500',
+  IIB: 'bg-orange-500/80 hover:bg-orange-500',
+  // 12+/轻度
+  '輔12級': 'bg-amber-500/80 hover:bg-amber-500',
+  '輔12': 'bg-amber-500/80 hover:bg-amber-500',
+  IIA: 'bg-amber-500/80 hover:bg-amber-500',
+  'PG-13': 'bg-amber-500/80 hover:bg-amber-500',
+  // 全年龄
+  '普遍級': 'bg-emerald-500/80 hover:bg-emerald-500',
+  '保護級': 'bg-emerald-500/80 hover:bg-emerald-500',
+  I: 'bg-emerald-500/80 hover:bg-emerald-500',
+  PG: 'bg-emerald-500/80 hover:bg-emerald-500',
+  G: 'bg-emerald-500/80 hover:bg-emerald-500',
+  '0+': 'bg-emerald-500/80 hover:bg-emerald-500',
+}
+
+export const getCertColor = (cert: string): string => {
+  return CERT_COLOR_CLASS[cert] || 'bg-amber-500/80 hover:bg-amber-500'
+}
+
+/** 获取分级简写（Hero 标签用） */
+export const getCertShort = (
+  adult: boolean | undefined,
+  releaseDates?: TmdbRichDetail['release_dates'],
+): string => {
+  if (adult) return '成人'
+  const cert = pickCertification(adult, releaseDates)
+  return cert || ''
+}
+
+/** 获取分级完整说明（基础信息用） */
+export const getCertFull = (
+  adult: boolean | undefined,
+  releaseDates?: TmdbRichDetail['release_dates'],
+): string => {
+  if (adult) return '成人 — 成人内容'
+  const cert = pickCertification(adult, releaseDates)
+  return cert ? describeCertification(cert) : ''
+}
+
+const pickCertification = (
+  adult: boolean | undefined,
+  releaseDates?: TmdbRichDetail['release_dates'],
+): string | null => {
+  if (adult) return '成人'
+
+  if (releaseDates?.results) {
+    const byCountry = new Map(releaseDates.results.map(c => [c.iso_3166_1, c]))
+    for (const code of CERT_PRIORITY_COUNTRIES) {
+      const country = byCountry.get(code)
+      const cert = country?.release_dates?.find(rd => rd.certification?.trim())?.certification?.trim()
+      if (cert && cert !== 'NR') return cert
+    }
+    for (const country of releaseDates.results) {
+      const cert = country.release_dates?.find(rd => rd.certification?.trim())?.certification?.trim()
+      if (cert && cert !== 'NR') return cert
+    }
+  }
+  return null
 }
 
 const normalizeRecommendation = (
@@ -125,4 +226,62 @@ export const mapTvTypeLabel = (typeValue: string | undefined) => {
     Video: '视频节目',
   }
   return mapping[typeValue] || typeValue
+}
+
+/** 只保留这三个地区的译名：中国大陆、台湾、香港 */
+const ALLOWED_COUNTRY_CODES = new Set(['CN', 'TW', 'HK'])
+
+export interface TranslationTitleEntry {
+  countryCode: string
+  countryName: string
+  languageName: string
+  title: string
+}
+
+/**
+ * 从 TMDB translations 中提取各地译名
+ * 过滤掉与已有标题重复的条目，并按国名排序
+ */
+export function extractTranslationTitles(
+  translations: TmdbRichDetail['translations'] | undefined,
+  existingTitles: string[],
+): TranslationTitleEntry[] {
+  if (!translations?.translations) return []
+
+  const normalizedExisting = new Set(
+    existingTitles.map(t => t.trim().toLowerCase().replace(/\s+/g, ' ')),
+  )
+
+  const entries: TranslationTitleEntry[] = []
+
+  for (const t of translations.translations) {
+    const title = t.data?.title?.trim()
+    if (!title) continue
+
+    const normalized = title.toLowerCase().replace(/\s+/g, ' ')
+    if (normalizedExisting.has(normalized)) continue
+
+    if (!ALLOWED_COUNTRY_CODES.has(t.iso_3166_1)) continue
+
+    const countryName = getCountryChineseName(t.iso_3166_1, t.name, t.english_name)
+    const simplifiedTitle = t2s(title)
+
+    entries.push({
+      countryCode: t.iso_3166_1,
+      countryName,
+      languageName: t.name || t.english_name || t.iso_639_1,
+      title: simplifiedTitle,
+    })
+  }
+
+  // 排序：台湾 > 香港 > 大陆 > 其他
+  const order: Record<string, number> = { TW: 0, HK: 1, CN: 2 }
+  entries.sort((a, b) => {
+    const aOrder = order[a.countryCode] ?? 3
+    const bOrder = order[b.countryCode] ?? 3
+    if (aOrder !== bOrder) return aOrder - bOrder
+    return a.countryName.localeCompare(b.countryName, 'zh-Hans-CN')
+  })
+
+  return entries
 }

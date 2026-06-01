@@ -3,6 +3,7 @@ import { useTmdbDetail } from '@/shared/hooks/useTmdb'
 import type { TmdbMediaType, TmdbMovieDetail, TmdbTvDetail, TmdbMediaItem } from '@/shared/types/tmdb'
 import {
   extractRecommendations,
+  extractTranslationTitles,
   type SourceBestMatch,
   type TmdbRichDetail,
   usePlaylistMatches,
@@ -65,12 +66,21 @@ export function useTmdbPlayback({
     [mediaType, richDetail?.seasons],
   )
 
+  const alternativeTitles = useMemo(() => {
+    if (!detail) return []
+    return extractTranslationTitles(
+      richDetail?.translations,
+      [detail.title, detail.originalTitle],
+    ).map(entry => entry.title)
+  }, [detail, richDetail?.translations])
+
   const playlist = usePlaylistMatches({
     active: shouldEnableTmdbPlayback && Boolean(detail),
     tmdbType,
     tmdbId,
     title: detail?.title || '',
     originalTitle: detail?.originalTitle || '',
+    alternativeTitles,
     releaseDate: detail?.releaseDate || '',
     seasons,
   })

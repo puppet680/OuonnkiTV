@@ -234,6 +234,8 @@ export default function UnifiedPlayer() {
   const betterNoticeTimerRef = useRef<number | null>(null)
   const betterNoticeAnimationFrameRef = useRef<number | null>(null)
   const gestureVolumeTimerRef = useRef<number | null>(null)
+  const autoSwitchTimerRef = useRef<number | null>(null)
+  const autoSwitchPendingRef = useRef(false)
 
   useEffect(() => {
     detailRef.current = detail
@@ -771,7 +773,32 @@ export default function UnifiedPlayer() {
                 hls.loadSource(url)
                 hls.attachMedia(video)
                 artWithHls.hls = hls
-                art.on('destroy', () => hls.destroy())
+
+                const handleHlsError = (_event: string, data: { type: string; fatal: boolean }) => {
+                  if (!data.fatal) return
+                  if (autoSwitchPendingRef.current) return
+                  if (!isTmdbRoute) return
+
+                  const curIdx = sourceOptions.findIndex(o => o.sourceCode === resolvedSourceCode)
+                  const nextOption = curIdx >= 0 && curIdx + 1 < sourceOptions.length ? sourceOptions[curIdx + 1] : null
+                  if (!nextOption) return
+
+                  autoSwitchPendingRef.current = true
+                  showPlayerNotice('当前源无法播放，3 秒后自动切换', 3000)
+
+                  autoSwitchTimerRef.current = window.setTimeout(() => {
+                    autoSwitchPendingRef.current = false
+                    handleSourceChange(nextOption.sourceCode)
+                  }, 3000)
+                }
+                // @ts-expect-error HLS.js 动态导入，事件名用字符串
+                hls.on('hlsError', handleHlsError)
+
+                art.on('destroy', () => {
+                  // @ts-expect-error HLS.js 动态导入，事件名用字符串
+                  hls.off('hlsError', handleHlsError)
+                  hls.destroy()
+                })
               } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
                 video.src = url
               } else {
@@ -917,7 +944,23 @@ export default function UnifiedPlayer() {
       addHistorySnapshot()
       nextEpisode()
     })
-    art.on('video:error', addHistorySnapshot)
+    art.on('video:error', () => {
+      addHistorySnapshot()
+
+      if (!isTmdbRoute || autoSwitchPendingRef.current) return
+
+      const curIdx = sourceOptions.findIndex(o => o.sourceCode === resolvedSourceCode)
+      const nextOption = curIdx >= 0 && curIdx + 1 < sourceOptions.length ? sourceOptions[curIdx + 1] : null
+      if (!nextOption) return
+
+      autoSwitchPendingRef.current = true
+      showPlayerNotice('当前源无法播放，3 秒后自动切换', 3000)
+
+      autoSwitchTimerRef.current = window.setTimeout(() => {
+        autoSwitchPendingRef.current = false
+        handleSourceChange(nextOption.sourceCode)
+      }, 3000)
+    })
 
     let lastTimeUpdate = 0
     const TIME_UPDATE_INTERVAL = 3000
@@ -1045,6 +1088,11 @@ export default function UnifiedPlayer() {
       miniCleanup?.()
       throttledTimeUpdate.cancel()
       handleControlViewportChange.cancel()
+      if (autoSwitchTimerRef.current !== null) {
+        window.clearTimeout(autoSwitchTimerRef.current)
+        autoSwitchTimerRef.current = null
+      }
+      autoSwitchPendingRef.current = false
       window.removeEventListener('resize', handleControlViewportChange)
       window.removeEventListener('orientationchange', handleControlViewportChange)
       art.off('fullscreen', syncMobileControlBar)

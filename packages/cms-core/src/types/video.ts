@@ -21,6 +21,8 @@ export interface VideoItem {
   source_code?: string
   /** 归属源URL */
   api_url?: string
+  /** 副标题/别名（部分源支持） */
+  vod_sub?: string
 }
 
 /**

@@ -15,6 +15,7 @@ import { getBackdropUrl, getPosterUrl } from '@/shared/lib/tmdb'
 import type { TmdbMediaItem, TmdbMediaType } from '@/shared/types/tmdb'
 import { Badge } from '@/shared/components/ui/badge'
 import { Button } from '@/shared/components/ui/button'
+import { getCertColor } from './helpers'
 import type { DetailImage, TmdbRichDetail } from './types'
 
 interface DetailHeroSectionProps {
@@ -158,9 +159,7 @@ export function DetailHeroSection({
               </Badge>
             )}
             {adultLevel && (
-              <Badge
-                className={`${heroBadgeClass} shrink-0 ${adultLevel === 'NSFW' ? 'bg-red-500/80' : 'bg-emerald-500/80'}`}
-              >
+              <Badge className={`${heroBadgeClass} shrink-0 ${getCertColor(adultLevel)}`}>
                 {adultLevel}
               </Badge>
             )}
@@ -197,9 +196,7 @@ export function DetailHeroSection({
               热度 {detail.popularity.toFixed(1)}
             </Badge>
             {adultLevel && (
-              <Badge
-                className={`${heroBadgeClass} ${adultLevel === 'NSFW' ? 'bg-red-500/80 hover:bg-red-500' : 'bg-emerald-500/80 hover:bg-emerald-500'}`}
-              >
+              <Badge className={`${heroBadgeClass} ${getCertColor(adultLevel)}`}>
                 {adultLevel}
               </Badge>
             )}

@@ -1,3 +1,5 @@
+import Fuse from 'fuse.js'
+import type { IFuseOptions } from 'fuse.js'
 import type { VideoItem } from '@ouonnki/cms-core'
 import type { TmdbMediaType } from '@/shared/types/tmdb'
 import type { DetailSeason } from './types'
@@ -31,50 +33,24 @@ interface BuildPlaylistMatchesParams {
   items: VideoItem[]
   title: string
   originalTitle?: string
+  alternativeTitles?: string[]
   releaseYear?: string
   seasons: DetailSeason[]
   sources: SourceMeta[]
 }
 
-const normalizeText = (value: string) =>
-  value
-    .toLowerCase()
-    .replace(/[^\w\u4e00-\u9fa5]+/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim()
-
-const toBigrams = (value: string): string[] => {
-  if (value.length < 2) return value ? [value] : []
-  const output: string[] = []
-  for (let i = 0; i < value.length - 1; i += 1) {
-    output.push(value.slice(i, i + 2))
-  }
-  return output
+const FUSE_OPTIONS: IFuseOptions<VideoItem> = {
+  keys: ['vod_name', 'vod_remarks', 'vod_sub'],
+  threshold: 0.3,
+  includeScore: true,
+  ignoreLocation: true,
+  minMatchCharLength: 2,
+  ignoreFieldNorm: true,
+  isCaseSensitive: false,
 }
 
-const calcDiceSimilarity = (a: string, b: string): number => {
-  if (!a || !b) return 0
-  if (a === b) return 1
-  if (a.includes(b) || b.includes(a)) return 0.93
-
-  const aBigrams = toBigrams(a)
-  const bBigrams = toBigrams(b)
-  if (aBigrams.length === 0 || bBigrams.length === 0) return 0
-
-  const bMap = new Map<string, number>()
-  bBigrams.forEach(token => bMap.set(token, (bMap.get(token) || 0) + 1))
-
-  let overlap = 0
-  aBigrams.forEach(token => {
-    const current = bMap.get(token) || 0
-    if (current > 0) {
-      overlap += 1
-      bMap.set(token, current - 1)
-    }
-  })
-
-  return (2 * overlap) / (aBigrams.length + bBigrams.length)
-}
+/** 标题相似度阈值，低于此值的候选项被过滤 */
+const MIN_TITLE_SIMILARITY = 0.28
 
 const parseChineseNumber = (value: string): number | null => {
   const normalized = value.replace(/\s+/g, '')
@@ -139,54 +115,109 @@ const extractSeasonHints = (item: VideoItem): number[] => {
   return Array.from(hints)
 }
 
-const scoreTitleSimilarity = (item: VideoItem, title: string, originalTitle?: string) => {
-  const candidateName = normalizeText(item.vod_name || '')
-  if (!candidateName) return 0
-
-  const titlePrimary = normalizeText(title)
-  const titleOriginal = normalizeText(originalTitle || '')
-
-  const primaryScore = calcDiceSimilarity(candidateName, titlePrimary)
-  const originalScore = titleOriginal ? calcDiceSimilarity(candidateName, titleOriginal) : 0
-
-  return Math.max(primaryScore, originalScore)
-}
-
+/**
+ * 减分制评分，满分 100。
+ * 完美匹配 = 100，各种不匹配逐项扣分。
+ */
 const scoreItem = (
+  titleSimilarity: number,
   item: VideoItem,
   mediaType: TmdbMediaType,
-  title: string,
-  originalTitle: string | undefined,
   releaseYear: string | undefined,
-): PlaylistMatchItem | null => {
-  const titleSimilarity = scoreTitleSimilarity(item, title, originalTitle)
-  if (titleSimilarity < 0.28) return null
+  alternativeTitles?: string[],
+  searchTitle?: string,
+): number => {
+  let s = 100
 
-  let score = Math.round(titleSimilarity * 100)
+  // 1. 标题不相似扣分 (0 ~ -50)
+  s -= Math.round((1 - titleSimilarity) * 50)
 
-  if (releaseYear && item.vod_year && item.vod_year === releaseYear) {
-    score += 14
+  // 2. 译名未命中扣 -25，部分命中扣 -10，精确命中不扣
+  const searchText = `${item.vod_name || ''} ${item.vod_sub || ''}`.toLowerCase()
+  const nameOnly = (item.vod_name || '').toLowerCase()
+  let altMiss = true
+  let altPartial = false
+  for (const alt of alternativeTitles || []) {
+    const keyword = alt.toLowerCase().trim()
+    if (!keyword) continue
+    if (searchText.includes(keyword)) {
+      const ratio = keyword.length / Math.max(nameOnly.length, 1)
+      if (ratio >= 0.5) { altMiss = false; altPartial = false; break }
+      altMiss = false
+      altPartial = true
+    } else if (keyword.length >= 3) {
+      for (let i = 0; i <= keyword.length - 3; i++) {
+        if (searchText.includes(keyword.slice(i, i + 3))) {
+          altMiss = false
+          altPartial = true
+          break
+        }
+      }
+    }
+  }
+  if ((alternativeTitles || []).length > 0) {
+    if (altMiss) s -= 25
+    else if (altPartial) s -= 10
   }
 
+  // 3. 年份不匹配扣分
+  if (releaseYear && item.vod_year) {
+    const targetYear = Number(releaseYear)
+    const itemYear = Number(item.vod_year)
+    if (Number.isFinite(targetYear) && Number.isFinite(itemYear)) {
+      const diff = Math.abs(targetYear - itemYear)
+      if (diff >= 5) s -= 10
+      else if (diff >= 3) s -= 5
+      else if (diff >= 1) s -= 2
+    }
+  }
+
+  // 4. 媒体类型不匹配扣 -5
   const typeText = `${item.type_name || ''} ${item.vod_remarks || ''}`.toLowerCase()
   if (mediaType === 'movie') {
-    if (/电影|movie|院线/.test(typeText)) score += 8
-    if (/季|集|连载|更新/.test(typeText)) score -= 10
+    if (/季|集|连载|更新/.test(typeText)) s -= 5
   } else {
-    if (/剧|动漫|番|season|季|集/.test(typeText)) score += 8
-    if (/电影|movie|院线/.test(typeText)) score -= 12
+    if (/电影|movie|院线/.test(typeText)) s -= 5
   }
 
+  // 5. 预告/花絮/解说/剪辑扣 -5（至少同部电影，只是形式问题）
   if (/预告|花絮|解说|剪辑|速看/.test(typeText)) {
-    score -= 15
+    s -= 5
   }
 
-  return {
-    item,
-    score,
-    titleSimilarity,
-    seasonHints: extractSeasonHints(item),
+  // 6. 标题掺杂：vod_name 包含 title 但多了额外字符（如"重生，消失的她"）
+  const searchLower = (searchTitle || '').toLowerCase().trim()
+  if (searchLower && nameOnly.includes(searchLower)) {
+    const extra = nameOnly.length - searchLower.length
+    if (extra > 3) s -= 8
+    if (extra > 8) s -= 8
   }
+
+  // 7. 译名有值但完全未命中 → 不相关影片，直接过滤
+  if ((alternativeTitles || []).length > 0 && altMiss) {
+    return -1
+  }
+
+  return Math.max(0, Math.min(100, s))
+}
+
+const searchWithFuse = (
+  fuse: Fuse<VideoItem>,
+  query: string,
+): Map<string, { item: VideoItem; fuseScore: number }> => {
+  const map = new Map<string, { item: VideoItem; fuseScore: number }>()
+  if (!query) return map
+
+  const results = fuse.search(query)
+  for (const r of results) {
+    const key = `${r.item.source_code || 'unknown'}::${r.item.vod_id}`
+    const score = r.score ?? 1
+    const existing = map.get(key)
+    if (!existing || score < existing.fuseScore) {
+      map.set(key, { item: r.item, fuseScore: score })
+    }
+  }
+  return map
 }
 
 const dedupeByVod = (items: PlaylistMatchItem[]) => {
@@ -254,22 +285,17 @@ const toSourceMatches = (
 }
 
 const applySeasonScore = (entry: PlaylistMatchItem, seasonNumber: number): PlaylistMatchItem => {
-  let seasonScore = entry.score
+  let s = entry.score
 
   if (entry.seasonHints.length > 0) {
-    if (entry.seasonHints.includes(seasonNumber)) {
-      seasonScore += 36
-    } else {
-      seasonScore -= 24
-    }
+    if (!entry.seasonHints.includes(seasonNumber)) s -= 10
   } else if (seasonNumber === 1) {
-    seasonScore += 8
+    // 无季信息且是第一季，不扣不奖
+  } else {
+    s -= 5
   }
 
-  return {
-    ...entry,
-    score: seasonScore,
-  }
+  return { ...entry, score: Math.max(0, Math.min(100, s)) }
 }
 
 export function buildPlaylistMatches({
@@ -277,13 +303,73 @@ export function buildPlaylistMatches({
   items,
   title,
   originalTitle,
+  alternativeTitles,
   releaseYear,
   seasons,
   sources,
 }: BuildPlaylistMatchesParams) {
-  const scored = items
-    .map(item => scoreItem(item, mediaType, title, originalTitle, releaseYear))
-    .filter((entry): entry is PlaylistMatchItem => Boolean(entry))
+  if (!title || items.length === 0) {
+    const emptyMatches = sources.map(source => ({
+      sourceCode: source.id,
+      sourceName: source.name,
+      bestMatch: null,
+      alternatives: [],
+    }))
+    return {
+      candidates: [] as PlaylistMatchItem[],
+      movieSourceMatches: (mediaType === 'movie' ? emptyMatches : []) as SourceBestMatch[],
+      seasonSourceMatches: (mediaType === 'tv'
+        ? seasons
+            .filter(season => season.season_number > 0)
+            .map(season => ({
+              season,
+              sourceMatches: emptyMatches,
+            }))
+        : []) as SeasonSourceMatches[],
+    }
+  }
+
+  const fuse = new Fuse(items, FUSE_OPTIONS)
+
+  // 同时搜索 title 和 originalTitle，取每个 item 的最佳分数
+  const titleResults = searchWithFuse(fuse, title)
+  const originalResults = searchWithFuse(fuse, originalTitle || '')
+
+  // 合并：保留 fuseScore 更低的（分数越低 = 匹配越好）
+  for (const [key, entry] of originalResults) {
+    const existing = titleResults.get(key)
+    if (!existing || entry.fuseScore < existing.fuseScore) {
+      titleResults.set(key, entry)
+    }
+  }
+
+  // 译名搜索合并
+  for (const altTitle of alternativeTitles || []) {
+    const altResults = searchWithFuse(fuse, altTitle)
+    for (const [key, entry] of altResults) {
+      const existing = titleResults.get(key)
+      if (!existing || entry.fuseScore < existing.fuseScore) {
+        titleResults.set(key, entry)
+      }
+    }
+  }
+
+  const scored: PlaylistMatchItem[] = []
+  for (const { item, fuseScore } of titleResults.values()) {
+    const titleSimilarity = 1 - Math.min(fuseScore, 1)
+    if (titleSimilarity < MIN_TITLE_SIMILARITY) continue
+
+    const score = scoreItem(titleSimilarity, item, mediaType, releaseYear, alternativeTitles, title)
+
+    if (score < 0) continue
+
+    scored.push({
+      item,
+      score,
+      titleSimilarity,
+      seasonHints: extractSeasonHints(item),
+    })
+  }
 
   const deduped = dedupeByVod(scored)
   const grouped = groupBySource(deduped)

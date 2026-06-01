@@ -25,6 +25,7 @@ interface UsePlaylistMatchesParams {
   tmdbId: number
   title: string
   originalTitle?: string
+  alternativeTitles?: string[]
   releaseDate?: string
   seasons: DetailSeason[]
 }
@@ -121,6 +122,7 @@ export function usePlaylistMatches({
   tmdbId,
   title,
   originalTitle,
+  alternativeTitles,
   releaseDate,
   seasons,
 }: UsePlaylistMatchesParams) {
@@ -170,6 +172,7 @@ export function usePlaylistMatches({
           items,
           title: params.keyword,
           originalTitle,
+          alternativeTitles,
           releaseYear: params.releaseYear,
           seasons,
           sources: params.sourceMetaList,
@@ -183,7 +186,7 @@ export function usePlaylistMatches({
         }))
       }, 160)
     },
-    [clearRecomputeTimer, originalTitle, seasons, tmdbType],
+    [clearRecomputeTimer, originalTitle, alternativeTitles, seasons, tmdbType],
   )
 
   const runSearch = useCallback(
@@ -424,7 +427,50 @@ export function usePlaylistMatches({
           cmsClient.on('search:complete', onComplete),
         ]
 
-        await cmsClient.aggregatedSearch(keyword, enabledSources, 1, controller.signal)
+        // 搜索策略
+        const needsFallbackSearch = async () => {
+          const items = Array.from(uniqueMapRef.current.values())
+          if (items.length === 0) return true
+
+          const { movieSourceMatches, seasonSourceMatches } = buildPlaylistMatches({
+            mediaType: tmdbType,
+            items,
+            title: keyword,
+            originalTitle,
+            alternativeTitles,
+            releaseYear,
+            seasons,
+            sources: sourceMetaList,
+          })
+
+          const bestScore = movieSourceMatches.length > 0
+            ? Math.max(...movieSourceMatches.map(m => m.bestMatch?.score ?? 0))
+            : seasonSourceMatches.length > 0
+              ? Math.max(...seasonSourceMatches.flatMap(s => s.sourceMatches.map(m => m.bestMatch?.score ?? 0)))
+              : 0
+          return bestScore < 60
+        }
+
+        if (keyword.length < 2 && (alternativeTitles || []).length > 0) {
+          // 短标题：直接用译名搜索
+          await Promise.all(
+            alternativeTitles!.filter(a => a.trim()).map(altKwd =>
+              cmsClient.aggregatedSearch(altKwd, enabledSources, 1, controller.signal).catch(() => {}),
+            ),
+          )
+        } else {
+          // 先用 title 搜索
+          await cmsClient.aggregatedSearch(keyword, enabledSources, 1, controller.signal)
+
+          // 评分低则用译名回退搜索
+          if (await needsFallbackSearch()) {
+            await Promise.all(
+              alternativeTitles!.filter(a => a.trim()).map(altKwd =>
+                cmsClient.aggregatedSearch(altKwd, enabledSources, 1, controller.signal).catch(() => {}),
+              ),
+            )
+          }
+        }
 
         const items = Array.from(uniqueMapRef.current.values())
         const { candidates, movieSourceMatches, seasonSourceMatches } = buildPlaylistMatches({
@@ -432,6 +478,7 @@ export function usePlaylistMatches({
           items,
           title: keyword,
           originalTitle,
+          alternativeTitles,
           releaseYear,
           seasons,
           sources: sourceMetaList,
@@ -492,6 +539,7 @@ export function usePlaylistMatches({
       enabledSources,
       getTmdbMatchCacheEntry,
       originalTitle,
+      alternativeTitles,
       pruneTmdbMatchCache,
       releaseDate,
       seasons,

@@ -278,7 +278,7 @@ function SourceMatchBlock({
   const totalMatches = (sourceMatch.bestMatch ? 1 : 0) + sourceMatch.alternatives.length
   const best = sourceMatch.bestMatch
   const isSingle = totalMatches === 1 && Boolean(best)
-  const useScrollArea = totalMatches > 6
+  const useScrollArea = totalMatches > 3
 
   return (
     <article className="space-y-3 rounded-lg border border-border/45 p-3 md:p-4">
@@ -358,7 +358,7 @@ function SourceMatchBlock({
                 </div>
               </ScrollArea>
             ) : (
-              <div className="space-y-4">
+              <div className="max-h-[65vh] space-y-4 overflow-y-auto">
                 {best && (
                   <section className="space-y-2">
                     <p className="text-muted-foreground text-xs">最佳匹配</p>

@@ -15,6 +15,7 @@ interface DetailOverviewTabProps {
   movieInfoFields: DetailInfoField[]
   tvInfoFields: DetailInfoField[]
   recommendationItems: TmdbMediaItem[]
+  translationFields?: DetailInfoField[]
 }
 
 export function DetailOverviewTab({
@@ -25,6 +26,7 @@ export function DetailOverviewTab({
   movieInfoFields,
   tvInfoFields,
   recommendationItems,
+  translationFields,
 }: DetailOverviewTabProps) {
   return (
     <>
@@ -50,6 +52,13 @@ export function DetailOverviewTab({
         </div>
 
         <DetailInfoGrid fields={coreInfoFields} className="grid gap-x-8 sm:grid-cols-2 lg:grid-cols-3" />
+
+        {translationFields && translationFields.length > 0 && (
+          <div className="space-y-2">
+            <h3 className="text-base font-medium">各地译名</h3>
+            <DetailInfoGrid fields={translationFields} className="grid gap-x-8 sm:grid-cols-2 lg:grid-cols-3" />
+          </div>
+        )}
 
         {tmdbType === 'movie' && movieInfoFields.length > 0 && (
           <div className="space-y-2">
