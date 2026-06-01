@@ -174,6 +174,7 @@ export default function SearchBox({ onMobileSearchChange }: SearchBoxProps) {
                   onMouseDown={e => e.preventDefault()}
                   onKeyDown={e => e.stopPropagation()}
                   onClick={e => handleHistoryItemDelete(e, item.id)}
+                  aria-label={`删除历史记录: ${item.content}`}
                 >
                   <Trash2 className="size-4" />
                 </button>
@@ -219,7 +220,7 @@ export default function SearchBox({ onMobileSearchChange }: SearchBoxProps) {
             : 'pointer-events-none -translate-x-4 opacity-0'
         }`}
       >
-        <Button size="icon" variant="ghost" className="size-9" onClick={closeMobileSearch}>
+        <Button size="icon" variant="ghost" className="size-9" onClick={closeMobileSearch} aria-label="关闭搜索">
           <ArrowLeft className="text-primary" size={20} />
         </Button>
       </div>
@@ -260,6 +261,7 @@ export default function SearchBox({ onMobileSearchChange }: SearchBoxProps) {
                   searchMovie(inputContent)
                   setIsDropdownOpen(false)
                 }}
+                aria-label="搜索"
               >
                 <Search className="text-primary" size={20} />
               </Button>
@@ -318,6 +320,7 @@ export default function SearchBox({ onMobileSearchChange }: SearchBoxProps) {
                     closeMobileSearch()
                   }}
                   layout
+                  aria-label="搜索"
                 >
                   {isMobileSearchOpen && (
                     <motion.span layoutId="mobile-search-icon">
@@ -346,6 +349,7 @@ export default function SearchBox({ onMobileSearchChange }: SearchBoxProps) {
         className="size-7 sm:hidden"
         onClick={openMobileSearch}
         layout
+        aria-label="打开搜索"
       >
         {!isMobileSearchOpen && (
           <motion.span layoutId="mobile-search-icon">

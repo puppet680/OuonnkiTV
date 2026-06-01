@@ -41,4 +41,4 @@ dist-ssr
 lighthouse-*.json
 lighthouse-*.html
 parse-report*.cjs
-.lighthouseci/
+.lighthouse/

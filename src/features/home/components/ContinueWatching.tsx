@@ -138,6 +138,7 @@ export function ContinueWatching() {
               size="icon"
               className="absolute top-1/2 -left-5 size-10 -translate-y-1/2 rounded-full md:size-12 dark:bg-zinc-800"
               onClick={() => carouselApi?.scrollPrev()}
+              aria-label="上一个"
             >
               <ChevronLeft className="size-4 translate-x-1.5 md:size-6 md:translate-x-0.5" />
             </Button>
@@ -148,6 +149,7 @@ export function ContinueWatching() {
               size="icon"
               className="absolute top-1/2 -right-5 size-10 -translate-y-1/2 rounded-full md:size-12 dark:bg-zinc-800"
               onClick={() => carouselApi?.scrollNext()}
+              aria-label="下一个"
             >
               <ChevronRight className="size-4 -translate-x-1.5 md:size-6 md:-translate-x-0.5" />
             </Button>

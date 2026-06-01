@@ -49,42 +49,49 @@ async function createProxyFetch() {
 }
 
 export function proxyMiddleware(): Plugin {
+  function createProxyHandler() {
+    let proxyFetch: ((url: string) => Promise<{ status: number; headers: { get: (k: string) => string | undefined }; text: () => Promise<string> }>) | null = null
+    let proxyFetchReady = false
+
+    return async (req: any, res: any, next: any) => {
+      if (!req.url?.startsWith('/proxy')) {
+        return next()
+      }
+
+      try {
+        if (!proxyFetchReady) {
+          proxyFetch = await createProxyFetch()
+          proxyFetchReady = true
+        }
+
+        const targetUrl = getTargetUrl(req.url)
+        const response = proxyFetch
+          ? await proxyFetch(targetUrl)
+          : await handleProxyRequest(targetUrl)
+
+        const text = await response.text()
+        const contentType = response.headers.get('content-type') || 'application/json'
+
+        res.setHeader('Access-Control-Allow-Origin', '*')
+        res.setHeader('Content-Type', contentType)
+        res.writeHead(response.status)
+        res.end(text)
+      } catch (error) {
+        const { message, cause } = parseProxyError(error)
+        const timeoutMs = getProxyTimeoutMs()
+        res.writeHead(500, { 'Content-Type': 'application/json' })
+        res.end(JSON.stringify({ error: 'Proxy request failed', message, cause, timeoutMs }))
+      }
+    }
+  }
+
   return {
     name: 'proxy-middleware',
     configureServer(server) {
-      let proxyFetch: ((url: string) => Promise<{ status: number; headers: { get: (k: string) => string | undefined }; text: () => Promise<string> }>) | null = null
-      let proxyFetchReady = false
-
-      server.middlewares.use(async (req, res, next) => {
-        if (!req.url?.startsWith('/proxy')) {
-          return next()
-        }
-
-        try {
-          if (!proxyFetchReady) {
-            proxyFetch = await createProxyFetch()
-            proxyFetchReady = true
-          }
-
-          const targetUrl = getTargetUrl(req.url)
-          const response = proxyFetch
-            ? await proxyFetch(targetUrl)
-            : await handleProxyRequest(targetUrl)
-
-          const text = await response.text()
-          const contentType = response.headers.get('content-type') || 'application/json'
-
-          res.setHeader('Access-Control-Allow-Origin', '*')
-          res.setHeader('Content-Type', contentType)
-          res.writeHead(response.status)
-          res.end(text)
-        } catch (error) {
-          const { message, cause } = parseProxyError(error)
-          const timeoutMs = getProxyTimeoutMs()
-          res.writeHead(500, { 'Content-Type': 'application/json' })
-          res.end(JSON.stringify({ error: 'Proxy request failed', message, cause, timeoutMs }))
-        }
-      })
+      server.middlewares.use(createProxyHandler())
+    },
+    configurePreviewServer(server) {
+      server.middlewares.use(createProxyHandler())
     },
   }
 }
