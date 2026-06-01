@@ -48,51 +48,34 @@ export default defineConfig({
         // 预缓存所有静态资源（JS/CSS/HTML/字体/图标）
         globPatterns: ['**/*.{js,css,html,woff2,ico,png,svg,webmanifest}'],
         runtimeCaching: [
-          // 视频源 API — Network First，失败用缓存兜底
+          // 同源请求（不含静态资源）— Network First，离线兜底
           {
-            urlPattern: /^https?:\/\/.*\/api\.php\/.*/i,
+            urlPattern: ({ sameOrigin, url }) =>
+              sameOrigin && !/\.(?:js|css|html|woff2|ico|png|svg|webmanifest|json)$/i.test(url.pathname),
             handler: 'NetworkFirst',
             options: {
-              cacheName: 'api-vod',
-              expiration: { maxEntries: 200, maxAgeSeconds: 5 * 60 },
-              networkTimeoutSeconds: 5,
-            },
-          },
-          // TMDB API — Stale While Revalidate
-          {
-            urlPattern: /^https?:\/\/api\.themoviedb\.org\/.*/i,
-            handler: 'StaleWhileRevalidate',
-            options: {
-              cacheName: 'tmdb-api',
+              cacheName: 'same-origin-api',
               expiration: { maxEntries: 500, maxAgeSeconds: 7 * 24 * 60 * 60 },
-            },
-          },
-          // TMDB 图片 — Stale While Revalidate，长期缓存
-          {
-            urlPattern: /^https?:\/\/image\.tmdb\.org\/.*/i,
-            handler: 'StaleWhileRevalidate',
-            options: {
-              cacheName: 'tmdb-images',
-              expiration: { maxEntries: 1000, maxAgeSeconds: 30 * 24 * 60 * 60 },
-            },
-          },
-          // 内部代理路径 — Network First
-          {
-            urlPattern: /\/proxy\?.*/i,
-            handler: 'NetworkFirst',
-            options: {
-              cacheName: 'proxy-requests',
-              expiration: { maxEntries: 100, maxAgeSeconds: 5 * 60 },
               networkTimeoutSeconds: 5,
             },
           },
-          // 其他外部图片 — Stale While Revalidate
+          // 跨域 API 请求 — Stale While Revalidate（覆盖视频源、TMDB、自定义代理等所有外部 API）
+          {
+            urlPattern: ({ sameOrigin, url }) =>
+              !sameOrigin && !/\.(?:png|jpg|jpeg|gif|webp|svg|ico|woff2|css|js)(?:\?.*)?$/i.test(url.pathname),
+            handler: 'StaleWhileRevalidate',
+            options: {
+              cacheName: 'external-api',
+              expiration: { maxEntries: 1000, maxAgeSeconds: 7 * 24 * 60 * 60 },
+            },
+          },
+          // 跨域图片 — Stale While Revalidate
           {
             urlPattern: /^https?:\/\/.*\.(?:png|jpg|jpeg|gif|webp|svg)(?:\?.*)?$/i,
             handler: 'StaleWhileRevalidate',
             options: {
               cacheName: 'external-images',
-              expiration: { maxEntries: 500, maxAgeSeconds: 30 * 24 * 60 * 60 },
+              expiration: { maxEntries: 1000, maxAgeSeconds: 30 * 24 * 60 * 60 },
             },
           },
         ],
