@@ -231,7 +231,17 @@ export const useTmdbStore = create<TmdbState & TmdbActions>()(
             }
 
             set(state => {
-              state.searchResults = page > 1 ? [...state.searchResults, ...results] : results
+              if (page > 1) {
+                const existingKeys = new Set(
+                  state.searchResults.map(r => `${r.mediaType}-${r.id}`),
+                )
+                const newItems = results.filter(
+                  r => !existingKeys.has(`${r.mediaType}-${r.id}`),
+                )
+                state.searchResults = [...state.searchResults, ...newItems]
+              } else {
+                state.searchResults = results
+              }
               state.searchPagination = {
                 page: res.page,
                 totalPages: res.total_pages,

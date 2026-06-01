@@ -36,3 +36,9 @@ dist-ssr
 
 # TypeScript build info
 *.tsbuildinfo
+
+# Lighthouse
+lighthouse-*.json
+lighthouse-*.html
+parse-report*.cjs
+.lighthouseci/
