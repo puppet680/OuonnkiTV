@@ -28,6 +28,8 @@ export default function SearchBox({ onMobileSearchChange }: SearchBoxProps) {
   const mobileInputRef = useRef<HTMLInputElement>(null)
   const desktopInputRef = useRef<HTMLInputElement>(null)
   const blurTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const onMobileSearchChangeRef = useRef(onMobileSearchChange)
+  onMobileSearchChangeRef.current = onMobileSearchChange
 
   // 判断是否应该显示下拉框
   const hasContent = inputContent.trim().length > 0
@@ -49,9 +51,15 @@ export default function SearchBox({ onMobileSearchChange }: SearchBoxProps) {
     if (event.key === 'Enter') {
       searchMovie(inputContent)
       setIsDropdownOpen(false)
+      if (isMobileSearchOpen) {
+        closeMobileSearch()
+      }
     }
     if (event.key === 'Escape') {
       setIsDropdownOpen(false)
+      if (isMobileSearchOpen) {
+        closeMobileSearch()
+      }
     }
   }
 
@@ -129,12 +137,13 @@ export default function SearchBox({ onMobileSearchChange }: SearchBoxProps) {
     setInputContent(searchQuery)
   }, [searchQuery])
 
-  // 清理定时器
+  // 清理定时器 + 组件卸载时通知父组件关闭移动搜索态
   useEffect(() => {
     return () => {
       if (blurTimeoutRef.current) {
         clearTimeout(blurTimeoutRef.current)
       }
+      onMobileSearchChangeRef.current?.(false)
     }
   }, [])
 
@@ -306,6 +315,7 @@ export default function SearchBox({ onMobileSearchChange }: SearchBoxProps) {
                   onClick={() => {
                     searchMovie(inputContent)
                     setIsDropdownOpen(false)
+                    closeMobileSearch()
                   }}
                   layout
                 >
