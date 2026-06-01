@@ -171,8 +171,15 @@ export const useTmdbStore = create<TmdbState & TmdbActions>()(
         fetchGenresAndCountries: async () => {
           const client = getTmdbClient()
           const currentLang = getTmdbLanguage()
-          // 仅在语言未变且已缓存时跳过
-          if (get().movieGenres.length > 0 && get().genresLanguage === currentLang) return
+          // 仅在语言未变且 genres 和 countries 都已缓存时跳过
+          const { movieGenres, genresLanguage, availableFilterOptions } = get()
+          if (
+            movieGenres.length > 0 &&
+            availableFilterOptions.countries.length > 0 &&
+            genresLanguage === currentLang
+          ) {
+            return
+          }
 
           set(state => {
             state.loading.genres = true
