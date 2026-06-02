@@ -93,7 +93,7 @@ export const useViewingHistoryStore = create<ViewingHistoryStore>()(
       })),
       {
         name: 'ouonnki-tv-viewing-history', // 持久化存储的键名
-        version: 3,
+        version: 4,
         migrate: (persistedState: unknown, version: number) => {
           const persistedHistory =
             (
@@ -119,13 +119,23 @@ export const useViewingHistoryStore = create<ViewingHistoryStore>()(
             }
           }
           if (version < 3) {
-            return {
-              viewingHistory: persistedHistory.map(item => ({
-                ...item,
-                sourceName: item.sourceName || item.sourceCode.slice(0, 5),
-                recordType: item.recordType === 'tmdb' ? 'tmdb' : 'cms',
-              })),
+            for (const item of persistedHistory) {
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              const i = item as any
+              i.sourceName = i.sourceName || String(i.sourceCode ?? '').slice(0, 5)
+              i.recordType = i.recordType === 'tmdb' ? 'tmdb' : 'cms'
             }
+          }
+          if (version < 4) {
+            // 去重：按 getHistoryItemKey 保持最早出现的记录
+            const seen = new Set<string>()
+            const deduped = persistedHistory.filter((item: ViewingHistoryItem) => {
+              const key = getHistoryItemKey(item)
+              if (seen.has(key)) return false
+              seen.add(key)
+              return true
+            })
+            return { viewingHistory: deduped }
           }
           return persistedState
         },

@@ -1,9 +1,9 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { MoreHorizontal, Play, Info } from 'lucide-react'
 import Autoplay from 'embla-carousel-autoplay'
 import { NavLink, useNavigate } from 'react-router'
 
-import { getBackdropUrl, getLogoUrl } from '@/shared/lib/tmdb'
+import { getBackdropUrl, getLogoUrl, getPosterUrl } from '@/shared/lib/tmdb'
 import { buildTmdbDetailPath, buildTmdbPlayPath } from '@/shared/lib/routes'
 import { buildHistoryPlayPath, isTmdbHistoryItem } from '@/shared/lib/viewingHistory'
 import { Button } from '@/shared/components/ui/button'
@@ -64,6 +64,7 @@ export function FeaturedCarousel({
   const navigate = useNavigate()
   const [api, setApi] = useState<CarouselApi>()
   const [activeIndex, setActiveIndex] = useState(0)
+  const miniApiRef = useRef<CarouselApi | null>(null)
   const isMobile = useIsMobile()
   const isTablet = useIsTablet()
   const viewingHistory = useViewingHistoryStore(state => state.viewingHistory)
@@ -105,17 +106,27 @@ export function FeaturedCarousel({
     return 9 / 4
   }
 
-  // 监听 carousel 选择变化
+  const MINI_PAGE_SIZE = 6
+
+  // 监听 carousel 选择变化，按页滚动 mini 轮播
   useEffect(() => {
     if (!api) return
 
     const onSelect = () => {
-      setActiveIndex(api.selectedScrollSnap())
+      const idx = api.selectedScrollSnap()
+      setActiveIndex(idx)
+      const ma = miniApiRef.current
+      if (ma) {
+        const currentPage = Math.floor(idx / MINI_PAGE_SIZE)
+        const miniIdx = currentPage * MINI_PAGE_SIZE
+        const scrollSnap = ma.selectedScrollSnap()
+        if (scrollSnap !== miniIdx) {
+          ma.scrollTo(miniIdx)
+        }
+      }
     }
 
-    // 初始化时设置
     onSelect()
-
     api.on('select', onSelect)
     return () => {
       api.off('select', onSelect)
@@ -158,7 +169,7 @@ export function FeaturedCarousel({
   }
 
   return (
-    <div>
+    <div className="relative">
       <Carousel
         className="h-fit rounded-lg"
         opts={{
@@ -168,7 +179,7 @@ export function FeaturedCarousel({
         plugins={[
           Autoplay({
             delay: autoplayDelay,
-            stopOnInteraction: false,
+            stopOnInteraction: true,
             stopOnMouseEnter: true,
           }),
         ]}
@@ -431,6 +442,47 @@ export function FeaturedCarousel({
           })}
         </CarouselContent>
       </Carousel>
+
+      {/* 小海报指示器轮播 - 悬浮在巨幕右下角 */}
+      <div className="hidden lg:block absolute right-4 bottom-4 z-20 w-[620px]">
+        <Carousel
+          opts={{ align: 'start', containScroll: 'trimSnaps', dragFree: false }}
+          setApi={(ma) => { miniApiRef.current = ma }}
+        >
+          <CarouselContent className="ml-0">
+            {items.map((posterItem, posterIdx) => {
+              const isActive = posterIdx === activeIndex
+              return (
+                <CarouselItem key={`${posterItem.mediaType}-${posterItem.id}`} className="basis-auto pl-2 first:pl-0">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (api && posterIdx !== activeIndex) {
+                        api.scrollTo(posterIdx)
+                      }
+                    }}
+                    className={`w-24 shrink-0 overflow-hidden rounded-lg border transition-all duration-300 cursor-pointer ${
+                      isActive
+                        ? 'shadow-lg scale-105'
+                        : 'opacity-40 hover:opacity-80'
+                    }`}
+                  >
+                    {posterItem.posterPath ? (
+                      <img
+                        src={getPosterUrl(posterItem.posterPath, 'w342')}
+                        alt={posterItem.title}
+                        className="aspect-[2/3] w-full object-cover"
+                      />
+                    ) : (
+                      <div className="bg-muted/50 text-white/50 flex aspect-[2/3] items-center justify-center text-[10px]">无海报</div>
+                    )}
+                  </button>
+                </CarouselItem>
+              )
+            })}
+          </CarouselContent>
+        </Carousel>
+      </div>
     </div>
   )
 }

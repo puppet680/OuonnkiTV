@@ -176,7 +176,7 @@ export function SearchResultsGrid({
           </div>
         ) : hasResults ? (
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 2xl:grid-cols-8">
-            {results.map((item, index) => {
+            {results.map((item) => {
               const { bestSource, sourceCount, sources } = item
               if (!bestSource.source_code || !bestSource.vod_id) return null
 
@@ -197,7 +197,7 @@ export function SearchResultsGrid({
               storeCmsSources(bestSource.vod_name, playSources)
 
               return (
-                <div key={bestSource.source_code + '-' + bestSource.vod_id + '-' + index}>
+                <div key={bestSource.vod_name}>
                   <MediaPosterCard
                     to={buildCmsPlayPath(bestSource.source_code, bestSource.vod_id)}
                     posterUrl={bestSource.vod_pic || null}

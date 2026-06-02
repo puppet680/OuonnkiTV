@@ -10,6 +10,7 @@ import { Button } from '@/shared/components/ui/button'
 import { Skeleton } from '@/shared/components/ui/skeleton'
 import { NavLink } from 'react-router'
 import { useViewingHistoryStore } from '@/shared/store'
+import { getHistoryItemKey } from '@/shared/lib/viewingHistory'
 import { useEffect, useMemo, useState } from 'react'
 import { useIsMobile } from '@/shared/hooks/use-mobile'
 import { useTmdbEnabled } from '@/shared/hooks/useTmdbMode'
@@ -58,10 +59,18 @@ export function ContinueWatching() {
   const hasHydrated = useViewingHistoryStore.persist.hasHydrated()
   const tmdbEnabled = useTmdbEnabled()
 
-  // TMDB 未启用时过滤 TMDB 记录
+  // TMDB 未启用时过滤 TMDB 记录，并按 getHistoryItemKey 去重
   const filteredHistory = useMemo(() => {
-    if (tmdbEnabled) return viewingHistory
-    return viewingHistory.filter(item => item.recordType !== 'tmdb')
+    const filtered = tmdbEnabled
+      ? viewingHistory
+      : viewingHistory.filter(item => item.recordType !== 'tmdb')
+    const seen = new Set<string>()
+    return filtered.filter(item => {
+      const key = getHistoryItemKey(item)
+      if (seen.has(key)) return false
+      seen.add(key)
+      return true
+    })
   }, [viewingHistory, tmdbEnabled])
 
   const isMobile = useIsMobile()
@@ -123,7 +132,7 @@ export function ContinueWatching() {
             {filteredHistory.map(item => {
               return (
                 <CarouselItem
-                  key={`${item.sourceCode}-${item.vodId}-${item.episodeIndex}`}
+                  key={getHistoryItemKey(item)}
                   className="h-fit basis-1/2 rounded-lg md:basis-1/3 lg:basis-1/5"
                 >
                   <ViewingHistoryCard item={item} />

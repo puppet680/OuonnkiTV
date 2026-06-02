@@ -102,9 +102,9 @@ export function CmsMediaCarousel({ title, items, loading = false }: CmsMediaCaro
       <div className="pt-2">
         <Carousel opts={{ watchDrag: canDrag, slidesToScroll }} setApi={setCarouselApi}>
           <CarouselContent>
-            {items.map(item => (
+            {items.map((item, idx) => (
               <CarouselItem
-                key={`${item.source_code}-${item.vod_id}`}
+                key={`${item.source_code}-${item.vod_id}-${idx}`}
                 className="h-fit basis-1/3 md:basis-1/4 lg:basis-1/6"
               >
                 <MediaPosterCard

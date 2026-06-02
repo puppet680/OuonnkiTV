@@ -71,31 +71,6 @@ function TmdbHomeContent() {
         items={isMainland ? regionalFeatured : trending}
         loading={isMainland ? regionalLoading : trendingLoading.trending}
       />
-      {/* 影视偏好快捷切换 */}
-      <div className="flex items-center gap-2 px-1">
-        <button
-          type="button"
-          className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-            isMainland
-              ? 'bg-primary text-primary-foreground'
-              : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
-          }`}
-          onClick={() => useSettingStore.getState().setSystemSettings({ tmdbRegion: 'mainland' })}
-        >
-          大陆
-        </button>
-        <button
-          type="button"
-          className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-            !isMainland
-              ? 'bg-primary text-primary-foreground'
-              : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
-          }`}
-          onClick={() => useSettingStore.getState().setSystemSettings({ tmdbRegion: 'international' })}
-        >
-          欧美
-        </button>
-      </div>
       {/* 继续观看 */}
       <ContinueWatching />
       {/* 猜你喜欢 */}
