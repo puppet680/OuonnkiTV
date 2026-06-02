@@ -95,6 +95,34 @@ export function useTmdbDiscover() {
 }
 
 /**
+ * 区域发现 Hook — 按用户偏好（欧美/大陆）获取首页数据
+ */
+export function useTmdbRegionalDiscover() {
+  const region = useSettingStore(s => s.system.tmdbRegion)
+  const cache = useTmdbStore(s => s.regionCache[region])
+  const loading = useTmdbStore(s => s.regionalLoading)
+  const fetchRegionalDiscover = useTmdbStore(s => s.fetchRegionalDiscover)
+
+  useEffect(() => {
+    fetchRegionalDiscover()
+  }, [fetchRegionalDiscover, region])
+
+  return {
+    tvShows: cache?.regionalTvShows ?? [],
+    movies: cache?.regionalMovies ?? [],
+    animated: cache?.regionalAnimated ?? [],
+    featured: cache?.regionalFeatured ?? [],
+    nowPlaying: cache?.regionalNowPlaying ?? [],
+    popularMovies: cache?.regionalPopularMovies ?? [],
+    topRatedMovies: cache?.regionalTopRatedMovies ?? [],
+    upcoming: cache?.regionalUpcoming ?? [],
+    popularTv: cache?.regionalPopularTv ?? [],
+    topRatedTv: cache?.regionalTopRatedTv ?? [],
+    loading,
+  }
+}
+
+/**
  * 热映/热门 Hook
  */
 export function useTmdbNowPlaying() {
@@ -338,10 +366,10 @@ export function useTmdbDetail<T extends TmdbMovieDetail | TmdbTvDetail>(
 
       // 2. 次要数据类型定义
       const secondaryAppendMovie: AppendToResponseMovieKey[] = [
-        'videos', 'reviews', 'recommendations', 'keywords', 'translations', 'watch/providers', 'similar'
+        'videos', 'reviews', 'recommendations', 'keywords', 'alternative_titles', 'watch/providers', 'similar'
       ];
       const secondaryAppendTv: AppendToResponseTvKey[] = [
-        'videos', 'reviews', 'recommendations', 'keywords', 'translations', 'watch/providers', 'similar'
+        'videos', 'reviews', 'recommendations', 'keywords', 'alternative_titles', 'watch/providers', 'similar'
       ];
 
       // 执行核心请求

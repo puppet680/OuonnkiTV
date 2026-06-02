@@ -47,11 +47,13 @@ export default defineConfig({
       workbox: {
         // 预缓存所有静态资源（JS/CSS/HTML/字体/图标）
         globPatterns: ['**/*.{js,css,html,woff2,ico,png,svg,webmanifest}'],
+        // HLS 视频分片和播放列表不缓存，避免播放错误
+        navigationPreload: false,
         runtimeCaching: [
-          // 同源请求（不含静态资源）— Network First，离线兜底
+          // 同源请求（不含静态资源、m3u8、ts）— Network First，离线兜底
           {
             urlPattern: ({ sameOrigin, url }) =>
-              sameOrigin && !/\.(?:js|css|html|woff2|ico|png|svg|webmanifest|json)$/i.test(url.pathname),
+              sameOrigin && !/\.(?:js|css|html|woff2|ico|png|svg|webmanifest|json|m3u8|ts)(?:\?.*)?$/i.test(url.pathname),
             handler: 'NetworkFirst',
             options: {
               cacheName: 'same-origin-api',
@@ -59,10 +61,10 @@ export default defineConfig({
               networkTimeoutSeconds: 5,
             },
           },
-          // 跨域 API 请求 — Stale While Revalidate（覆盖视频源、TMDB、自定义代理等所有外部 API）
+          // 跨域 API 请求（不含 HLS 相关流媒体文件）— Stale While Revalidate
           {
             urlPattern: ({ sameOrigin, url }) =>
-              !sameOrigin && !/\.(?:png|jpg|jpeg|gif|webp|svg|ico|woff2|css|js)(?:\?.*)?$/i.test(url.pathname),
+              !sameOrigin && !/\.(?:png|jpg|jpeg|gif|webp|svg|ico|woff2|css|js|m3u8|ts)(?:\?.*)?$/i.test(url.pathname),
             handler: 'StaleWhileRevalidate',
             options: {
               cacheName: 'external-api',

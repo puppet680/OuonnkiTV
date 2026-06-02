@@ -160,6 +160,26 @@ export default function SystemSettings() {
               }
             />
             <SettingsItem
+              title="TMDB 影视偏好"
+              description="根据地区偏好展示对应平台的热门影视内容。欧美对应 Netflix 等，大陆对应爱奇艺、腾讯视频等。"
+              control={
+                <div className="w-full sm:w-[200px]">
+                  <Select
+                    value={system.tmdbRegion}
+                    onValueChange={value => setSystemSettings({ tmdbRegion: value as 'international' | 'mainland' })}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="international">欧美</SelectItem>
+                      <SelectItem value="mainland">大陆</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              }
+            />
+            <SettingsItem
               title="TMDB 图片质量"
               description="海报和背景图的加载质量，高质量消耗更多流量。"
               control={

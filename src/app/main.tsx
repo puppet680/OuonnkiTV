@@ -17,27 +17,18 @@ import { SpeedInsights } from '@vercel/speed-insights/react'
 function registerServiceWorker() {
   if (typeof window === 'undefined' || 'serviceWorker' in navigator === false) return
   if (import.meta.env.DEV) return
-
+  
   import('workbox-window').then(({ Workbox }) => {
     const wb = new Workbox('/sw.js')
 
+    // SW 首次安装或更新完成时，自动 skipWaiting 并刷新
+    // 页面刷新后 MainLayout 会检查 hasNewVersion() 并弹出 ChangelogDialog
     wb.addEventListener('installed', (event) => {
-      if (event.isUpdate && event.type === 'installed') {
-        import('sonner').then(({ toast }) => {
-          toast('检测到新版本', {
-            description: '点击立即刷新',
-            action: {
-              label: '刷新',
-              onClick: () => {
-                wb.addEventListener('controlling', () => {
-                  window.location.reload()
-                })
-                wb.messageSkipWaiting()
-              },
-            },
-            duration: 0,
-          })
+      if (event.isUpdate) {
+        wb.addEventListener('controlling', () => {
+          window.location.reload()
         })
+        wb.messageSkipWaiting()
       }
     })
 

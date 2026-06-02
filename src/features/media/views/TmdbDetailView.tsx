@@ -133,8 +133,8 @@ export default function TmdbDetailView() {
 
   const translationEntries = useMemo(() => {
     if (!detail) return []
-    return extractTranslationTitles(safeRichDetail?.translations, [detail.title, detail.originalTitle])
-  }, [detail, safeRichDetail?.translations])
+    return extractTranslationTitles(safeRichDetail?.alternative_titles, [detail.title, detail.originalTitle])
+  }, [detail, safeRichDetail?.alternative_titles])
 
   const alternativeTitles = useMemo(
     () => translationEntries.map(entry => entry.title),

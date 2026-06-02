@@ -52,5 +52,6 @@ export const DEFAULT_SETTINGS = {
       | 'low'
       | 'medium'
       | 'high',
+    tmdbRegion: (envSettings?.system?.tmdbRegion ?? 'mainland') as 'international' | 'mainland',
   },
 }

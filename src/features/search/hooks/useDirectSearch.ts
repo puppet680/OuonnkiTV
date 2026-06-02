@@ -3,10 +3,11 @@ import { type VideoItem, type SearchResultEvent, type Pagination, type VideoSour
 import { useApiStore } from '@/shared/store/apiStore'
 import { useCmsClient } from '@/shared/hooks'
 import { PaginationConfig } from '@/shared/config/video.config'
-import { getSourcesToFetch, type SourcePaginationInfo } from './directSearch.utils'
+import { getSourcesToFetch, aggregateByTitle, type SourcePaginationInfo, type AggregatedVideoItem } from './directSearch.utils'
 
 export function useDirectSearch() {
   const [directResults, setDirectResults] = useState<VideoItem[]>([])
+  const [aggregatedResults, setAggregatedResults] = useState<AggregatedVideoItem[]>([])
   const [directLoading, setDirectLoading] = useState(false)
   const [hasMore, setHasMore] = useState(true)
   const [searchProgress, setSearchProgress] = useState({ completed: 0, total: 0 })
@@ -52,6 +53,7 @@ export function useDirectSearch() {
     // 第1页时清空现有结果
     if (page === 1) {
       setDirectResults([])
+      setAggregatedResults([])
       sourcePaginationCacheRef.current.clear()
       setCompletedSourcesInCurrentPage(new Set())
       setSuccessfulSourcesInCurrentPage(new Set())
@@ -152,6 +154,11 @@ export function useDirectSearch() {
       setDirectResults(prev => {
         // 累积所有源的结果
         return [...prev, ...event.items]
+      })
+      // 聚合去重
+      setAggregatedResults(prev => {
+        const allItems = [...prev.flatMap(a => a.sources), ...event.items]
+        return aggregateByTitle(allItems)
       })
 
       // 记录成功返回结果的源（有结果的源才算成功）
@@ -267,6 +274,7 @@ export function useDirectSearch() {
 
   const clearDirectSearchState = useCallback(() => {
     setDirectResults([])
+    setAggregatedResults([])
     setSearchProgress({ completed: 0, total: 0 })
     setCmsPagination({
       page: 1,
@@ -301,6 +309,7 @@ export function useDirectSearch() {
 
   return {
     directResults,
+    aggregatedResults,
     directLoading,
     hasMore,
     searchProgress,

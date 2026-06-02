@@ -71,7 +71,12 @@ function toSourceStore(state: ApiState): SourceStore {
  * 从SourceStore提取sources到videoAPIs
  */
 function fromSourceStore(store: SourceStore): VideoSource[] {
-  return store.sources
+  const seen = new Set<string>()
+  return store.sources.filter(s => {
+    if (seen.has(s.id)) return false
+    seen.add(s.id)
+    return true
+  })
 }
 
 export const useApiStore = create<ApiStore>()(

@@ -39,6 +39,24 @@ interface TmdbState {
   airingTodayTv: TmdbMediaItem[]
   trending: TmdbMediaItem[]
 
+  // 区域发现缓存（按 region 分池，切换不重新请求）
+  regionCache: Record<
+    string,
+    {
+      regionalTvShows: TmdbMediaItem[]
+      regionalMovies: TmdbMediaItem[]
+      regionalAnimated: TmdbMediaItem[]
+      regionalFeatured: TmdbMediaItem[]
+      regionalNowPlaying: TmdbMediaItem[]
+      regionalPopularMovies: TmdbMediaItem[]
+      regionalTopRatedMovies: TmdbMediaItem[]
+      regionalUpcoming: TmdbMediaItem[]
+      regionalPopularTv: TmdbMediaItem[]
+      regionalTopRatedTv: TmdbMediaItem[]
+    }
+  >
+  regionalLoading: boolean
+
   // 推荐
   recommendations: TmdbMediaItem[]
   recommendationSourceId: number | null // 推荐来源的 TMDB ID
@@ -89,6 +107,7 @@ interface TmdbActions {
   fetchTopRatedTv: () => Promise<void>
   fetchAiringTodayTv: () => Promise<void>
   fetchTrending: (timeWindow?: 'day' | 'week') => Promise<void>
+  fetchRegionalDiscover: () => Promise<void>
   fetchRecommendations: (id: number, mediaType: 'movie' | 'tv') => Promise<void>
 
   // 筛选
@@ -133,6 +152,9 @@ export const useTmdbStore = create<TmdbState & TmdbActions>()(
         topRatedTv: [],
         airingTodayTv: [],
         trending: [],
+
+        regionCache: {},
+        regionalLoading: false,
 
         recommendations: [],
         recommendationSourceId: null,
@@ -625,6 +647,200 @@ export const useTmdbStore = create<TmdbState & TmdbActions>()(
           }
         },
 
+        // 区域发现：按用户偏好（欧美/大陆）获取首页数据，缓存两份不重复请求
+        fetchRegionalDiscover: async () => {
+          const region = useSettingStore.getState().system.tmdbRegion
+          const { regionCache } = get()
+          if (regionCache[region]) return
+          const client = getTmdbClient()
+          set(s => { s.regionalLoading = true })
+
+          try {
+            const tmdbLang = getTmdbLanguage() as string
+            const langParams = {
+              language: tmdbLang,
+              'vote_count.gte': 100,
+            }
+
+            if (region === 'international') {
+              // 欧美：Netflix + 多维度榜单
+              const [
+                tvRes, movieRes, animatedRes,
+                popularMovieRes, topRatedMovieRes, upcomingRes,
+                popularTvRes, topRatedTvRes,
+              ] = await Promise.all([
+                // 热门剧集 — Netflix
+                client.discover.tvShow({
+                  ...langParams,
+                  sort_by: 'popularity.desc',
+                  with_networks: '213',
+                }),
+                // 热门电影 — Netflix US
+                client.discover.movie({
+                  ...langParams,
+                  sort_by: 'popularity.desc',
+                  with_watch_providers: '8',
+                  watch_region: 'US',
+                }),
+                // 动画 — Netflix 平台
+                client.discover.movie({
+                  ...langParams,
+                  sort_by: 'popularity.desc',
+                  with_genres: '16',
+                  with_watch_providers: '8',
+                  watch_region: 'US',
+                  'vote_count.gte': 50,
+                }),
+                // 最受欢迎 — 全球票房
+                client.discover.movie({
+                  ...langParams,
+                  sort_by: 'revenue.desc',
+                  'vote_count.gte': 200,
+                }),
+                // 口碑最佳 — 全球高分
+                client.discover.movie({
+                  ...langParams,
+                  sort_by: 'vote_average.desc',
+                  'vote_count.gte': 500,
+                }),
+                // 即将上映 — 全球期待
+                client.discover.movie({
+                  ...langParams,
+                  sort_by: 'popularity.desc',
+                  'primary_release_date.gte': new Date().toISOString().slice(0, 10),
+                  'vote_count.gte': 10,
+                }),
+                // 最受欢迎剧集 — Netflix 高热度
+                client.discover.tvShow({
+                  ...langParams,
+                  sort_by: 'popularity.desc',
+                  with_networks: '213',
+                  'vote_count.gte': 100,
+                }),
+                // 口碑最佳剧集 — Netflix 高分
+                client.discover.tvShow({
+                  ...langParams,
+                  sort_by: 'vote_average.desc',
+                  with_networks: '213',
+                  'vote_count.gte': 100,
+                }),
+              ])
+              const normMovie = (i: unknown) => normalizeToMediaItem(i as Record<string, unknown>, 'movie')
+              const normTv = (i: unknown) => normalizeToMediaItem(i as Record<string, unknown>, 'tv')
+              const featured = [...tvRes.results.map(normTv), ...movieRes.results.map(normMovie)]
+                .sort((a, b) => b.popularity - a.popularity)
+                .slice(0, 20)
+              set(s => {
+                s.regionCache.international = {
+                  regionalTvShows: tvRes.results.map(normTv),
+                  regionalMovies: movieRes.results.map(normMovie),
+                  regionalAnimated: animatedRes.results.map(normMovie),
+                  regionalFeatured: featured,
+                  regionalNowPlaying: movieRes.results.map(normMovie),
+                  regionalPopularMovies: popularMovieRes.results.map(normMovie),
+                  regionalTopRatedMovies: topRatedMovieRes.results.map(normMovie),
+                  regionalUpcoming: upcomingRes.results.map(normMovie),
+                  regionalPopularTv: popularTvRes.results.map(normTv),
+                  regionalTopRatedTv: topRatedTvRes.results.map(normTv),
+                }
+                s.regionalLoading = false
+              })
+            } else {
+              // 大陆：爱奇艺+腾讯+国语电影，外加中文区域榜单
+              const [
+                tvRes, movieRes, animatedRes,
+                popularMovieRes, topRatedMovieRes, upcomingRes,
+                popularTvRes, topRatedTvRes,
+              ] = await Promise.all([
+                // 平台热门剧集 — 爱奇艺+腾讯
+                client.discover.tvShow({
+                  ...langParams,
+                  sort_by: 'popularity.desc',
+                  with_networks: '1330|2007',
+                  'vote_count.gte': 20,
+                }),
+                // 热门电影 — 国语电影
+                client.discover.movie({
+                  ...langParams,
+                  sort_by: 'popularity.desc',
+                  with_original_language: 'zh',
+                  'vote_count.gte': 50,
+                }),
+                // 动画电影 — 国语动画
+                client.discover.movie({
+                  ...langParams,
+                  sort_by: 'popularity.desc',
+                  with_genres: '16',
+                  with_original_language: 'zh',
+                  'vote_count.gte': 20,
+                }),
+                // 最受欢迎 — 国语电影按票房
+                client.discover.movie({
+                  ...langParams,
+                  sort_by: 'revenue.desc',
+                  with_original_language: 'zh',
+                  'vote_count.gte': 50,
+                }),
+                // 口碑最佳 — 国语电影按评分
+                client.discover.movie({
+                  ...langParams,
+                  sort_by: 'vote_average.desc',
+                  with_original_language: 'zh',
+                  'vote_count.gte': 200,
+                }),
+                // 即将上映 — 国语电影未上映
+                client.discover.movie({
+                  ...langParams,
+                  sort_by: 'popularity.desc',
+                  with_original_language: 'zh',
+                  'primary_release_date.gte': new Date().toISOString().slice(0, 10),
+                  'vote_count.gte': 5,
+                }),
+                // 最受欢迎的中文剧集
+                client.discover.tvShow({
+                  ...langParams,
+                  sort_by: 'popularity.desc',
+                  with_original_language: 'zh',
+                  'vote_count.gte': 50,
+                }),
+                // 口碑最佳的中文剧集
+                client.discover.tvShow({
+                  ...langParams,
+                  sort_by: 'vote_average.desc',
+                  with_original_language: 'zh',
+                  'vote_count.gte': 50,
+                }),
+              ])
+              const normMovie = (i: unknown) => normalizeToMediaItem(i as Record<string, unknown>, 'movie')
+              const normTv = (i: unknown) => normalizeToMediaItem(i as Record<string, unknown>, 'tv')
+              const featured = [...tvRes.results.map(normTv), ...movieRes.results.map(normMovie)]
+                .sort((a, b) => b.popularity - a.popularity)
+                .slice(0, 20)
+              set(s => {
+                s.regionCache.mainland = {
+                  regionalTvShows: tvRes.results.map(normTv),
+                  regionalMovies: movieRes.results.map(normMovie),
+                  regionalAnimated: animatedRes.results.map(normMovie),
+                  regionalFeatured: featured,
+                  regionalNowPlaying: movieRes.results.map(normMovie),
+                  regionalPopularMovies: popularMovieRes.results.map(normMovie),
+                  regionalTopRatedMovies: topRatedMovieRes.results.map(normMovie),
+                  regionalUpcoming: upcomingRes.results.map(normMovie),
+                  regionalPopularTv: popularTvRes.results.map(normTv),
+                  regionalTopRatedTv: topRatedTvRes.results.map(normTv),
+                }
+                s.regionalLoading = false
+              })
+            }
+          } catch (err) {
+            console.error('Regional discover failed:', err)
+            set(s => {
+              s.error = (err as Error).message || 'Regional discover failed'
+              s.regionalLoading = false
+            })
+          }
+        },
+
         // 推荐：根据指定的 movie/tv 获取推荐列表
         fetchRecommendations: async (id: number, mediaType: 'movie' | 'tv') => {
           const client = getTmdbClient()
@@ -781,6 +997,7 @@ export const useTmdbStore = create<TmdbState & TmdbActions>()(
           topRatedTv: state.topRatedTv,
           airingTodayTv: state.airingTodayTv,
           trending: state.trending,
+          regionCache: state.regionCache,
           movieGenres: state.movieGenres,
           tvGenres: state.tvGenres,
           genresLanguage: state.genresLanguage,

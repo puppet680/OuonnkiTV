@@ -5,7 +5,7 @@ import Artplayer from 'artplayer'
 import type Hls from 'hls.js'
 import type { HlsConfig } from 'hls.js'
 import { ChevronDown, X } from 'lucide-react'
-import { type DetailResult } from '@ouonnki/cms-core'
+import { type DetailResult, type VideoItem as CmsVideoItem } from '@ouonnki/cms-core'
 import { createM3u8Processor, createHlsLoaderClass } from '@ouonnki/cms-core/m3u8'
 import { Button } from '@/shared/components/ui/button'
 import {
@@ -21,6 +21,7 @@ import { useSettingStore } from '@/shared/store/settingStore'
 import { useDocumentTitle, useCmsClient } from '@/shared/hooks'
 import { useTmdbEnabled } from '@/shared/hooks/useTmdbMode'
 import { cn } from '@/shared/lib/utils'
+import { getCmsSources, storeCmsSources } from '@/features/search/hooks/directSearch.utils'
 import { buildCmsPlayPath, buildTmdbDetailPath, buildTmdbPlayPath } from '@/shared/lib/routes'
 import { isTmdbHistoryItem } from '@/shared/lib/viewingHistory'
 import { getBackdropUrl } from '@/shared/lib/tmdb'
@@ -228,6 +229,7 @@ export default function UnifiedPlayer() {
   const [gestureVolumeLevel, setGestureVolumeLevel] = useState<number | null>(null)
   const [gestureSeekPreviewTime, setGestureSeekPreviewTime] = useState<number | null>(null)
   const [activeArt, setActiveArt] = useState<Artplayer | null>(null)
+  const [cmsMatchedSources, setCmsMatchedSources] = useState<Array<{ sourceCode: string; sourceName: string; vodId: string }>>([])
   const selectedEpisode = parseEpisodeIndex(episodeIndexParam)
   const noticeTimersRef = useRef<Map<string, number>>(new Map())
   const noticeAnimationFramesRef = useRef<Map<string, number>>(new Map())
@@ -777,7 +779,7 @@ export default function UnifiedPlayer() {
                 const handleHlsError = (_event: string, data: { type: string; fatal: boolean }) => {
                   if (!data.fatal) return
                   if (autoSwitchPendingRef.current) return
-                  if (!isTmdbRoute) return
+                  if (!isTmdbRoute && !isCmsRoute) return
 
                   const curIdx = sourceOptions.findIndex(o => o.sourceCode === resolvedSourceCode)
                   const nextOption = curIdx >= 0 && curIdx + 1 < sourceOptions.length ? sourceOptions[curIdx + 1] : null
@@ -801,6 +803,22 @@ export default function UnifiedPlayer() {
                 })
               } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
                 video.src = url
+                // 原生 HLS 播放错误处理：移动端 Safari/WebView 走此分支，需监听 video error 实现自动切换
+                const handleNativeError = () => {
+                  if (autoSwitchPendingRef.current) return
+                  if (!isTmdbRoute && !isCmsRoute) return
+                  const curIdx = sourceOptions.findIndex(o => o.sourceCode === resolvedSourceCode)
+                  const nextOption = curIdx >= 0 && curIdx + 1 < sourceOptions.length ? sourceOptions[curIdx + 1] : null
+                  if (!nextOption) return
+                  autoSwitchPendingRef.current = true
+                  showPlayerNotice('当前源无法播放，3 秒后自动切换', 3000)
+                  autoSwitchTimerRef.current = window.setTimeout(() => {
+                    autoSwitchPendingRef.current = false
+                    handleSourceChange(nextOption.sourceCode)
+                  }, 3000)
+                }
+                video.addEventListener('error', handleNativeError, { once: true })
+                art.on('destroy', () => video.removeEventListener('error', handleNativeError))
               } else {
                 art.notice.show = 'Unsupported playback format: m3u8'
               }
@@ -808,6 +826,21 @@ export default function UnifiedPlayer() {
               console.error('加载 HLS 播放内核失败:', loadError)
               if (video.canPlayType('application/vnd.apple.mpegurl')) {
                 video.src = url
+                const handleNativeError = () => {
+                  if (autoSwitchPendingRef.current) return
+                  if (!isTmdbRoute && !isCmsRoute) return
+                  const curIdx = sourceOptions.findIndex(o => o.sourceCode === resolvedSourceCode)
+                  const nextOption = curIdx >= 0 && curIdx + 1 < sourceOptions.length ? sourceOptions[curIdx + 1] : null
+                  if (!nextOption) return
+                  autoSwitchPendingRef.current = true
+                  showPlayerNotice('当前源无法播放，3 秒后自动切换', 3000)
+                  autoSwitchTimerRef.current = window.setTimeout(() => {
+                    autoSwitchPendingRef.current = false
+                    handleSourceChange(nextOption.sourceCode)
+                  }, 3000)
+                }
+                video.addEventListener('error', handleNativeError, { once: true })
+                art.on('destroy', () => video.removeEventListener('error', handleNativeError))
               } else {
                 art.notice.show = '播放内核加载失败，请稍后重试'
               }
@@ -947,7 +980,7 @@ export default function UnifiedPlayer() {
     art.on('video:error', () => {
       addHistorySnapshot()
 
-      if (!isTmdbRoute || autoSwitchPendingRef.current) return
+      if ((!isTmdbRoute && !isCmsRoute) || autoSwitchPendingRef.current) return
 
       const curIdx = sourceOptions.findIndex(o => o.sourceCode === resolvedSourceCode)
       const nextOption = curIdx >= 0 && curIdx + 1 < sourceOptions.length ? sourceOptions[curIdx + 1] : null
@@ -1129,27 +1162,122 @@ export default function UnifiedPlayer() {
     navigate(buildCurrentPlayPath(actualIndex), { replace: true })
   }
 
-  const handleSourceChange = useCallback(
-    (sourceCode: string) => {
-      if (!isTmdbRoute || !tmdbMediaType) return
+  const sourceOptions = useMemo(() => {
+    if (isTmdbRoute) {
+      return tmdbPlayback.sourceOptions
+    }
 
-      const nextOption = tmdbPlayback.sourceOptions.find(option => option.sourceCode === sourceCode)
-      if (!nextOption || !nextOption.bestVodId) return
+    // CMS 直连模式：从内存 store 取聚合源列表
+    if (isCmsRoute && detail) {
+      const stored = getCmsSources(detail.videoInfo?.title || '')
+      const allSources = [...stored, ...cmsMatchedSources]
+      if (allSources.length > 1) {
+        const seen = new Set<string>()
+        return allSources
+          .filter(s => {
+            if (seen.has(s.sourceCode)) return false
+            seen.add(s.sourceCode)
+            return true
+          })
+          .map(s => ({
+            sourceCode: s.sourceCode,
+            sourceName: s.sourceName,
+            bestVodId: s.vodId,
+            bestScore: 0,
+          }))
+      }
+    }
 
-      pendingSeekRef.current = playerRef.current?.currentTime || null
+    const sourceName =
+      detail?.videoInfo?.source_name || sourceConfig?.name || routeSourceCode || resolvedSourceCode || '直连源'
 
-      const nextPath = buildTmdbPlayPath(tmdbMediaType, parsedTmdbId, {
-        sourceCode: nextOption.sourceCode,
-        vodId: nextOption.bestVodId,
-        episodeIndex: selectedEpisode,
-        seasonNumber: tmdbPlayback.selectedSeasonNumber || undefined,
+    return [
+      {
+        sourceCode: resolvedSourceCode,
+        sourceName,
+        bestVodId: resolvedVodId,
+        bestScore: 0,
+      },
+    ]
+  }, [
+    cmsMatchedSources,
+    detail,
+    detail?.videoInfo?.source_name,
+    isCmsRoute,
+    isTmdbRoute,
+    resolvedSourceCode,
+    resolvedVodId,
+    routeSourceCode,
+    sourceConfig?.name,
+    tmdbPlayback.sourceOptions,
+  ])
+
+  // CMS 直连模式：后台搜索标题匹配更多源
+  const cmsMatchFiredRef = useRef(false)
+  useEffect(() => {
+    if (!isCmsRoute || !detail?.videoInfo?.title || !resolvedSourceCode || !resolvedVodId) return
+    if (cmsMatchFiredRef.current) return
+    cmsMatchFiredRef.current = true
+
+    const title = detail.videoInfo.title.trim()
+    if (!title) return
+
+    const enabledSources = useApiStore.getState().videoAPIs.filter(s => s.isEnabled)
+    if (enabledSources.length === 0) return
+
+    const controller = new AbortController()
+    cmsClient.aggregatedSearch(title, enabledSources, 1, controller.signal)
+      .then((results: CmsVideoItem[]) => {
+        const matched = results
+          .filter(r => r.vod_name.trim() === title && r.source_code && r.vod_id)
+          .map(r => ({
+            sourceCode: r.source_code!,
+            vodId: r.vod_id!,
+            sourceName: r.source_name || '',
+          }))
+        if (matched.length > 0) {
+          storeCmsSources(title, matched)
+          setCmsMatchedSources(matched)
+          showPlayerNotice(`已匹配到 ${matched.length} 个额外源`)
+        }
+      })
+      .catch(err => {
+        if ((err as Error).name !== 'AbortError') {
+          console.warn('CMS 后台匹配失败:', err)
+        }
       })
 
-      navigate(nextPath, { replace: true })
-      showPlayerNotice(`已切换到 ${nextOption.sourceName}`)
+    return () => controller.abort()
+  }, [isCmsRoute, detail?.videoInfo?.title, resolvedSourceCode, resolvedVodId, cmsClient, showPlayerNotice])
+
+  const handleSourceChange = useCallback(
+    (sourceCode: string) => {
+      pendingSeekRef.current = playerRef.current?.currentTime || null
+
+      if (isTmdbRoute && tmdbMediaType) {
+        const nextOption = tmdbPlayback.sourceOptions.find(option => option.sourceCode === sourceCode)
+        if (!nextOption || !nextOption.bestVodId) return
+        const nextPath = buildTmdbPlayPath(tmdbMediaType, parsedTmdbId, {
+          sourceCode: nextOption.sourceCode,
+          vodId: nextOption.bestVodId,
+          episodeIndex: selectedEpisode,
+          seasonNumber: tmdbPlayback.selectedSeasonNumber || undefined,
+        })
+        navigate(nextPath, { replace: true })
+        showPlayerNotice(`已切换到 ${nextOption.sourceName}`)
+        return
+      }
+
+      if (isCmsRoute) {
+        const nextOption = sourceOptions.find(option => option.sourceCode === sourceCode)
+        if (!nextOption || !nextOption.bestVodId) return
+        navigate(buildCmsPlayPath(nextOption.sourceCode, nextOption.bestVodId, selectedEpisode), { replace: true })
+        showPlayerNotice(`已切换到 ${nextOption.sourceName}`)
+      }
     },
     [
       isTmdbRoute,
+      isCmsRoute,
       navigate,
       parsedTmdbId,
       selectedEpisode,
@@ -1157,6 +1285,7 @@ export default function UnifiedPlayer() {
       tmdbMediaType,
       tmdbPlayback.selectedSeasonNumber,
       tmdbPlayback.sourceOptions,
+      sourceOptions,
     ],
   )
 
@@ -1260,32 +1389,6 @@ export default function UnifiedPlayer() {
     tmdbPlayback.tmdbDetail?.voteAverage,
     tmdbPlayback.tmdbDetail?.voteCount,
     toggleTmdbFavorite,
-  ])
-
-  const sourceOptions = useMemo(() => {
-    if (isTmdbRoute) {
-      return tmdbPlayback.sourceOptions
-    }
-
-    const sourceName =
-      detail?.videoInfo?.source_name || sourceConfig?.name || routeSourceCode || resolvedSourceCode || '直连源'
-
-    return [
-      {
-        sourceCode: resolvedSourceCode,
-        sourceName,
-        bestVodId: resolvedVodId,
-        bestScore: 0,
-      },
-    ]
-  }, [
-    detail?.videoInfo?.source_name,
-    isTmdbRoute,
-    resolvedSourceCode,
-    resolvedVodId,
-    routeSourceCode,
-    sourceConfig?.name,
-    tmdbPlayback.sourceOptions,
   ])
 
   useEffect(() => {
@@ -1430,10 +1533,11 @@ export default function UnifiedPlayer() {
       ? tmdbPlayback.tmdbRichDetail?.number_of_episodes || detail?.episodes.length
       : undefined
   const hasSeasonPanel = !isCmsRoute && tmdbPlayback.seasonOptions.length > 0
+  const hasSourcePanel = isTmdbRoute || (isCmsRoute && sourceOptions.length > 1)
 
   const modeLabel = isTmdbRoute ? 'TMDB 播放模式' : 'CMS 直连模式'
   const collapsibleContentClassName =
-    'overflow-hidden border-t border-border/45 p-3 md:p-4 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=open]:fade-in-0 data-[state=closed]:fade-out-0 data-[state=open]:slide-in-from-top-1 data-[state=closed]:slide-out-to-top-1 data-[state=open]:duration-300 data-[state=closed]:duration-200'
+    'overflow-hidden border-t border-border/45 p-3 md:p-4'
 
   const getPanelClassName = (panel: 'source' | 'season' | 'episode') =>
     cn(
@@ -1442,15 +1546,18 @@ export default function UnifiedPlayer() {
     )
 
   useEffect(() => {
-    if (isCmsRoute && activeRightPanel !== 'episode') {
-      setActiveRightPanel('episode')
+    // CMS 模式：当无多源时锁定选集；有多源时允许换源面板
+    if (isCmsRoute) {
+      if (!hasSourcePanel && activeRightPanel !== 'episode') {
+        setActiveRightPanel('episode')
+      }
       return
     }
 
     if (!hasSeasonPanel && activeRightPanel === 'season') {
       setActiveRightPanel('episode')
     }
-  }, [activeRightPanel, hasSeasonPanel, isCmsRoute])
+  }, [activeRightPanel, hasSeasonPanel, hasSourcePanel, isCmsRoute])
 
   const { shouldShowLoading, primaryError } = derivePlayerViewState({
     hasDetail: Boolean(detail),
@@ -1667,7 +1774,7 @@ export default function UnifiedPlayer() {
         </div>
 
         <aside className="min-w-0 xl:sticky xl:top-20 xl:h-[clamp(240px,56vw,74vh)] xl:min-h-[220px] xl:pr-1">
-          {isCmsRoute ? (
+          {(isCmsRoute && !hasSourcePanel) ? (
             <section className="space-y-3 rounded-lg border border-border/60 bg-card/55 p-3 md:p-4 xl:h-full xl:min-h-0">
               <div className="flex items-center justify-between">
                 <h2 className="text-sm font-semibold">选集</h2>

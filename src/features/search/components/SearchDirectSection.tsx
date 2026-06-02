@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { useDirectSearch } from '../hooks/useDirectSearch'
 import { SearchResultsGrid } from './SearchResultsGrid'
 import { useInfiniteScroll } from '@/shared/hooks/useInfiniteScroll'
@@ -9,30 +9,32 @@ interface SearchDirectSectionProps {
 
 export function SearchDirectSection({ query }: SearchDirectSectionProps) {
   const [currentPage, setCurrentPage] = useState(1)
+  const lastQueryRef = useRef('')
 
   const {
     directResults,
+    aggregatedResults,
     directLoading,
-    searchProgress,
     hasMore,
     isCurrentPageComplete,
     canLoadMore,
-    cmsPagination,
-    successfulSourcesInCurrentPage,
     startDirectSearch,
     abortDirectSearch,
     clearDirectSearchState,
   } = useDirectSearch()
 
-  // 监听 query 变化触发搜索
+  // 监听 query 变化触发搜索，避免返回时重复搜索
   useEffect(() => {
     if (!query) {
       setCurrentPage(1)
       abortDirectSearch()
       clearDirectSearchState()
+      lastQueryRef.current = ''
       return
     }
 
+    if (query === lastQueryRef.current) return
+    lastQueryRef.current = query
     setCurrentPage(1)
     startDirectSearch(query, 1)
   }, [query, startDirectSearch, abortDirectSearch, clearDirectSearchState])
@@ -62,12 +64,10 @@ export function SearchDirectSection({ query }: SearchDirectSectionProps) {
         <SearchResultsGrid
           mode="direct"
           directResults={directResults}
+          aggregatedDirectResults={aggregatedResults}
           loading={directLoading}
-          searchProgress={searchProgress}
-          successfulSources={successfulSourcesInCurrentPage}
-          totalResults={cmsPagination.totalResults}
+          totalResults={aggregatedResults.length}
           hasMore={hasMore}
-          isCurrentPageComplete={isCurrentPageComplete}
           sentinelRef={sentinelRef}
         />
       </section>

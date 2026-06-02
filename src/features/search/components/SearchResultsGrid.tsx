@@ -1,5 +1,6 @@
 import type { TmdbMediaItem } from '@/shared/types/tmdb'
 import type { VideoItem } from '@ouonnki/cms-core'
+import { type AggregatedVideoItem, storeCmsSources } from '../hooks/directSearch.utils'
 import { MediaPosterCard } from '@/shared/components/common/MediaPosterCard'
 import { NoResultIcon } from '@/shared/components/icons'
 import { Skeleton } from '@/shared/components/ui/skeleton'
@@ -7,7 +8,6 @@ import { cn } from '@/shared/lib/utils'
 import { AspectRatio } from '@/shared/components/ui/aspect-ratio'
 import type { SearchMode } from './SearchModeToggle'
 import { getSourceColorScheme } from '@/shared/lib/source-colors'
-import { SourceStatusBadge } from './SourceStatusBadge'
 import { getPosterUrl } from '@/shared/lib/tmdb'
 import { buildCmsPlayPath, buildTmdbDetailPath } from '@/shared/lib/routes'
 
@@ -16,22 +16,18 @@ interface SearchResultsGridProps {
   mode: SearchMode
   /** TMDB 搜索结果 */
   tmdbResults?: TmdbMediaItem[]
-  /** 直连搜索结果 */
+  /** 直连搜索结果（原始） */
   directResults?: VideoItem[]
+  /** 直连搜索聚合结果 */
+  aggregatedDirectResults?: AggregatedVideoItem[]
   /** 是否加载中 */
   loading: boolean
-  /** 直连搜索进度（已完成的源数量/总源数量） */
-  searchProgress?: { completed: number; total: number }
-  /** 成功返回结果的源 ID 集合 */
-  successfulSources?: Set<string>
-  /** 总结果数量（来自 API 分页信息） */
+  /** 总结果数量 */
   totalResults?: number
   /** 是否正在搜索新查询（用于显示骨架屏） */
   isSearchingNewQuery?: boolean
   /** 是否还有更多内容 */
   hasMore?: boolean
-  /** 当前页是否已完成（仅 Direct 模式） */
-  isCurrentPageComplete?: boolean
   /** 哨兵元素引用（用于滚动加载） */
   sentinelRef?: React.RefObject<HTMLDivElement | null>
   className?: string
@@ -77,13 +73,11 @@ export function SearchResultsGrid({
   mode,
   tmdbResults = [],
   directResults = [],
+  aggregatedDirectResults = [],
   loading,
-  searchProgress,
-  successfulSources,
   totalResults,
   isSearchingNewQuery,
   hasMore = false,
-  isCurrentPageComplete = true,
   sentinelRef,
   className,
 }: SearchResultsGridProps) {
@@ -158,31 +152,19 @@ export function SearchResultsGrid({
     )
   }
 
-  // Direct 模式：无分页，显示所有累积结果
-  const results = directResults
+  // Direct 模式：显示聚合后的结果
+  const results = aggregatedDirectResults
   const hasResults = results.length > 0
 
   return (
     <div className={cn('space-y-6', className)}>
-      {/* 结果统计 + 源状态 */}
-      <div className="flex items-center justify-between gap-4">
-        {/* 左侧：结果统计 */}
-        {hasResults && (
-          <div className="text-muted-foreground text-sm">
-            共找到 <span className="text-primary font-medium">{results.length}</span> 个结果
-          </div>
-        )}
-        {/* 右侧：源状态徽章 */}
-        {searchProgress && (
-          <SourceStatusBadge
-            completed={searchProgress.completed}
-            total={searchProgress.total}
-            successfulSources={successfulSources}
-            resultsCount={results.length}
-            loading={loading}
-          />
-        )}
-      </div>
+      {/* 结果统计 */}
+      {hasResults && (
+        <div className="text-muted-foreground text-sm">
+          共聚合 <span className="text-primary font-medium">{results.length}</span> 个结果
+          ，来自 <span className="text-primary font-medium">{directResults.length}</span> 条原始数据
+        </div>
+      )}
 
       {/* 内容区域 */}
       <div>
@@ -194,32 +176,36 @@ export function SearchResultsGrid({
           </div>
         ) : hasResults ? (
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 2xl:grid-cols-8">
-            {results.map(item => {
-              if (!item.source_code || !item.vod_id) {
-                return null
-              }
+            {results.map((item, index) => {
+              const { bestSource, sourceCount, sources } = item
+              if (!bestSource.source_code || !bestSource.vod_id) return null
 
-              // 根据源代码生成配色方案
-              const colorScheme = item.source_code
-                ? getSourceColorScheme(item.source_code)
-                : undefined
+              const colorScheme = getSourceColorScheme(bestSource.source_code)
+              const sourceLabel = sourceCount > 1
+                ? `${bestSource.source_name} +${sourceCount - 1}`
+                : bestSource.source_name
+
+              const playSources = sources
+                .filter(s => s.source_code && s.vod_id)
+                .map(s => ({
+                  sourceCode: s.source_code!,
+                  vodId: s.vod_id!,
+                  sourceName: s.source_name || '',
+                }))
+
+              // 存入内存 store，播放器按标题取
+              storeCmsSources(bestSource.vod_name, playSources)
 
               return (
-                <div key={`${item.source_code}-${item.vod_id}`}>
+                <div key={bestSource.source_code + '-' + bestSource.vod_id + '-' + index}>
                   <MediaPosterCard
-                    to={buildCmsPlayPath(item.source_code, item.vod_id)}
-                    posterUrl={item.vod_pic || null}
-                    title={item.vod_name}
-                    year={item.vod_year}
-                    topRightLabel={item.source_name}
+                    to={buildCmsPlayPath(bestSource.source_code, bestSource.vod_id)}
+                    posterUrl={bestSource.vod_pic || null}
+                    title={bestSource.vod_name}
+                    year={bestSource.vod_year}
+                    topRightLabel={sourceLabel}
                     topRightLabelColorScheme={colorScheme}
-                    rating={
-                      item.vod_douban_score !== undefined
-                        ? typeof item.vod_douban_score === 'number'
-                          ? item.vod_douban_score
-                          : parseFloat(item.vod_douban_score)
-                        : undefined
-                    }
+                    rating={item.vod_douban_score}
                   />
                 </div>
               )
@@ -234,23 +220,14 @@ export function SearchResultsGrid({
       {hasResults && (
         <div ref={sentinelRef} className="py-8 flex justify-center">
           {!hasMore ? (
-            <div className="text-muted-foreground text-sm">
-              已加载全部内容
-            </div>
-          ) : loading && isCurrentPageComplete ? (
+            <div className="text-muted-foreground text-sm">已加载全部内容</div>
+          ) : loading ? (
             <div className="text-muted-foreground text-sm flex items-center gap-2">
               <div className="animate-spin h-4 w-4 border-2 border-primary border-t-transparent rounded-full" />
               加载下一页...
             </div>
-          ) : !isCurrentPageComplete ? (
-            <div className="text-muted-foreground text-sm flex items-center gap-2">
-              <div className="animate-spin h-4 w-4 border-2 border-primary border-t-transparent rounded-full" />
-              等待更多源返回结果...
-            </div>
           ) : (
-            <div className="text-muted-foreground text-sm">
-              下滑加载更多
-            </div>
+            <div className="text-muted-foreground text-sm">下滑加载更多</div>
           )}
         </div>
       )}

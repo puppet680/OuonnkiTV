@@ -149,17 +149,11 @@ export type TmdbRichDetail = (TmdbMovieDetail | TmdbTvDetail) & {
   similar?: DetailRecommendationBlock
   keywords?: DetailKeywordsBlock
   images?: DetailImagesBlock
-  translations?: {
-    translations: Array<{
+  alternative_titles?: {
+    titles: Array<{
       iso_3166_1: string
-      iso_639_1: string
-      name: string
-      english_name: string
-      data: {
-        title?: string
-        overview?: string
-        homepage?: string
-      }
+      title: string
+      type: string
     }>
   }
   release_dates?: {

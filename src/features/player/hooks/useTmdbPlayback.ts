@@ -69,10 +69,10 @@ export function useTmdbPlayback({
   const alternativeTitles = useMemo(() => {
     if (!detail) return []
     return extractTranslationTitles(
-      richDetail?.translations,
+      richDetail?.alternative_titles,
       [detail.title, detail.originalTitle],
     ).map(entry => entry.title)
-  }, [detail, richDetail?.translations])
+  }, [detail, richDetail?.alternative_titles])
 
   const playlist = usePlaylistMatches({
     active: shouldEnableTmdbPlayback && Boolean(detail),

@@ -36,6 +36,7 @@ interface SettingsConfig {
     isScrollChromeAnimationEnabled?: boolean
     tmdbLanguage?: string
     tmdbImageQuality?: 'low' | 'medium' | 'high'
+    tmdbRegion?: 'international' | 'mainland'
   }
 }
 

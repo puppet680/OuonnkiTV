@@ -1,4 +1,3 @@
-import { t2s } from 'chinese-s2t'
 import { getCountryChineseName } from '@/shared/constants/countries'
 import type { TmdbMediaItem, TmdbMediaType } from '@/shared/types/tmdb'
 import type {
@@ -228,25 +227,22 @@ export const mapTvTypeLabel = (typeValue: string | undefined) => {
   return mapping[typeValue] || typeValue
 }
 
-/** 只保留这三个地区的译名：中国大陆、台湾、香港 */
-const ALLOWED_COUNTRY_CODES = new Set(['CN', 'TW', 'HK'])
-
 export interface TranslationTitleEntry {
   countryCode: string
   countryName: string
-  languageName: string
   title: string
 }
 
 /**
- * 从 TMDB translations 中提取各地译名
- * 过滤掉与已有标题重复的条目，并按国名排序
+ * 从 TMDB alternative_titles 中提取中国大陆别名
+ * CN 返回的 title 已是简体中文，无需繁简转换
+ * 过滤掉与已有标题重复的条目
  */
 export function extractTranslationTitles(
-  translations: TmdbRichDetail['translations'] | undefined,
+  alternativeTitles: TmdbRichDetail['alternative_titles'] | undefined,
   existingTitles: string[],
 ): TranslationTitleEntry[] {
-  if (!translations?.translations) return []
+  if (!alternativeTitles?.titles?.length) return []
 
   const normalizedExisting = new Set(
     existingTitles.map(t => t.trim().toLowerCase().replace(/\s+/g, ' ')),
@@ -254,34 +250,21 @@ export function extractTranslationTitles(
 
   const entries: TranslationTitleEntry[] = []
 
-  for (const t of translations.translations) {
-    const title = t.data?.title?.trim()
+  for (const t of alternativeTitles.titles) {
+    if (t.iso_3166_1 !== 'CN') continue
+
+    const title = t.title?.trim()
     if (!title) continue
 
     const normalized = title.toLowerCase().replace(/\s+/g, ' ')
     if (normalizedExisting.has(normalized)) continue
 
-    if (!ALLOWED_COUNTRY_CODES.has(t.iso_3166_1)) continue
-
-    const countryName = getCountryChineseName(t.iso_3166_1, t.name, t.english_name)
-    const simplifiedTitle = t2s(title)
-
     entries.push({
-      countryCode: t.iso_3166_1,
-      countryName,
-      languageName: t.name || t.english_name || t.iso_639_1,
-      title: simplifiedTitle,
+      countryCode: 'CN',
+      countryName: t.type || '中国大陆',
+      title,
     })
   }
-
-  // 排序：台湾 > 香港 > 大陆 > 其他
-  const order: Record<string, number> = { TW: 0, HK: 1, CN: 2 }
-  entries.sort((a, b) => {
-    const aOrder = order[a.countryCode] ?? 3
-    const bOrder = order[b.countryCode] ?? 3
-    if (aOrder !== bOrder) return aOrder - bOrder
-    return a.countryName.localeCompare(b.countryName, 'zh-Hans-CN')
-  })
 
   return entries
 }
