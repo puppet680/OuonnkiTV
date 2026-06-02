@@ -230,9 +230,24 @@ function SubscriptionCard({ subscription }: { subscription: VideoSourceSubscript
           <button
             type="button"
             className="max-w-xs cursor-pointer truncate underline-offset-2 hover:underline"
-            onClick={() => {
-              navigator.clipboard.writeText(subscription.url)
-              toast.success('已复制订阅 URL')
+            onClick={async () => {
+              try {
+                if (navigator.clipboard) {
+                  await navigator.clipboard.writeText(subscription.url)
+                } else {
+                  const ta = document.createElement('textarea')
+                  ta.value = subscription.url
+                  ta.style.position = 'fixed'
+                  ta.style.opacity = '0'
+                  document.body.appendChild(ta)
+                  ta.select()
+                  document.execCommand('copy')
+                  document.body.removeChild(ta)
+                }
+                toast.success('已复制订阅 URL')
+              } catch {
+                toast.error('复制失败，请手动复制')
+              }
             }}
             title="点击复制"
           >
