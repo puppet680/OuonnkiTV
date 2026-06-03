@@ -193,11 +193,6 @@ const scoreItem = (
     if (extra > 8) s -= 8
   }
 
-  // 7. 译名有值但完全未命中 → 不相关影片，直接过滤
-  if ((alternativeTitles || []).length > 0 && altMiss) {
-    return -1
-  }
-
   return Math.max(0, Math.min(100, s))
 }
 

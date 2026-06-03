@@ -58,13 +58,6 @@ export function useTmdbPlayback({
   )
 
   const richDetail = detail as TmdbRichDetail | null
-  const seasons = useMemo(
-    () =>
-      mediaType === 'tv'
-        ? (richDetail?.seasons || []).filter(season => season.season_number > 0)
-        : [],
-    [mediaType, richDetail?.seasons],
-  )
 
   const alternativeTitles = useMemo(() => {
     if (!detail) return []
@@ -73,6 +66,14 @@ export function useTmdbPlayback({
       [detail.title, detail.originalTitle],
     ).map(entry => entry.title)
   }, [detail, richDetail?.alternative_titles])
+
+  const seasons = useMemo(
+    () =>
+      mediaType === 'tv'
+        ? (richDetail?.seasons || []).filter(season => season.season_number > 0)
+        : [],
+    [mediaType, richDetail?.seasons],
+  )
 
   const playlist = usePlaylistMatches({
     active: shouldEnableTmdbPlayback && Boolean(detail),

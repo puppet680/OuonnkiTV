@@ -150,7 +150,12 @@ export type TmdbRichDetail = (TmdbMovieDetail | TmdbTvDetail) & {
   keywords?: DetailKeywordsBlock
   images?: DetailImagesBlock
   alternative_titles?: {
-    titles: Array<{
+    results?: Array<{
+      iso_3166_1: string
+      title: string
+      type: string
+    }>
+    titles?: Array<{
       iso_3166_1: string
       title: string
       type: string

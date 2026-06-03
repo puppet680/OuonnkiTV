@@ -3,6 +3,7 @@ import type { TmdbMediaItem, TmdbMediaType } from '@/shared/types/tmdb'
 import type {
   DetailImage,
   DetailRecommendationRaw,
+  DetailSeason,
   DetailSpokenLanguage,
   TmdbRichDetail,
 } from './types'
@@ -242,22 +243,29 @@ export function extractTranslationTitles(
   alternativeTitles: TmdbRichDetail['alternative_titles'] | undefined,
   existingTitles: string[],
 ): TranslationTitleEntry[] {
-  if (!alternativeTitles?.titles?.length) return []
+  // TV shows 返回 results，movies 返回 titles
+  const titles = alternativeTitles?.results ?? alternativeTitles?.titles
+  if (!titles?.length) return []
 
-  const normalizedExisting = new Set(
-    existingTitles.map(t => t.trim().toLowerCase().replace(/\s+/g, ' ')),
-  )
+  const normalize = (s: string) =>
+    s.trim().toLowerCase()
+      .replace(/\s+/g, ' ')
+      .replace(/！/g, '!')
+      .replace(/？/g, '?')
+      .replace(/（/g, '(')
+      .replace(/）/g, ')')
+
+  const normalizedExisting = new Set(existingTitles.map(normalize))
 
   const entries: TranslationTitleEntry[] = []
 
-  for (const t of alternativeTitles.titles) {
+  for (const t of titles) {
     if (t.iso_3166_1 !== 'CN') continue
 
     const title = t.title?.trim()
     if (!title) continue
 
-    const normalized = title.toLowerCase().replace(/\s+/g, ' ')
-    if (normalizedExisting.has(normalized)) continue
+    if (normalizedExisting.has(normalize(title))) continue
 
     entries.push({
       countryCode: 'CN',
@@ -267,4 +275,105 @@ export function extractTranslationTitles(
   }
 
   return entries
+}
+
+const CN_NUMBER_MAP: Record<string, number> = {
+  零: 0, 〇: 0, 一: 1, 二: 2, 两: 2, 三: 3,
+  四: 4, 五: 5, 六: 6, 七: 7, 八: 8, 九: 9,
+}
+
+const parseChineseNumber = (value: string): number | null => {
+  const normalized = value.replace(/\s+/g, '')
+  if (!normalized) return null
+
+  if (normalized === '十') return 10
+
+  if (normalized.includes('十')) {
+    const [left, right] = normalized.split('十')
+    const tens = left ? CN_NUMBER_MAP[left] : 1
+    const units = right ? CN_NUMBER_MAP[right] || 0 : 0
+    if (Number.isFinite(tens)) return tens * 10 + units
+  }
+
+  if (normalized.length === 1 && normalized in CN_NUMBER_MAP) {
+    return CN_NUMBER_MAP[normalized]
+  }
+
+  return null
+}
+
+/**
+ * 从单个别名标题中提取季数信息
+ * 支持："咒术回战 第二季"、"咒术回战 第3季"、"Season 2"、"S2" 等
+ */
+export function extractSeasonFromTitle(title: string): number | null {
+  const text = title.trim()
+  if (!text) return null
+
+  // 匹配中文：第 X 季/部/篇
+  const cnMatch = text.match(/第\s*([0-9一二两三四五六七八九十〇零]{1,3})\s*[季部篇]/)
+  if (cnMatch) {
+    const cnValue = cnMatch[1]
+    if (/^\d+$/.test(cnValue)) {
+      const num = Number.parseInt(cnValue, 10)
+      if (num > 0 && num < 100) return num
+    } else {
+      const num = parseChineseNumber(cnValue)
+      if (num && num > 0 && num < 100) return num
+    }
+  }
+
+  // 匹配英文：Season X 或 SX
+  const enMatch = text.match(/\bS(?:eason)?\s*(\d{1,2})\b/i)
+  if (enMatch) {
+    const num = Number.parseInt(enMatch[1], 10)
+    if (num > 0 && num < 100) return num
+  }
+
+  // 匹配中文数字 + 季
+  const suffixMatch = text.match(/[第\s]?([0-9一二两三四五六七八九十]{1,3})\s*季\b/)
+  if (suffixMatch) {
+    const val = suffixMatch[1]
+    if (/^\d+$/.test(val)) {
+      const num = Number.parseInt(val, 10)
+      if (num > 0 && num < 100) return num
+    } else {
+      const num = parseChineseNumber(val)
+      if (num && num > 0 && num < 100) return num
+    }
+  }
+
+  return null
+}
+
+/**
+ * 从别名标题中推断额外的季数，扩充 seasons 列表
+ * 用于 TMDB 只有 1 季但译名标注了多个季数的情况
+ */
+export function augmentSeasonsFromTitles(
+  seasons: DetailSeason[],
+  titles: string[],
+): DetailSeason[] {
+  if (!titles.length) return seasons
+
+  const existingSeasonNumbers = new Set(seasons.map(s => s.season_number))
+  const result = [...seasons]
+
+  for (const title of titles) {
+    const seasonNumber = extractSeasonFromTitle(title)
+    if (seasonNumber && !existingSeasonNumbers.has(seasonNumber)) {
+      existingSeasonNumbers.add(seasonNumber)
+      result.push({
+        id: -seasonNumber,
+        season_number: seasonNumber,
+        name: `第 ${seasonNumber} 季`,
+        episode_count: 0,
+        overview: '',
+        air_date: undefined,
+        poster_path: null,
+      })
+    }
+  }
+
+  return result
 }
