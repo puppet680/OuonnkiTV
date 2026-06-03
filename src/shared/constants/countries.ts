@@ -5,9 +5,20 @@
 // 移动端优先展示的常用国家（6个）
 export const POPULAR_COUNTRIES_MOBILE = ['CN', 'US', 'JP', 'KR', 'HK', 'TW']
 
+// 主流影视国家白名单，偏门地区不展示
+export const MAJOR_COUNTRIES = [
+  'CN', 'US', 'JP', 'KR', 'HK', 'TW', 'MO',
+  'GB', 'FR', 'DE', 'IT', 'ES', 'RU',
+  'IN', 'CA', 'AU', 'NZ',
+  'TH', 'SG', 'MY', 'PH', 'ID', 'VN',
+  'BR', 'MX', 'AR', 'CO',
+  'SE', 'DK', 'NO', 'NL', 'FI', 'PL', 'TR',
+  'ZA', 'AE', 'SA',
+]
+
 // 国家中文名称映射
 export const COUNTRY_CHINESE_NAMES: Readonly<Record<string, string>> = {
-  CN: '中国大陆',
+  CN: '大陆',
   US: '美国',
   JP: '日本',
   KR: '韩国',

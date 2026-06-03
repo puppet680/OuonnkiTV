@@ -16,6 +16,22 @@ import {
 import { useSettingStore } from '@/shared/store/settingStore'
 import { normalizeProxyPrefix } from '@/shared/config/api.config'
 
+// 成人内容过滤：根据关键词名单过滤 CMS 视频
+export function filterAdult(items: VideoItem[]): VideoItem[] {
+  const { isAdultFilterEnabled, cmsFilterKeywords } = useSettingStore.getState().system
+  if (!isAdultFilterEnabled) return items
+  // 环境变量优先，解决 localStorage 缓存旧值的问题
+  const rawKeywords: string = import.meta.env.OKI_CMS_FILTER_KEYWORDS || cmsFilterKeywords
+  const keywords = rawKeywords.split(',').map((k: string) => k.trim()).filter(Boolean)
+  if (keywords.length === 0) return items
+  return items.filter(item => {
+    const haystack = [item.vod_name, item.vod_remarks, item.type_name, item.vod_content, item.vod_sub]
+      .filter(Boolean)
+      .join(' ')
+    return !keywords.some(kw => haystack.includes(kw))
+  })
+}
+
 let globalClient: CmsClient | null = null
 let globalNetworkKey: string | null = null
 
@@ -114,7 +130,7 @@ export function useAggregatedSearch(config?: CmsClientConfig): UseAggregatedSear
     const unsubResult = client.on('search:result', (event: SearchResultEvent) => {
       setState(prev => ({
         ...prev,
-        results: [...prev.results, ...event.items],
+        results: [...prev.results, ...filterAdult(event.items)],
       }))
     })
 
@@ -344,7 +360,7 @@ export function useCmsVideoList(source: VideoSource | null, config?: CmsClientCo
         if (cancelled) return
 
         if (result.success) {
-          setState({ items: result.items, loading: false, error: null })
+          setState({ items: filterAdult(result.items), loading: false, error: null })
         } else {
           setState({ items: [], loading: false, error: result.error || '获取列表失败' })
         }

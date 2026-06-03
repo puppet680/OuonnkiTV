@@ -4,5 +4,6 @@
 export {
   COUNTRY_CHINESE_NAMES,
   POPULAR_COUNTRIES_MOBILE,
+  MAJOR_COUNTRIES,
   getCountryChineseName,
 } from '@/shared/constants/countries'

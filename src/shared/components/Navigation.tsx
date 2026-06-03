@@ -3,7 +3,8 @@ import { OkiLogo } from '@/shared/components/icons'
 import { SidebarTrigger } from '@/shared/components/ui/sidebar'
 import { NavLink, useLocation } from 'react-router'
 import { useState } from 'react'
-import { Moon, Sun, Laptop } from 'lucide-react'
+import { Moon, Sun, Laptop, Menu } from 'lucide-react'
+import { useIsMobile } from '@/shared/hooks/use-mobile'
 import { motion, AnimatePresence } from 'framer-motion'
 
 import { Button } from '@/shared/components/ui/button'
@@ -18,6 +19,7 @@ interface NavigationProps {
 
 export default function Navigation({ hidden = false, enableScrollAnimation = false }: NavigationProps) {
   const { mode } = useThemeState()
+  const isMobile = useIsMobile()
   const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false)
   const location = useLocation()
 
@@ -38,7 +40,7 @@ export default function Navigation({ hidden = false, enableScrollAnimation = fal
         className={cn(
           'flex w-full justify-center',
           enableScrollAnimation
-            ? 'transform-gpu will-change-[transform,opacity] transition-[opacity,transform] duration-220 ease-out motion-reduce:transition-none'
+            ? 'transition-[opacity,transform] duration-220 ease-out motion-reduce:transition-none'
             : 'transition-none',
           hidden ? 'pointer-events-none -translate-y-2 opacity-0' : 'translate-y-0 opacity-100',
         )}
@@ -61,7 +63,13 @@ export default function Navigation({ hidden = false, enableScrollAnimation = fal
                 : '',
             )}
           >
-            <SidebarTrigger />
+            {isMobile ? (
+              <NavLink to="/settings" className="flex items-center justify-center size-8">
+                <Menu className="size-5" />
+              </NavLink>
+            ) : (
+              <SidebarTrigger />
+            )}
             <NavLink to="/" className="flex items-center">
               <div className="flex items-end">
                 <div>
@@ -84,7 +92,7 @@ export default function Navigation({ hidden = false, enableScrollAnimation = fal
                   initial={{ opacity: 0, scale: 0.9 }}
                   animate={{ opacity: 1, scale: 1 }}
                   exit={{ opacity: 0, scale: 0.9, transition: { duration: 0.2 } }}
-                  transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+                  transition={{ type: 'spring', stiffness: 200, damping: 25 }}
                   className="flex flex-auto items-center"
                 >
                   <SearchBox onMobileSearchChange={setIsMobileSearchOpen} />

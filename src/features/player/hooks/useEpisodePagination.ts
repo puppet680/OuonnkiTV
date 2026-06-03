@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import throttle from 'lodash/throttle'
 
 const parseRangeValue = (value: string) => {
   const [startText, endText] = value.split('-')
@@ -38,26 +39,30 @@ export function useEpisodePagination({
   const [currentPageRange, setCurrentPageRange] = useState('')
   const [episodesPerPage, setEpisodesPerPage] = useState(100)
 
-  useEffect(() => {
-    const calculateEpisodesPerPage = () => {
-      const width = window.innerWidth
-      if (width >= 1280) {
-        setEpisodesPerPage(12)
-      } else if (width >= 1024) {
-        setEpisodesPerPage(10)
-      } else if (width >= 768) {
-        setEpisodesPerPage(12)
-      } else if (width >= 640) {
-        setEpisodesPerPage(10)
-      } else {
-        setEpisodesPerPage(8)
-      }
+  const calculateEpisodesPerPage = useCallback(() => {
+    const width = window.innerWidth
+    if (width >= 1280) {
+      setEpisodesPerPage(12)
+    } else if (width >= 1024) {
+      setEpisodesPerPage(10)
+    } else if (width >= 768) {
+      setEpisodesPerPage(12)
+    } else if (width >= 640) {
+      setEpisodesPerPage(10)
+    } else {
+      setEpisodesPerPage(8)
     }
-
-    calculateEpisodesPerPage()
-    window.addEventListener('resize', calculateEpisodesPerPage)
-    return () => window.removeEventListener('resize', calculateEpisodesPerPage)
   }, [])
+
+  useEffect(() => {
+    calculateEpisodesPerPage()
+    const throttledResize = throttle(calculateEpisodesPerPage, 200)
+    window.addEventListener('resize', throttledResize, { passive: true })
+    return () => {
+      throttledResize.cancel()
+      window.removeEventListener('resize', throttledResize)
+    }
+  }, [calculateEpisodesPerPage])
 
   const pageRanges = useMemo<EpisodePageRange[]>(() => {
     const totalEpisodes = episodes.length

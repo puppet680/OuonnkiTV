@@ -42,3 +42,5 @@ lighthouse-*.json
 lighthouse-*.html
 parse-report*.cjs
 .lighthouse/
+
+*llms.txt

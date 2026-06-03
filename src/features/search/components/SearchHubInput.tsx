@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react'
+import { useState, useRef, useEffect, useCallback, memo } from 'react'
 import { Search, X, History, Trash2 } from 'lucide-react'
 import { Input } from '@/shared/components/ui/input'
 import { Button } from '@/shared/components/ui/button'
@@ -18,7 +18,7 @@ interface SearchHubInputProps {
   className?: string
 }
 
-export function SearchHubInput({
+export const SearchHubInput = memo(function SearchHubInput({
   initialQuery,
   onSearch,
   onClear,
@@ -230,4 +230,4 @@ export function SearchHubInput({
       </Popover>
     </div>
   )
-}
+})

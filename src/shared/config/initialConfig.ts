@@ -37,6 +37,10 @@ interface SettingsConfig {
     tmdbLanguage?: string
     tmdbImageQuality?: 'low' | 'medium' | 'high'
     tmdbRegion?: 'international' | 'mainland'
+    varietyNetworks?: string
+    isAdultFilterEnabled?: boolean
+    cmsFilterKeywords?: string
+    isPwaInstallDismissed?: boolean
   }
 }
 

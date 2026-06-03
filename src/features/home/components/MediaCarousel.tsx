@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { MediaPosterCard } from '@/shared/components/common'
 import {
@@ -14,7 +15,9 @@ import { useEffect, useState } from 'react'
 import { useIsMobile } from '@/shared/hooks/use-mobile'
 import { getPosterUrl } from '@/shared/lib/tmdb'
 import type { TmdbMediaItem } from '@/shared/types/tmdb'
-import { buildTmdbDetailPath } from '@/shared/lib/routes'
+import { buildTmdbDetailPath, buildTmdbPlayPath } from '@/shared/lib/routes'
+import { useFavoritesStore } from '@/features/favorites/store/favoritesStore'
+import { useNavigate } from 'react-router'
 
 interface MediaCarouselProps {
   /** 板块标题 */
@@ -64,9 +67,11 @@ function MediaCarouselSkeleton({ title }: { title: string }) {
  * MediaCarousel - 媒体轮播组件
  * 展示电影或剧集列表，支持轮播浏览，使用竖向海报卡片
  */
-export function MediaCarousel({ title, items, loading = false, linkTo }: MediaCarouselProps) {
+export const MediaCarousel = memo(function MediaCarousel({ title, items, loading = false, linkTo }: MediaCarouselProps) {
   const isMobile = useIsMobile()
   const isTablet = !isMobile && typeof window !== 'undefined' && window.innerWidth < 1024
+  const favoritesStore = useFavoritesStore()
+  const navigate = useNavigate()
   // 根据屏幕尺寸计算可见卡片数量
   const visibleCount = isMobile ? 3 : isTablet ? 4 : 6
   // 每次滚动的卡片数量
@@ -124,14 +129,19 @@ export function MediaCarousel({ title, items, loading = false, linkTo }: MediaCa
       <div className="pt-2">
         <Carousel opts={{ watchDrag: canDrag, slidesToScroll }} setApi={setCarouselApi}>
           <CarouselContent>
-            {items.map(item => (
-              <CarouselItem key={item.id} className="h-fit basis-1/3 md:basis-1/4 lg:basis-1/6">
+            {items.map((item, idx) => (
+              <CarouselItem key={`${item.mediaType}-${item.id}-${idx}`} className="h-fit basis-1/3 md:basis-1/4 lg:basis-1/6">
                 <MediaPosterCard
                   to={buildTmdbDetailPath(item.mediaType, item.id)}
                   posterUrl={getPosterUrl(item.posterPath, 'w342')}
                   title={item.title}
                   year={item.releaseDate ? item.releaseDate.split('-')[0] : undefined}
                   rating={item.voteAverage}
+                  overview={item.overview}
+                  onToggleFavorite={() => favoritesStore.toggleTmdbFavorite(item)}
+                  isFavorited={favoritesStore.isTmdbFavorited(item.id, item.mediaType)}
+                  onPlayNow={() => navigate(buildTmdbPlayPath(item.mediaType, item.id))}
+                  onViewDetail={() => navigate(buildTmdbDetailPath(item.mediaType, item.id))}
                 />
               </CarouselItem>
             ))}
@@ -163,4 +173,4 @@ export function MediaCarousel({ title, items, loading = false, linkTo }: MediaCa
       </div>
     </div>
   )
-}
+})

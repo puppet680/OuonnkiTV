@@ -98,19 +98,19 @@ export function useTmdbDiscover() {
  * 区域发现 Hook — 按用户偏好（欧美/大陆）获取首页数据
  */
 export function useTmdbRegionalDiscover() {
-  const region = useSettingStore(s => s.system.tmdbRegion)
-  const cache = useTmdbStore(s => s.regionCache[region])
+  const cache = useTmdbStore(s => s.regionCache['default'])
   const loading = useTmdbStore(s => s.regionalLoading)
   const fetchRegionalDiscover = useTmdbStore(s => s.fetchRegionalDiscover)
 
   useEffect(() => {
     fetchRegionalDiscover()
-  }, [fetchRegionalDiscover, region])
+  }, [fetchRegionalDiscover])
 
   return {
     tvShows: cache?.regionalTvShows ?? [],
     movies: cache?.regionalMovies ?? [],
     animated: cache?.regionalAnimated ?? [],
+    variety: cache?.regionalVariety ?? [],
     featured: cache?.regionalFeatured ?? [],
     nowPlaying: cache?.regionalNowPlaying ?? [],
     popularMovies: cache?.regionalPopularMovies ?? [],
@@ -362,7 +362,7 @@ export function useTmdbDetail<T extends TmdbMovieDetail | TmdbTvDetail>(
     try {
       // 1. 核心数据类型定义
       const coreAppendMovie: AppendToResponseMovieKey[] = ['credits', 'images', 'external_ids', 'release_dates'];
-      const coreAppendTv: AppendToResponseTvKey[] = ['credits', 'images', 'external_ids', 'content_ratings'];
+      const coreAppendTv: AppendToResponseTvKey[] = ['aggregate_credits', 'images', 'external_ids', 'content_ratings'];
 
       // 2. 次要数据类型定义
       const secondaryAppendMovie: AppendToResponseMovieKey[] = [

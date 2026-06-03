@@ -45,6 +45,10 @@ interface SystemSettings {
   tmdbLanguage: string
   tmdbImageQuality: 'low' | 'medium' | 'high'
   tmdbRegion: 'international' | 'mainland'
+  varietyNetworks: string
+  isAdultFilterEnabled: boolean
+  cmsFilterKeywords: string
+  isPwaInstallDismissed: boolean
 }
 
 interface SettingState {
@@ -122,7 +126,7 @@ export const useSettingStore = create<SettingStore>()(
       })),
       {
         name: 'ouonnki-tv-setting-store',
-        version: 14,
+        version: 17,
         migrate: (persistedState: unknown, version: number) => {
           const state = persistedState as Record<string, unknown>
           if (version < 2 && state.playback) {
@@ -207,6 +211,22 @@ export const useSettingStore = create<SettingStore>()(
           if (version < 14) {
             const system = (state.system ?? {}) as Record<string, unknown>
             system.tmdbRegion ??= DEFAULT_SETTINGS.system.tmdbRegion
+            state.system = system
+          }
+          if (version < 15) {
+            const system = (state.system ?? {}) as Record<string, unknown>
+            system.varietyNetworks ??= DEFAULT_SETTINGS.system.varietyNetworks
+            state.system = system
+          }
+          if (version < 16) {
+            const system = (state.system ?? {}) as Record<string, unknown>
+            system.isAdultFilterEnabled ??= DEFAULT_SETTINGS.system.isAdultFilterEnabled
+            system.cmsFilterKeywords ??= DEFAULT_SETTINGS.system.cmsFilterKeywords
+            state.system = system
+          }
+          if (version < 17) {
+            const system = (state.system ?? {}) as Record<string, unknown>
+            system.isPwaInstallDismissed ??= DEFAULT_SETTINGS.system.isPwaInstallDismissed
             state.system = system
           }
           return state

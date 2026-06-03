@@ -52,8 +52,8 @@ export default defineConfig({
         runtimeCaching: [
           // 同源请求（不含静态资源、m3u8、ts）— Network First，离线兜底
           {
-            urlPattern: ({ sameOrigin, url }) =>
-              sameOrigin && !/\.(?:js|css|html|woff2|ico|png|svg|webmanifest|json|m3u8|ts)(?:\?.*)?$/i.test(url.pathname),
+            urlPattern: ({ sameOrigin, url, request }) =>
+              sameOrigin && request.mode !== 'navigate' && !/\.(?:js|css|html|woff2|ico|png|svg|webmanifest|json|m3u8|ts)(?:\?.*)?$/i.test(url.pathname),
             handler: 'NetworkFirst',
             options: {
               cacheName: 'same-origin-api',
@@ -140,6 +140,27 @@ export default defineConfig({
           // UI 与动效
           if (id.includes('/framer-motion/')) return 'motion-vendor'
           if (id.includes('/@radix-ui/')) return 'radix-vendor'
+
+          // 搜索与文本匹配（仅在搜索引导页/播放列表匹配时加载）
+          if (id.includes('/fuse.js/')) return 'fuse-vendor'
+
+          // 拖拽排序（仅在设置页视频源排序时加载）
+          if (id.includes('/@dnd-kit/')) return 'dnd-kit-vendor'
+
+          // 轮播（首页轮播，独立缓存）
+          if (id.includes('/embla-carousel/')) return 'embla-vendor'
+
+          // 底部抽屉组件
+          if (id.includes('/vaul/')) return 'vaul-vendor'
+
+          // 图标库（多个页面共享，独立缓存）
+          if (id.includes('/lucide-react/')) return 'icon-vendor'
+
+          // 主题与元库
+          if (id.includes('/next-themes/')) return 'ui-vendor'
+
+          // Vercel 分析和速度检测
+          if (id.includes('/@vercel/')) return 'analytic-vendor'
 
           // 其他常用库
           if (id.includes('/zustand/')) return 'state-vendor'

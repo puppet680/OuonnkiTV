@@ -14,7 +14,7 @@ interface DetailStatePanelProps {
   mode: 'error' | 'empty'
   title: string
   description: string
-  tag: string
+  tag?: string
   primaryAction?: DetailStateAction
   secondaryAction?: DetailStateAction
   compact?: boolean
@@ -67,7 +67,7 @@ export function DetailStatePanel({
       )}
 
       <div className="space-y-2">
-        <p className="text-muted-foreground/70 text-[11px] tracking-[0.12em] uppercase">{tag}</p>
+        {tag && <p className="text-muted-foreground/70 text-[11px] tracking-[0.12em] uppercase">{tag}</p>}
         <h2 className={cn('text-foreground/88 font-medium', compact ? 'text-sm' : 'text-[15px] md:text-base')}>
           {title}
         </h2>

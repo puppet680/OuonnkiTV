@@ -37,10 +37,14 @@ export function buildSearchUrl(
   baseUrl: string,
   query: string,
   page: number = 1,
-  apiConfig: ApiPathConfig = DEFAULT_API_CONFIG
+  apiConfig: ApiPathConfig = DEFAULT_API_CONFIG,
+  area?: string,
+  classParams?: string[],
 ): string {
   const pageParam = page > 1 ? `&pg=${page}` : ''
-  return buildApiUrl(baseUrl, apiConfig.search.path, encodeURIComponent(query) + pageParam)
+  const areaParam = area ? `&area=${encodeURIComponent(area)}` : ''
+  const classParam = classParams?.length ? classParams.map(c => `&class=${encodeURIComponent(c)}`).join('') : ''
+  return buildApiUrl(baseUrl, apiConfig.search.path, encodeURIComponent(query) + pageParam + areaParam + classParam)
 }
 
 /**

@@ -46,6 +46,7 @@ interface TmdbState {
       regionalTvShows: TmdbMediaItem[]
       regionalMovies: TmdbMediaItem[]
       regionalAnimated: TmdbMediaItem[]
+      regionalVariety: TmdbMediaItem[]
       regionalFeatured: TmdbMediaItem[]
       regionalNowPlaying: TmdbMediaItem[]
       regionalPopularMovies: TmdbMediaItem[]
@@ -56,6 +57,7 @@ interface TmdbState {
     }
   >
   regionalLoading: boolean
+  cachedNetworks: string | null
 
   // 推荐
   recommendations: TmdbMediaItem[]
@@ -94,6 +96,7 @@ interface TmdbState {
 interface TmdbActions {
   // 搜索
   search: (query: string, page?: number) => Promise<void>
+  findById: (id: number) => Promise<void>
 
   // 发现/浏览（无搜索词时使用 Discover API）
   fetchDiscover: (page?: number) => Promise<void>
@@ -155,6 +158,7 @@ export const useTmdbStore = create<TmdbState & TmdbActions>()(
 
         regionCache: {},
         regionalLoading: false,
+        cachedNetworks: null,
 
         recommendations: [],
         recommendationSourceId: null,
@@ -246,7 +250,7 @@ export const useTmdbStore = create<TmdbState & TmdbActions>()(
               query,
               page,
               language: getTmdbLanguage(),
-              include_adult: false,
+              include_adult: !useSettingStore.getState().system.isAdultFilterEnabled,
             })
 
             const results: TmdbMediaItem[] = res.results
@@ -254,6 +258,16 @@ export const useTmdbStore = create<TmdbState & TmdbActions>()(
               .map(item =>
                 normalizeToMediaItem(item as unknown as Record<string, unknown>, item.media_type),
               )
+              .filter(item => {
+                const { isAdultFilterEnabled, cmsFilterKeywords } = useSettingStore.getState().system
+                if (!isAdultFilterEnabled) return true
+                const keywords = (import.meta.env.OKI_CMS_FILTER_KEYWORDS || cmsFilterKeywords)
+                  .split(',').map((k: string) => k.trim()).filter(Boolean)
+                if (keywords.length === 0) return true
+                const haystack = [item.title, item.originalTitle, item.overview]
+                  .filter(Boolean).join(' ')
+                return !keywords.some((kw: string) => haystack.includes(kw))
+              })
 
             if (requestId !== latestSearchRequestId) {
               return
@@ -294,6 +308,50 @@ export const useTmdbStore = create<TmdbState & TmdbActions>()(
           }
         },
 
+        findById: async (id: number) => {
+          const requestId = ++latestSearchRequestId
+          const client = getTmdbClient()
+          const language = getTmdbLanguage()
+          set(state => {
+            state.searchQuery = String(id)
+            state.loading.search = true
+            state.error = null
+          })
+
+          try {
+            const results = await Promise.allSettled([
+              client.movies.details(id, [], language),
+              client.tvShows.details(id, [], language),
+            ])
+
+            const items: TmdbMediaItem[] = []
+            for (const r of results) {
+              if (r.status === 'fulfilled' && r.value) {
+                const raw = r.value as Record<string, unknown>
+                items.push(normalizeToMediaItem(raw, 'title' in raw ? 'movie' : 'tv'))
+              }
+            }
+
+            if (requestId !== latestSearchRequestId) return
+
+            set(state => {
+              state.searchResults = items
+              state.searchPagination = { page: 1, totalPages: 1, totalResults: items.length }
+              state.loading.search = false
+              if (items.length === 0) state.error = '未找到该 ID 对应的内容'
+            })
+
+            get()._updateAvailableYears()
+            get()._applyFilters()
+          } catch (err: unknown) {
+            if (requestId !== latestSearchRequestId) return
+            set(state => {
+              state.error = (err as Error).message || 'ID search failed'
+              state.loading.search = false
+            })
+          }
+        },
+
         fetchDiscover: async (page = 1) => {
           const client = getTmdbClient()
           const { filterOptions } = get()
@@ -306,6 +364,9 @@ export const useTmdbStore = create<TmdbState & TmdbActions>()(
           try {
             // 根据 mediaType 决定调用哪个 discover 接口
             const mediaType = filterOptions.mediaType === 'tv' ? 'tv' : 'movie'
+            const networks = useSettingStore.getState().system.varietyNetworks
+            const networkIds = networks.split('|').filter(Boolean)
+            const hasChineseNetwork = networkIds.includes('1330') || networkIds.includes('2007')
 
             // 构建 discover 请求参数
             const sortByMap: Record<string, string> = {
@@ -354,15 +415,22 @@ export const useTmdbStore = create<TmdbState & TmdbActions>()(
             let totalPages = 0
             let totalResults = 0
 
+            // 中国平台偏好 → 电影加中文筛选
+            const movieParams = { ...discoverParams }
+            if (hasChineseNetwork) {
+              movieParams.with_original_language = 'zh'
+            }
+
             // 如果是 'all' 类型，同时获取电影和剧集
             if (filterOptions.mediaType === 'all' || !filterOptions.mediaType) {
               const [movieRes, tvRes] = await Promise.all([
-                client.discover.movie(discoverParams),
+                client.discover.movie(movieParams),
                 client.discover.tvShow({
                   ...discoverParams,
                   // TV 的年份参数不同
                   first_air_date_year: filterOptions.releaseYear,
                   primary_release_year: undefined,
+                  with_networks: networks,
                 }),
               ])
 
@@ -381,8 +449,8 @@ export const useTmdbStore = create<TmdbState & TmdbActions>()(
               // 单一类型
               const res =
                 mediaType === 'movie'
-                  ? await client.discover.movie(discoverParams)
-                  : await client.discover.tvShow(discoverParams)
+                  ? await client.discover.movie(movieParams)
+                  : await client.discover.tvShow({ ...discoverParams, with_networks: networks })
 
               allResults = res.results.map((i: unknown) =>
                 normalizeToMediaItem(i as Record<string, unknown>, mediaType),
@@ -647,191 +715,127 @@ export const useTmdbStore = create<TmdbState & TmdbActions>()(
           }
         },
 
-        // 区域发现：按用户偏好（欧美/大陆）获取首页数据，缓存两份不重复请求
+        // 发现页数据：按用户偏好平台获取，不区分区域
         fetchRegionalDiscover: async () => {
-          const region = useSettingStore.getState().system.tmdbRegion
-          const { regionCache } = get()
-          if (regionCache[region]) return
+          const { regionCache, cachedNetworks } = get()
+          const networks = useSettingStore.getState().system.varietyNetworks
+          if (regionCache.default && cachedNetworks === networks) return
           const client = getTmdbClient()
           set(s => { s.regionalLoading = true })
 
           try {
             const tmdbLang = getTmdbLanguage() as string
-            const langParams = {
-              language: tmdbLang,
-              'vote_count.gte': 100,
+            const networkIds = networks.split('|').filter(Boolean)
+            const hasWestern = networkIds.includes('213') || networkIds.includes('2552')
+            const hasChinese = networkIds.includes('1330') || networkIds.includes('2007')
+
+            // 电影/动漫按平台分组查询后合并
+            const movieCalls: Promise<{ results: unknown[] }>[] = []
+            const animeCalls: Promise<{ results: unknown[] }>[] = []
+            if (hasWestern) {
+              movieCalls.push(
+                client.discover.movie({
+                  language: tmdbLang, sort_by: 'vote_average.desc',
+                  with_watch_providers: '8|350',
+                  'vote_count.gte': 200,
+                }),
+              )
+              animeCalls.push(
+                client.discover.movie({
+                  language: tmdbLang, sort_by: 'popularity.desc',
+                  with_genres: '16', with_watch_providers: '8|350',
+                  'vote_count.gte': 30,
+                }),
+              )
+            }
+            if (hasChinese) {
+              movieCalls.push(
+                client.discover.movie({
+                  language: tmdbLang, sort_by: 'vote_average.desc',
+                  with_original_language: 'zh',
+                  'vote_count.gte': 30,
+                }),
+              )
+              animeCalls.push(
+                client.discover.movie({
+                  language: tmdbLang, sort_by: 'popularity.desc',
+                  with_genres: '16', with_original_language: 'zh',
+                  'vote_count.gte': 20,
+                }),
+              )
             }
 
-            if (region === 'international') {
-              // 欧美：Netflix + 多维度榜单
-              const [
-                tvRes, movieRes, animatedRes,
-                popularMovieRes, topRatedMovieRes, upcomingRes,
-                popularTvRes, topRatedTvRes,
-              ] = await Promise.all([
-                // 热门剧集 — Netflix
-                client.discover.tvShow({
-                  ...langParams,
-                  sort_by: 'popularity.desc',
-                  with_networks: '213',
+            const mCount = movieCalls.length
+            const [tvRes, varietyRes, ...rest] = await Promise.all([
+              client.discover.tvShow({
+                language: tmdbLang, sort_by: 'popularity.desc',
+                with_networks: networks, 'vote_count.gte': 50,
+              }),
+              client.discover.tvShow({
+                language: tmdbLang, sort_by: 'popularity.desc',
+                with_networks: networks, with_genres: '10764', 'vote_count.gte': 5,
+              }),
+              ...movieCalls,
+              ...animeCalls,
+            ])
+
+            const movieResults = rest.slice(0, mCount).flatMap(r => r.results)
+            const animeResults = rest.slice(mCount).flatMap(r => r.results)
+
+            const normMovie = (i: unknown) => normalizeToMediaItem(i as Record<string, unknown>, 'movie')
+            const normTv = (i: unknown) => normalizeToMediaItem(i as Record<string, unknown>, 'tv')
+
+            const movieItems = movieResults.map(normMovie)
+            // 从动漫列表中排除已出现在电影列表中的条目，避免动画电影跨区重复
+            const movieKeySet = new Set(movieItems.map(i => `${i.mediaType}-${i.id}`))
+            const animeItems = animeResults
+              .map(normMovie)
+              .filter(i => !movieKeySet.has(`${i.mediaType}-${i.id}`))
+            const tvItems = tvRes.results.map(normTv)
+            const varietyItems = varietyRes.results.map(normTv)
+            const featured = [...new Map(
+                [...tvItems, ...movieItems, ...animeItems].map(i => [i.id + i.mediaType, i])
+              ).values()]
+              .sort((a, b) => b.popularity - a.popularity)
+              .slice(0, 10)
+
+            // 批量拉取 logo，TMDB discover 不返回 logo_path
+            try {
+              const logoResults = await Promise.allSettled(
+                featured.map(async item => {
+                  const res =
+                    item.mediaType === 'movie'
+                      ? await client.movies.images(item.id)
+                      : await client.tvShows.images(item.id)
+                  const logos: { file_path: string }[] = (res as unknown as Record<string, unknown>).logos as { file_path: string }[] ?? []
+                  return { id: item.id, mediaType: item.mediaType, logoPath: logos[0]?.file_path ?? null }
                 }),
-                // 热门电影 — Netflix US
-                client.discover.movie({
-                  ...langParams,
-                  sort_by: 'popularity.desc',
-                  with_watch_providers: '8',
-                  watch_region: 'US',
-                }),
-                // 动画 — Netflix 平台
-                client.discover.movie({
-                  ...langParams,
-                  sort_by: 'popularity.desc',
-                  with_genres: '16',
-                  with_watch_providers: '8',
-                  watch_region: 'US',
-                  'vote_count.gte': 50,
-                }),
-                // 最受欢迎 — 全球票房
-                client.discover.movie({
-                  ...langParams,
-                  sort_by: 'revenue.desc',
-                  'vote_count.gte': 200,
-                }),
-                // 口碑最佳 — 全球高分
-                client.discover.movie({
-                  ...langParams,
-                  sort_by: 'vote_average.desc',
-                  'vote_count.gte': 500,
-                }),
-                // 即将上映 — 全球期待
-                client.discover.movie({
-                  ...langParams,
-                  sort_by: 'popularity.desc',
-                  'primary_release_date.gte': new Date().toISOString().slice(0, 10),
-                  'vote_count.gte': 10,
-                }),
-                // 最受欢迎剧集 — Netflix 高热度
-                client.discover.tvShow({
-                  ...langParams,
-                  sort_by: 'popularity.desc',
-                  with_networks: '213',
-                  'vote_count.gte': 100,
-                }),
-                // 口碑最佳剧集 — Netflix 高分
-                client.discover.tvShow({
-                  ...langParams,
-                  sort_by: 'vote_average.desc',
-                  with_networks: '213',
-                  'vote_count.gte': 100,
-                }),
-              ])
-              const normMovie = (i: unknown) => normalizeToMediaItem(i as Record<string, unknown>, 'movie')
-              const normTv = (i: unknown) => normalizeToMediaItem(i as Record<string, unknown>, 'tv')
-              const featured = [...tvRes.results.map(normTv), ...movieRes.results.map(normMovie)]
-                .sort((a, b) => b.popularity - a.popularity)
-                .slice(0, 20)
-              set(s => {
-                s.regionCache.international = {
-                  regionalTvShows: tvRes.results.map(normTv),
-                  regionalMovies: movieRes.results.map(normMovie),
-                  regionalAnimated: animatedRes.results.map(normMovie),
-                  regionalFeatured: featured,
-                  regionalNowPlaying: movieRes.results.map(normMovie),
-                  regionalPopularMovies: popularMovieRes.results.map(normMovie),
-                  regionalTopRatedMovies: topRatedMovieRes.results.map(normMovie),
-                  regionalUpcoming: upcomingRes.results.map(normMovie),
-                  regionalPopularTv: popularTvRes.results.map(normTv),
-                  regionalTopRatedTv: topRatedTvRes.results.map(normTv),
+              )
+              for (const r of logoResults) {
+                if (r.status === 'fulfilled' && r.value.logoPath) {
+                  const item = featured.find(i => i.id === r.value.id && i.mediaType === r.value.mediaType)
+                  if (item) item.logoPath = r.value.logoPath
                 }
-                s.regionalLoading = false
-              })
-            } else {
-              // 大陆：爱奇艺+腾讯+国语电影，外加中文区域榜单
-              const [
-                tvRes, movieRes, animatedRes,
-                popularMovieRes, topRatedMovieRes, upcomingRes,
-                popularTvRes, topRatedTvRes,
-              ] = await Promise.all([
-                // 平台热门剧集 — 爱奇艺+腾讯
-                client.discover.tvShow({
-                  ...langParams,
-                  sort_by: 'popularity.desc',
-                  with_networks: '1330|2007',
-                  'vote_count.gte': 20,
-                }),
-                // 热门电影 — 国语电影
-                client.discover.movie({
-                  ...langParams,
-                  sort_by: 'popularity.desc',
-                  with_original_language: 'zh',
-                  'vote_count.gte': 50,
-                }),
-                // 动画电影 — 国语动画
-                client.discover.movie({
-                  ...langParams,
-                  sort_by: 'popularity.desc',
-                  with_genres: '16',
-                  with_original_language: 'zh',
-                  'vote_count.gte': 20,
-                }),
-                // 最受欢迎 — 国语电影按票房
-                client.discover.movie({
-                  ...langParams,
-                  sort_by: 'revenue.desc',
-                  with_original_language: 'zh',
-                  'vote_count.gte': 50,
-                }),
-                // 口碑最佳 — 国语电影按评分
-                client.discover.movie({
-                  ...langParams,
-                  sort_by: 'vote_average.desc',
-                  with_original_language: 'zh',
-                  'vote_count.gte': 200,
-                }),
-                // 即将上映 — 国语电影未上映
-                client.discover.movie({
-                  ...langParams,
-                  sort_by: 'popularity.desc',
-                  with_original_language: 'zh',
-                  'primary_release_date.gte': new Date().toISOString().slice(0, 10),
-                  'vote_count.gte': 5,
-                }),
-                // 最受欢迎的中文剧集
-                client.discover.tvShow({
-                  ...langParams,
-                  sort_by: 'popularity.desc',
-                  with_original_language: 'zh',
-                  'vote_count.gte': 50,
-                }),
-                // 口碑最佳的中文剧集
-                client.discover.tvShow({
-                  ...langParams,
-                  sort_by: 'vote_average.desc',
-                  with_original_language: 'zh',
-                  'vote_count.gte': 50,
-                }),
-              ])
-              const normMovie = (i: unknown) => normalizeToMediaItem(i as Record<string, unknown>, 'movie')
-              const normTv = (i: unknown) => normalizeToMediaItem(i as Record<string, unknown>, 'tv')
-              const featured = [...tvRes.results.map(normTv), ...movieRes.results.map(normMovie)]
-                .sort((a, b) => b.popularity - a.popularity)
-                .slice(0, 20)
-              set(s => {
-                s.regionCache.mainland = {
-                  regionalTvShows: tvRes.results.map(normTv),
-                  regionalMovies: movieRes.results.map(normMovie),
-                  regionalAnimated: animatedRes.results.map(normMovie),
-                  regionalFeatured: featured,
-                  regionalNowPlaying: movieRes.results.map(normMovie),
-                  regionalPopularMovies: popularMovieRes.results.map(normMovie),
-                  regionalTopRatedMovies: topRatedMovieRes.results.map(normMovie),
-                  regionalUpcoming: upcomingRes.results.map(normMovie),
-                  regionalPopularTv: popularTvRes.results.map(normTv),
-                  regionalTopRatedTv: topRatedTvRes.results.map(normTv),
-                }
-                s.regionalLoading = false
-              })
-            }
+              }
+            } catch { /* logo 拉取失败不影响主流程 */ }
+
+            set(s => {
+              s.regionCache.default = {
+                regionalTvShows: tvItems,
+                regionalMovies: movieItems,
+                regionalAnimated: animeItems,
+                regionalVariety: varietyItems,
+                regionalFeatured: featured,
+                regionalNowPlaying: [], // ponytail: 首页未使用，留空避免与 movies 重复
+                regionalPopularMovies: [],
+                regionalTopRatedMovies: [],
+                regionalUpcoming: [],
+                regionalPopularTv: [],
+                regionalTopRatedTv: [],
+              }
+              s.cachedNetworks = networks
+              s.regionalLoading = false
+            })
           } catch (err) {
             console.error('Regional discover failed:', err)
             set(s => {

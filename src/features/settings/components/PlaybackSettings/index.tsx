@@ -82,7 +82,7 @@ export default function PlaybackSettings() {
         />
         <SettingsItem
           title="跳过切片广告"
-          description="尝试检测并跳过 #EXT-X-DISCONTINUITY 标记的广告片段。"
+          description="跳过 #EXT-X-DISCONTINUITY 标记 + 关键词 + 密钥路径，多重检测自动移除广告片段。"
           controlClassName="self-end mt-1"
           control={
             <Switch

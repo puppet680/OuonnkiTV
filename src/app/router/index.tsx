@@ -1,10 +1,13 @@
 import { lazy, Suspense } from 'react'
 import { createBrowserRouter, RouterProvider, Navigate } from 'react-router'
 import { OkiLogo } from '@/shared/components/icons'
+import ErrorBoundary from '@/shared/components/ErrorBoundary'
+import UpdateModal from '@/shared/components/UpdateModal'
+import PwaInstallPrompt from '@/shared/components/PwaInstallPrompt'
 
 // Layouts
 import MainLayout from '@/app/layouts/MainLayout'
-import SettingsLayout from '@/app/layouts/SettingsLayout'
+const SettingsLayout = lazy(() => import('@/app/layouts/SettingsLayout'))
 
 // Auth
 const AuthGuard = lazy(() => import('@/shared/components/AuthGuard'))
@@ -15,6 +18,8 @@ const SearchHubView = lazy(() => import('@/features/search/views/SearchHubView')
 const FavoritesView = lazy(() => import('@/features/favorites/views/FavoritesView'))
 const HistoryView = lazy(() => import('@/features/history/views/HistoryView'))
 const TmdbDetailView = lazy(() => import('@/features/media/views/TmdbDetailView'))
+const GuideView = lazy(() => import('@/features/guide/views/GuideView'))
+const BangumiView = lazy(() => import('@/features/bangumi/views/BangumiView'))
 
 // Settings sub-routes
 const SourceSettings = lazy(() => import('@/features/settings/views/SourceSettings'))
@@ -54,7 +59,16 @@ const SuspenseWrapper = ({ children }: { children: React.ReactNode }) => (
 )
 
 const router = createBrowserRouter([
-  // A. 核心布局路由 (带顶部导航)
+  // A. 引导页 (独立布局，无导航栏)
+  {
+    path: '/guide',
+    element: (
+      <SuspenseWrapper>
+        <GuideView />
+      </SuspenseWrapper>
+    ),
+  },
+  // B. 核心布局路由 (带顶部导航)
   {
     path: '/',
     element: <MainLayout />,
@@ -92,6 +106,14 @@ const router = createBrowserRouter([
         ),
       },
       {
+        path: 'bangumi',
+        element: (
+          <SuspenseWrapper>
+            <BangumiView />
+          </SuspenseWrapper>
+        ),
+      },
+      {
         path: 'continue-watching',
         element: (
           <SuspenseWrapper>
@@ -125,7 +147,11 @@ const router = createBrowserRouter([
       },
       {
         path: 'settings',
-        element: <SettingsLayout />,
+        element: (
+          <SuspenseWrapper>
+            <SettingsLayout />
+          </SuspenseWrapper>
+        ),
         children: [
           { index: true, element: <Navigate to="source" replace /> },
           {
@@ -180,10 +206,14 @@ const router = createBrowserRouter([
  */
 export default function AppRouter() {
   return (
-    <Suspense fallback={<LoadingFallback />}>
-      <AuthGuard>
-        <RouterProvider router={router} />
-      </AuthGuard>
-    </Suspense>
+    <ErrorBoundary>
+      <Suspense fallback={<LoadingFallback />}>
+        <AuthGuard>
+          <RouterProvider router={router} />
+          <UpdateModal />
+          <PwaInstallPrompt />
+        </AuthGuard>
+      </Suspense>
+    </ErrorBoundary>
   )
 }

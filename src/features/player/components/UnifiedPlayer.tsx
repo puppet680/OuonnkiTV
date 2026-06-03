@@ -1,12 +1,12 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from 'react'
 import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router'
 import { createPortal } from 'react-dom'
 import Artplayer from 'artplayer'
 import type Hls from 'hls.js'
 import type { HlsConfig } from 'hls.js'
-import { ChevronDown, X } from 'lucide-react'
+import { ChevronDown, Camera, PictureInPicture2, Maximize, ExternalLink, Globe, Heart, HeartOff } from 'lucide-react'
 import { type DetailResult, type VideoItem as CmsVideoItem } from '@ouonnki/cms-core'
-import { createM3u8Processor, createHlsLoaderClass } from '@ouonnki/cms-core/m3u8'
+import { createM3u8Processor, createKeyPathFilter, createHlsLoaderClass } from '@ouonnki/cms-core/m3u8'
 import { Button } from '@/shared/components/ui/button'
 import {
   Collapsible,
@@ -17,6 +17,7 @@ import { ScrollArea } from '@/shared/components/ui/scroll-area'
 import { Spinner } from '@/shared/components/ui/spinner'
 import { useApiStore } from '@/shared/store/apiStore'
 import { useViewingHistoryStore } from '@/shared/store/viewingHistoryStore'
+import { useGlobalContextMenuStore } from '@/shared/store/contextMenuStore'
 import { useSettingStore } from '@/shared/store/settingStore'
 import { useDocumentTitle, useCmsClient } from '@/shared/hooks'
 import { useTmdbEnabled } from '@/shared/hooks/useTmdbMode'
@@ -31,13 +32,15 @@ import type { ViewingHistoryItem } from '@/shared/types'
 import type { VideoItem } from '@/shared/types/video'
 import { useTmdbRecommendations } from '@/shared/hooks/useTmdb'
 import { toast } from 'sonner'
-import _ from 'lodash'
+import throttle from 'lodash/throttle'
 import {
+  CmsEpisodePanel,
   PlayerEpisodePanel,
   PlayerErrorState,
   PlayerHeroSection,
   PlayerInfoAndRecommendations,
   PlayerLoadingSkeleton,
+  PlayerOverlayNotices,
 } from '@/features/player/components'
 import { useEpisodePagination, useMobilePlayerGestures, useTmdbPlayback } from '@/features/player/hooks'
 import {
@@ -70,7 +73,10 @@ interface PlayerTransientNotice {
   progress: number
 }
 
-const m3u8Processor = createM3u8Processor({ filterAds: true })
+const m3u8Processor = createM3u8Processor({
+  filterAds: true,
+  customFilters: [createKeyPathFilter()],
+})
 type HlsConstructor = typeof import('hls.js')['default']
 const BETTER_SOURCE_NOTICE_DURATION = 8000
 
@@ -211,6 +217,7 @@ export default function UnifiedPlayer() {
     mediaType: tmdbMediaType,
     tmdbId: parsedTmdbId,
     querySourceCode,
+    queryVodId,
     querySeasonNumber,
   })
 
@@ -238,6 +245,8 @@ export default function UnifiedPlayer() {
   const gestureVolumeTimerRef = useRef<number | null>(null)
   const autoSwitchTimerRef = useRef<number | null>(null)
   const autoSwitchPendingRef = useRef(false)
+  const slowLoadTimerRef = useRef<number | null>(null)
+const stallTimerRef = useRef<number | null>(null)
 
   useEffect(() => {
     detailRef.current = detail
@@ -540,8 +549,39 @@ export default function UnifiedPlayer() {
       } catch (fetchError) {
         if (!canCommit()) return
         console.error('获取视频详情失败:', fetchError)
+
+        // TMDB 路由源失效 → 清除 query 参数重新搜索
+        if (isTmdbRoute && tmdbMediaType) {
+          tmdbSelectionLockRef.current = null
+          navigate(
+            buildTmdbPlayPath(tmdbMediaType, parsedTmdbId, {
+              episodeIndex: selectedEpisode,
+              seasonNumber: tmdbPlayback.selectedSeasonNumber || undefined,
+            }),
+            { replace: true },
+          )
+          return
+        }
+
+        // CMS 路由 → 尝试切换到下一个源
+        if (isCmsRoute) {
+          const sources = getCmsSources('')
+          const curIdx = sources.findIndex(s => s.sourceCode === resolvedSourceCode)
+          const nextSource = curIdx >= 0 && curIdx + 1 < sources.length
+            ? sources[curIdx + 1]
+            : (curIdx > 0 ? sources[0] : null)
+          if (nextSource && nextSource.sourceCode !== resolvedSourceCode) {
+            navigate(
+              buildCmsPlayPath(nextSource.sourceCode, resolvedVodId, selectedEpisode),
+              { replace: true },
+            )
+            return
+          }
+        }
+
+        const msg = fetchError instanceof Error ? fetchError.message : '获取视频详情失败'
         setDetail(null)
-        setError(fetchError instanceof Error ? fetchError.message : '获取视频详情失败')
+        setError(msg)
       } finally {
         if (canCommit()) {
           setLoading(false)
@@ -724,13 +764,32 @@ export default function UnifiedPlayer() {
       }
     }
 
+    // 自动换源：从当前源切换到下一个可用源
+    const tryAutoSwitch = (notice: string) => {
+      if (autoSwitchPendingRef.current) return
+      if (!isTmdbRoute && !isCmsRoute) return
+
+      const curIdx = sourceOptions.findIndex(o => o.sourceCode === resolvedSourceCode)
+      const nextOption = curIdx >= 0 && curIdx + 1 < sourceOptions.length ? sourceOptions[curIdx + 1] : null
+      if (!nextOption) return
+
+      autoSwitchPendingRef.current = true
+      showPlayerNotice(notice, 3000)
+
+      autoSwitchTimerRef.current = window.setTimeout(() => {
+        autoSwitchPendingRef.current = false
+        handleSourceChange(nextOption.sourceCode)
+      }, 3000)
+    }
+
     const art = new Artplayer({
       container: containerRef.current,
       url: detail.episodes[selectedEpisode],
       volume: playbackRef.current.defaultVolume,
       isLive: false,
       muted: false,
-      autoplay: false,
+      autoplay: true,
+      poster: getBackdropUrl(tmdbPlayback.tmdbDetail?.backdropPath || null, 'w1280') || detail?.videoInfo?.cover || undefined,
       pip: playbackRef.current.isPipEnabled,
       autoSize: false,
       autoMini: false, // 内置 autoMini 监听 window.scroll，在 ScrollArea 布局下失效，改用手动实现
@@ -753,6 +812,7 @@ export default function UnifiedPlayer() {
       airplay: !isMobileDevice,
       theme: playbackRef.current.playerThemeColor,
       lang: 'zh-cn',
+      contextmenu: [], // 禁用 Artplayer 内置右键菜单，由全局右键菜单替代
       moreVideoAttr: {
         crossOrigin: 'anonymous',
       },
@@ -776,22 +836,10 @@ export default function UnifiedPlayer() {
                 hls.attachMedia(video)
                 artWithHls.hls = hls
 
-                const handleHlsError = (_event: string, data: { type: string; fatal: boolean }) => {
-                  if (!data.fatal) return
-                  if (autoSwitchPendingRef.current) return
-                  if (!isTmdbRoute && !isCmsRoute) return
-
-                  const curIdx = sourceOptions.findIndex(o => o.sourceCode === resolvedSourceCode)
-                  const nextOption = curIdx >= 0 && curIdx + 1 < sourceOptions.length ? sourceOptions[curIdx + 1] : null
-                  if (!nextOption) return
-
-                  autoSwitchPendingRef.current = true
-                  showPlayerNotice('当前源无法播放，3 秒后自动切换', 3000)
-
-                  autoSwitchTimerRef.current = window.setTimeout(() => {
-                    autoSwitchPendingRef.current = false
-                    handleSourceChange(nextOption.sourceCode)
-                  }, 3000)
+                const handleHlsError = (_event: string, data: { type: string; fatal: boolean; details?: string }) => {
+                  // 致命错误或 manifest 加载失败（含 403/网络错误）才换源
+                  if (!data.fatal && data.details !== 'manifestLoadError') return
+                  tryAutoSwitch('当前源无法播放，3 秒后自动切换')
                 }
                 // @ts-expect-error HLS.js 动态导入，事件名用字符串
                 hls.on('hlsError', handleHlsError)
@@ -805,17 +853,7 @@ export default function UnifiedPlayer() {
                 video.src = url
                 // 原生 HLS 播放错误处理：移动端 Safari/WebView 走此分支，需监听 video error 实现自动切换
                 const handleNativeError = () => {
-                  if (autoSwitchPendingRef.current) return
-                  if (!isTmdbRoute && !isCmsRoute) return
-                  const curIdx = sourceOptions.findIndex(o => o.sourceCode === resolvedSourceCode)
-                  const nextOption = curIdx >= 0 && curIdx + 1 < sourceOptions.length ? sourceOptions[curIdx + 1] : null
-                  if (!nextOption) return
-                  autoSwitchPendingRef.current = true
-                  showPlayerNotice('当前源无法播放，3 秒后自动切换', 3000)
-                  autoSwitchTimerRef.current = window.setTimeout(() => {
-                    autoSwitchPendingRef.current = false
-                    handleSourceChange(nextOption.sourceCode)
-                  }, 3000)
+                  tryAutoSwitch('当前源无法播放，3 秒后自动切换')
                 }
                 video.addEventListener('error', handleNativeError, { once: true })
                 art.on('destroy', () => video.removeEventListener('error', handleNativeError))
@@ -827,17 +865,7 @@ export default function UnifiedPlayer() {
               if (video.canPlayType('application/vnd.apple.mpegurl')) {
                 video.src = url
                 const handleNativeError = () => {
-                  if (autoSwitchPendingRef.current) return
-                  if (!isTmdbRoute && !isCmsRoute) return
-                  const curIdx = sourceOptions.findIndex(o => o.sourceCode === resolvedSourceCode)
-                  const nextOption = curIdx >= 0 && curIdx + 1 < sourceOptions.length ? sourceOptions[curIdx + 1] : null
-                  if (!nextOption) return
-                  autoSwitchPendingRef.current = true
-                  showPlayerNotice('当前源无法播放，3 秒后自动切换', 3000)
-                  autoSwitchTimerRef.current = window.setTimeout(() => {
-                    autoSwitchPendingRef.current = false
-                    handleSourceChange(nextOption.sourceCode)
-                  }, 3000)
+                  tryAutoSwitch('当前源无法播放，3 秒后自动切换')
                 }
                 video.addEventListener('error', handleNativeError, { once: true })
                 art.on('destroy', () => video.removeEventListener('error', handleNativeError))
@@ -852,6 +880,61 @@ export default function UnifiedPlayer() {
 
     playerRef.current = art
     setActiveArt(art)
+
+    // 慢加载自动换源：10 秒内既没开始播放也没加载到数据则切换
+    slowLoadTimerRef.current = window.setTimeout(() => {
+      tryAutoSwitch('当前源加载过慢，3 秒后自动切换')
+    }, 10000)
+
+    const clearStallTimer = () => {
+      if (stallTimerRef.current !== null) {
+        window.clearTimeout(stallTimerRef.current)
+        stallTimerRef.current = null
+      }
+    }
+
+    let hasStartedPlaying = false
+
+    const onFirstPlaying = () => {
+      if (slowLoadTimerRef.current !== null) {
+        window.clearTimeout(slowLoadTimerRef.current)
+        slowLoadTimerRef.current = null
+      }
+      hasStartedPlaying = true
+      art.off('video:playing', onFirstPlaying)
+      art.off('video:canplay', onCanPlay)
+    }
+    const onCanPlay = () => {
+      if (slowLoadTimerRef.current !== null) {
+        window.clearTimeout(slowLoadTimerRef.current)
+        slowLoadTimerRef.current = null
+      }
+      clearStallTimer()
+      art.off('video:playing', onFirstPlaying)
+      art.off('video:canplay', onCanPlay)
+    }
+    art.on('video:playing', onFirstPlaying)
+    art.on('video:canplay', onCanPlay)
+
+    // 播放中途卡顿检测：15 秒加载不上数据则自动换源
+    const onWaiting = () => {
+      if (!hasStartedPlaying || stallTimerRef.current !== null) return
+      stallTimerRef.current = window.setTimeout(() => {
+        tryAutoSwitch('当前源卡顿过久，3 秒后自动切换')
+      }, 15000)
+    }
+    const onPlaying = () => {
+      clearStallTimer()
+    }
+    art.on('video:waiting', onWaiting)
+    art.on('video:playing', onPlaying)
+    art.on('video:canplay', clearStallTimer)
+
+    // 禁用 Artplayer 内置右键菜单：捕获阶段拦截，阻止 Artplayer 内部 handler 执行
+    const suppressArtContextMenu = (e: Event) => {
+      e.stopImmediatePropagation()
+    }
+    art.template.$player.addEventListener('contextmenu', suppressArtContextMenu, true)
 
     const syncFullscreenMiniProgressBar = () => {
       const isFullscreenActive = art.fullscreen || art.fullscreenWeb
@@ -889,12 +972,36 @@ export default function UnifiedPlayer() {
       syncFullscreenMiniProgressBar()
     }
 
-    const handleControlViewportChange = _.throttle(() => {
+    const handleControlViewportChange = throttle(() => {
       syncMobileControlBar()
     }, 120)
 
-    art.on('fullscreen', syncMobileControlBar)
-    art.on('fullscreenWeb', syncMobileControlBar)
+    // 根据视频实际宽高比决定是否锁定横屏
+    const tryLockOrientationForVideo = () => {
+      if (!isMobileDevice || !art.video) return
+      const isLandscapeVideo = art.video.videoWidth > art.video.videoHeight
+      if (!isLandscapeVideo) return
+      try { void (screen.orientation as unknown as { lock?: (mode: string) => Promise<void> })?.lock?.('landscape') } catch {}
+    }
+    const tryUnlockOrientation = () => {
+      if (!isMobileDevice) return
+      try { void (screen.orientation as unknown as { unlock?: () => void })?.unlock?.() } catch {}
+    }
+
+    art.on('fullscreen', () => {
+      syncMobileControlBar()
+      tryLockOrientationForVideo()
+    })
+    art.on('fullscreenWeb', () => {
+      syncMobileControlBar()
+      tryLockOrientationForVideo()
+    })
+    art.on('resize', () => {
+      if (!(art.fullscreen || art.fullscreenWeb)) tryUnlockOrientation()
+    })
+    art.on('video:resize', () => {
+      if (art.fullscreen || art.fullscreenWeb) tryLockOrientationForVideo()
+    })
     window.addEventListener('resize', handleControlViewportChange, { passive: true })
     window.addEventListener('orientationchange', handleControlViewportChange)
 
@@ -980,19 +1087,7 @@ export default function UnifiedPlayer() {
     art.on('video:error', () => {
       addHistorySnapshot()
 
-      if ((!isTmdbRoute && !isCmsRoute) || autoSwitchPendingRef.current) return
-
-      const curIdx = sourceOptions.findIndex(o => o.sourceCode === resolvedSourceCode)
-      const nextOption = curIdx >= 0 && curIdx + 1 < sourceOptions.length ? sourceOptions[curIdx + 1] : null
-      if (!nextOption) return
-
-      autoSwitchPendingRef.current = true
-      showPlayerNotice('当前源无法播放，3 秒后自动切换', 3000)
-
-      autoSwitchTimerRef.current = window.setTimeout(() => {
-        autoSwitchPendingRef.current = false
-        handleSourceChange(nextOption.sourceCode)
-      }, 3000)
+      tryAutoSwitch('当前源无法播放，3 秒后自动切换')
     })
 
     let lastTimeUpdate = 0
@@ -1032,7 +1127,7 @@ export default function UnifiedPlayer() {
       }
     }
 
-    const throttledTimeUpdate = _.throttle(timeUpdateHandler, TIME_UPDATE_INTERVAL)
+    const throttledTimeUpdate = throttle(timeUpdateHandler, TIME_UPDATE_INTERVAL)
     art.on('video:timeupdate', throttledTimeUpdate)
 
     // 手动实现 autoMini：Artplayer 内置 autoMini 监听 window.scroll，
@@ -1070,12 +1165,12 @@ export default function UnifiedPlayer() {
           miniEl.style.top = `${rect.top}px`
           miniEl.style.left = `${rect.left}px`
         }
-        const handleViewportChange = _.throttle(() => {
+        const handleViewportChange = throttle(() => {
           if (!isMini) return
           requestAnimationFrame(applyMiniPosition)
         }, 120)
 
-        const checkVisibility = _.throttle(() => {
+        const checkVisibility = throttle(() => {
           if (!playerRef.current) return
 
           const scrollRect = scrollViewport.getBoundingClientRect()
@@ -1126,10 +1221,20 @@ export default function UnifiedPlayer() {
         autoSwitchTimerRef.current = null
       }
       autoSwitchPendingRef.current = false
+      if (slowLoadTimerRef.current !== null) {
+        window.clearTimeout(slowLoadTimerRef.current)
+        slowLoadTimerRef.current = null
+      }
+      if (stallTimerRef.current !== null) {
+        window.clearTimeout(stallTimerRef.current)
+        stallTimerRef.current = null
+      }
       window.removeEventListener('resize', handleControlViewportChange)
       window.removeEventListener('orientationchange', handleControlViewportChange)
       art.off('fullscreen', syncMobileControlBar)
       art.off('fullscreenWeb', syncMobileControlBar)
+      art.template.$player.removeEventListener('contextmenu', suppressArtContextMenu, true)
+      tryUnlockOrientation()
       if (playerRef.current && playerRef.current.destroy) {
         addHistorySnapshot()
         setActiveArt(current => (current === art ? null : current))
@@ -1184,6 +1289,8 @@ export default function UnifiedPlayer() {
             sourceName: s.sourceName,
             bestVodId: s.vodId,
             bestScore: 0,
+            bestLabel: s.sourceName,
+            alternatives: [],
           }))
       }
     }
@@ -1197,6 +1304,8 @@ export default function UnifiedPlayer() {
         sourceName,
         bestVodId: resolvedVodId,
         bestScore: 0,
+        bestLabel: sourceName,
+        alternatives: [],
       },
     ]
   }, [
@@ -1214,6 +1323,7 @@ export default function UnifiedPlayer() {
 
   // CMS 直连模式：后台搜索标题匹配更多源
   const cmsMatchFiredRef = useRef(false)
+  const [, startCmsMatchTransition] = useTransition()
   useEffect(() => {
     if (!isCmsRoute || !detail?.videoInfo?.title || !resolvedSourceCode || !resolvedVodId) return
     if (cmsMatchFiredRef.current) return
@@ -1237,8 +1347,10 @@ export default function UnifiedPlayer() {
           }))
         if (matched.length > 0) {
           storeCmsSources(title, matched)
-          setCmsMatchedSources(matched)
-          showPlayerNotice(`已匹配到 ${matched.length} 个额外源`)
+          startCmsMatchTransition(() => {
+            setCmsMatchedSources(matched)
+            showPlayerNotice(`已匹配到 ${matched.length} 个额外源`)
+          })
         }
       })
       .catch(err => {
@@ -1248,7 +1360,7 @@ export default function UnifiedPlayer() {
       })
 
     return () => controller.abort()
-  }, [isCmsRoute, detail?.videoInfo?.title, resolvedSourceCode, resolvedVodId, cmsClient, showPlayerNotice])
+  }, [isCmsRoute, detail?.videoInfo?.title, resolvedSourceCode, resolvedVodId, cmsClient, showPlayerNotice, startCmsMatchTransition])
 
   const handleSourceChange = useCallback(
     (sourceCode: string) => {
@@ -1286,6 +1398,40 @@ export default function UnifiedPlayer() {
       tmdbPlayback.selectedSeasonNumber,
       tmdbPlayback.sourceOptions,
       sourceOptions,
+    ],
+  )
+
+  const handleLanguageChange = useCallback(
+    (vodId: string, label: string) => {
+      pendingSeekRef.current = playerRef.current?.currentTime || null
+
+      if (isTmdbRoute && tmdbMediaType) {
+        const nextPath = buildTmdbPlayPath(tmdbMediaType, parsedTmdbId, {
+          sourceCode: resolvedSourceCode || '',
+          vodId,
+          episodeIndex: selectedEpisode,
+          seasonNumber: tmdbPlayback.selectedSeasonNumber || undefined,
+        })
+        navigate(nextPath, { replace: true })
+        showPlayerNotice(`已切换至 ${label}`)
+        return
+      }
+
+      if (isCmsRoute) {
+        navigate(buildCmsPlayPath(resolvedSourceCode || '', vodId, selectedEpisode), { replace: true })
+        showPlayerNotice(`已切换至 ${label}`)
+      }
+    },
+    [
+      isTmdbRoute,
+      isCmsRoute,
+      navigate,
+      parsedTmdbId,
+      resolvedSourceCode,
+      selectedEpisode,
+      showPlayerNotice,
+      tmdbMediaType,
+      tmdbPlayback.selectedSeasonNumber,
     ],
   )
 
@@ -1408,9 +1554,55 @@ export default function UnifiedPlayer() {
   }, [isTmdbRoute, parsedTmdbId, querySeasonNumber, tmdbMediaType])
 
   const currentSourceOption = useMemo(() => {
-    if (!isTmdbRoute || !resolvedSourceCode) return null
+    if (!resolvedSourceCode) return null
     return sourceOptions.find(option => option.sourceCode === resolvedSourceCode) || null
-  }, [isTmdbRoute, resolvedSourceCode, sourceOptions])
+  }, [resolvedSourceCode, sourceOptions])
+
+  const languageOptions = useMemo(() => {
+    if (!currentSourceOption) return []
+    // best 本身也作为一个选项，alternatives 是其他匹配项
+    const all = [
+      { vodId: currentSourceOption.bestVodId, label: currentSourceOption.bestLabel || '默认', score: currentSourceOption.bestScore },
+      ...currentSourceOption.alternatives,
+    ]
+    // 去重，只保留有标签的
+    return all.filter((a, i, arr) => a.label && arr.findIndex(x => x.vodId === a.vodId) === i)
+  }, [currentSourceOption])
+
+  // 语言切换：有可选语言时在播放器设置面板(齿轮图标)中显示语言选择器
+  const languageVodIdMapRef = useRef<Record<string, { vodId: string; label: string }>>({})
+  const hasLanguageOptions = languageOptions.length > 1
+  useEffect(() => {
+    const art = activeArt
+    if (!art) return
+
+    if (hasLanguageOptions) {
+      const optionsMap: Record<string, { vodId: string; label: string }> = {}
+      languageOptions.forEach(opt => { optionsMap[opt.vodId] = opt })
+      languageVodIdMapRef.current = optionsMap
+
+      const currentVodId = resolvedVodId || languageOptions[0].vodId
+      const currentLabel = optionsMap[currentVodId]?.label || languageOptions[0].label
+
+      art.setting.update({
+        name: '语言',
+        html: '语言',
+        tooltip: currentLabel,
+        selector: languageOptions.map(opt => ({
+          html: opt.label,
+          value: opt.vodId,
+          default: opt.vodId === currentVodId,
+        })),
+        onSelect(item: any) {
+          const opt = languageVodIdMapRef.current[item.value || item]
+          if (opt) handleLanguageChange(opt.vodId, opt.label)
+          return (optionsMap[item.value || item]?.label || item.value || item) as string
+        },
+      })
+    } else {
+      try { art.setting.remove('语言') } catch { /* noop */ }
+    }
+  }, [activeArt, hasLanguageOptions, languageOptions, resolvedVodId, handleLanguageChange])
 
   const bestSourceOption = useMemo(() => {
     if (!isTmdbRoute || sourceOptions.length === 0) return null
@@ -1515,9 +1707,6 @@ export default function UnifiedPlayer() {
     return sourceText ? `持续匹配中 ${progressText} · ${sourceText}` : `持续匹配中 ${progressText}`
   }, [tmdbPlayback.playlist.progress])
 
-  const shouldShowOverlayNotices =
-    shouldShowMatchingNotice || shouldShowBetterSourceNotice || transientNotices.length > 0
-
   const title = detail?.videoInfo?.title || tmdbPlayback.tmdbDetail?.title || '未知视频'
   const sourceName =
     detail?.videoInfo?.source_name ||
@@ -1570,6 +1759,88 @@ export default function UnifiedPlayer() {
       setActiveRightPanel('episode')
     }
   }, [activeRightPanel, hasSeasonPanel, hasSourcePanel, isCmsRoute])
+
+  // 播放器右键上下文菜单：用 ref 保持回调最新，避免重复注册
+  const favToggleRef = useRef<() => void>(() => {})
+  favToggleRef.current = isCmsRoute ? handleToggleCmsFavorite : isTmdbRoute ? handleToggleTmdbFavorite : () => {}
+  const favActiveRef = useRef(false)
+  favActiveRef.current = isCmsRoute ? cmsFavoriteActive : isTmdbRoute ? tmdbFavoriteActive : false
+  const detailLinkRef = useRef<string | undefined>(detailLink)
+  detailLinkRef.current = detailLink
+  const homepageRef = useRef<string | undefined>(tmdbPlayback.tmdbRichDetail?.homepage)
+  homepageRef.current = tmdbPlayback.tmdbRichDetail?.homepage
+  const navigateRef = useRef(navigate)
+  navigateRef.current = navigate
+
+  const playerContextMenuIdsRef = useRef<string[]>([])
+  useEffect(() => {
+    if (!activeArt) return
+
+    const { registerItems, unregisterItems } = useGlobalContextMenuStore.getState()
+
+    // 先清理旧的，再注册新的
+    if (playerContextMenuIdsRef.current.length > 0) {
+      unregisterItems(...playerContextMenuIdsRef.current)
+    }
+
+    const items = [
+      {
+        id: 'player-screenshot',
+        label: '截取画面',
+        icon: <Camera className="size-4" />,
+        onClick: () => { try { activeArt.screenshot?.() } catch { /* noop */ } },
+      },
+      {
+        id: 'player-pip',
+        label: '画中画',
+        icon: <PictureInPicture2 className="size-4" />,
+        onClick: () => { try { activeArt.pip = !activeArt.pip } catch { /* noop */ } },
+      },
+      {
+        id: 'player-fullscreen',
+        label: '全屏切换',
+        icon: <Maximize className="size-4" />,
+        onClick: () => {
+          try {
+            if (activeArt.fullscreenWeb) { activeArt.fullscreenWeb = false }
+            else if (activeArt.fullscreen) { activeArt.fullscreen = false }
+            else { activeArt.fullscreen = true }
+          } catch { /* noop */ }
+        },
+      },
+      {
+        id: 'player-favorite',
+        label: favActiveRef.current ? '取消收藏' : '加入收藏',
+        icon: favActiveRef.current ? <HeartOff className="size-4" /> : <Heart className="size-4" />,
+        onClick: () => favToggleRef.current(),
+      },
+    ]
+    if (detailLinkRef.current) {
+      items.push({
+        id: 'player-detail',
+        label: '查看详情',
+        icon: <ExternalLink className="size-4" />,
+        onClick: () => navigateRef.current(detailLinkRef.current!),
+      })
+    }
+    // 官方页面：链接到 TMDB 作品官网，无 homepage 则不显示
+    if (homepageRef.current) {
+      items.push({
+        id: 'player-official',
+        label: '官方页面',
+        icon: <Globe className="size-4" />,
+        onClick: () => window.open(homepageRef.current!, '_blank', 'noopener'),
+      })
+    }
+
+    const ids = registerItems(items)
+    playerContextMenuIdsRef.current = ids
+
+    return () => {
+      unregisterItems(...ids)
+      playerContextMenuIdsRef.current = []
+    }
+  }, [activeArt, isCmsRoute, isTmdbRoute, cmsFavoriteActive, tmdbFavoriteActive, detailLink, tmdbPlayback.tmdbRichDetail?.homepage])
 
   const { shouldShowLoading, primaryError } = derivePlayerViewState({
     hasDetail: Boolean(detail),
@@ -1704,76 +1975,18 @@ export default function UnifiedPlayer() {
                 : seekPreviewOverlay)}
             {volumeOverlay &&
               (playerOverlayContainer ? createPortal(volumeOverlay, playerOverlayContainer) : volumeOverlay)}
-            {shouldShowOverlayNotices && (
-              <div className="pointer-events-none absolute top-3 right-3 z-30 flex max-w-[min(92vw,420px)] flex-col items-end gap-2">
-                {shouldShowMatchingNotice && (
-                  <div className="pointer-events-auto w-[min(86vw,320px)] overflow-hidden rounded-md border border-amber-300/35 bg-black/68 shadow-lg backdrop-blur-sm">
-                    <div className="flex items-center gap-2 px-3 py-2 text-xs text-white">
-                      <span className="inline-flex size-3.5 animate-spin rounded-full border border-amber-200 border-t-transparent" />
-                      <span className="truncate">{matchingNoticeText}</span>
-                    </div>
-                  </div>
-                )}
-
-                {shouldShowBetterSourceNotice && bestSourceOption && (
-                  <div className="pointer-events-auto w-[min(90vw,360px)] overflow-hidden rounded-md border border-emerald-300/35 bg-black/72 shadow-lg backdrop-blur-sm">
-                    <div className="flex items-center justify-between gap-2 px-3 py-2 text-xs text-white">
-                      <div className="min-w-0">
-                        <p className="truncate text-[12px] font-semibold">匹配到更优结果</p>
-                        <p className="mt-0.5 truncate text-[11px] text-white/80">
-                          {bestSourceOption.sourceName}（{bestSourceOption.bestScore} 分）
-                        </p>
-                      </div>
-                      <div className="flex shrink-0 items-center gap-1.5">
-                        <Button
-                          size="sm"
-                          variant="secondary"
-                          className="h-7 rounded-full px-3 text-[11px]"
-                          onClick={handleSwitchToBetterSource}
-                        >
-                          切换
-                        </Button>
-                        <button
-                          type="button"
-                          className="text-white/70 transition-colors hover:text-white"
-                          aria-label="关闭更优匹配提示"
-                          onClick={dismissBetterSourceNotice}
-                        >
-                          <X className="size-3.5" />
-                        </button>
-                      </div>
-                    </div>
-                    <div className="h-0.5 border-t border-white/12 bg-white/20">
-                      <div
-                        className="h-full bg-emerald-400 transition-[width] ease-linear"
-                        style={{
-                          width: `${betterNoticeProgress}%`,
-                          transitionDuration: `${BETTER_SOURCE_NOTICE_DURATION}ms`,
-                        }}
-                      />
-                    </div>
-                  </div>
-                )}
-
-                {transientNotices.map(notice => (
-                  <div
-                    key={notice.id}
-                    className="pointer-events-auto w-[min(78vw,340px)] overflow-hidden rounded-md border border-white/15 bg-black/65 shadow-lg backdrop-blur-sm"
-                  >
-                    <div className="px-3 py-1.5 text-xs text-white">{notice.message}</div>
-                    <div className="h-0.5 bg-white/20">
-                      <div
-                        className="h-full bg-red-500 transition-[width] ease-linear"
-                        style={{
-                          width: `${notice.progress}%`,
-                          transitionDuration: `${notice.duration}ms`,
-                        }}
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
+            <PlayerOverlayNotices
+              shouldShowMatchingNotice={shouldShowMatchingNotice}
+              matchingNoticeText={matchingNoticeText}
+              shouldShowBetterSourceNotice={shouldShowBetterSourceNotice}
+              betterSourceNoticeKey={betterSourceNoticeKey}
+              bestSourceOption={bestSourceOption}
+              betterNoticeProgress={betterNoticeProgress}
+              betterSourceNoticeDuration={BETTER_SOURCE_NOTICE_DURATION}
+              transientNotices={transientNotices}
+              onSwitchToBetterSource={handleSwitchToBetterSource}
+              onDismissBetterSourceNotice={dismissBetterSourceNotice}
+            />
             {isDetailRefreshing && (
               <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/50 backdrop-blur-[2px]">
                 <div className="flex items-center gap-2 rounded-full bg-black/55 px-3 py-1.5 text-sm text-white">
@@ -1787,28 +2000,18 @@ export default function UnifiedPlayer() {
 
         <aside className="min-w-0 xl:sticky xl:top-20 xl:h-[clamp(240px,56vw,74vh)] xl:min-h-[220px] xl:pr-1">
           {(isCmsRoute && !hasSourcePanel) ? (
-            <section className="space-y-3 rounded-lg border border-border/60 bg-card/55 p-3 md:p-4 xl:h-full xl:min-h-0">
-              <div className="flex items-center justify-between">
-                <h2 className="text-sm font-semibold">选集</h2>
-                <span className="text-muted-foreground text-xs">共 {detail.episodes.length} 集</span>
-              </div>
-              <PlayerEpisodePanel
-                totalEpisodes={detail.episodes.length}
-                selectedEpisode={selectedEpisode}
-                isReversed={episodePagination.isReversed}
-                onToggleOrder={() => episodePagination.setIsReversed(prev => !prev)}
-                pageRanges={episodePagination.pageRanges}
-                currentPageRange={episodePagination.currentPageRange}
-                onPageRangeChange={episodePagination.setCurrentPageRange}
-                episodes={episodePagination.currentPageEpisodes}
-                onEpisodeSelect={handleEpisodeChange}
-                episodeProgressMap={episodeProgressMap}
-                compact
-                fillHeight
-                hideHeader
-                className="border-0 bg-transparent p-0 md:p-0"
-              />
-            </section>
+            <CmsEpisodePanel
+              totalEpisodes={detail.episodes.length}
+              selectedEpisode={selectedEpisode}
+              isReversed={episodePagination.isReversed}
+              onToggleOrder={() => episodePagination.setIsReversed(prev => !prev)}
+              pageRanges={episodePagination.pageRanges}
+              currentPageRange={episodePagination.currentPageRange}
+              onPageRangeChange={episodePagination.setCurrentPageRange}
+              episodes={episodePagination.currentPageEpisodes}
+              onEpisodeSelect={handleEpisodeChange}
+              episodeProgressMap={episodeProgressMap}
+            />
           ) : (
             <div className="space-y-3 xl:flex xl:h-full xl:flex-col xl:gap-3 xl:space-y-0">
               <Collapsible
@@ -1995,6 +2198,8 @@ export default function UnifiedPlayer() {
                 }
               : undefined
         }
+        collectionId={tmdbPlayback.tmdbRichDetail?.belongs_to_collection?.id}
+        currentTmdbId={parsedTmdbId || undefined}
         recommendations={recommendationItems}
       />
     </div>

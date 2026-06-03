@@ -44,8 +44,19 @@ export function createHlsLoaderClass(config: HlsLoaderConfig): any {
 
       // 重写load方法
       this.load = (context: any, loadConfig: any, callbacks: any) => {
-        // 检查是否是manifest或level类型
-        if (context.type === 'manifest' || context.type === 'level') {
+        // const ctxUrl = context.url
+        // const ctxType = context.type || (ctxUrl?.endsWith('.ts') ? 'frag' : (ctxUrl?.endsWith('.m3u8') ? 'manifest' : 'unknown'))
+
+        // debug: 打印片段播放
+        // if (ctxType === 'frag') {
+        //   console.log(`▶️ 播放片段: ${String(ctxUrl).slice(-60)}`)
+        // }
+
+        const isM3u8 = typeof context.url === 'string'
+          && (context.url.includes('.m3u8') || context.url.includes('.M3U8'))
+
+        // 对所有 M3U8 播放列表应用广告过滤（含 level 类型在 light 版本 type=undefined 的情况）
+        if (context.type === 'manifest' || context.type === 'level' || isM3u8) {
           const originalOnSuccess = callbacks.onSuccess
 
           callbacks.onSuccess = (response: any, stats: any, ctx: any, networkDetails: unknown) => {

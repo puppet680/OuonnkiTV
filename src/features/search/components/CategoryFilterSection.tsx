@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, memo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { cn } from '@/shared/lib/utils'
 import { Button } from '@/shared/components/ui/button'
@@ -38,7 +38,7 @@ interface CategoryFilterSectionProps {
  *
  * 提供媒体类型、国家/地区、分类、年份、评分和排序等多维度筛选功能
  */
-export function CategoryFilterSection({
+export const CategoryFilterSection = memo(function CategoryFilterSection({
   movieGenres,
   tvGenres,
   countries,
@@ -121,4 +121,4 @@ export function CategoryFilterSection({
       </div>
     </div>
   )
-}
+})

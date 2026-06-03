@@ -1,10 +1,11 @@
+import { memo } from 'react'
 import { Skeleton } from '@/shared/components/ui/skeleton'
 
 interface PlayerLoadingSkeletonProps {
   mode?: 'tmdb' | 'cms'
 }
 
-export function PlayerLoadingSkeleton({ mode = 'tmdb' }: PlayerLoadingSkeletonProps) {
+export const PlayerLoadingSkeleton = memo(function PlayerLoadingSkeleton({ mode = 'tmdb' }: PlayerLoadingSkeletonProps) {
   const isTmdbMode = mode === 'tmdb'
 
   return (
@@ -145,4 +146,4 @@ export function PlayerLoadingSkeleton({ mode = 'tmdb' }: PlayerLoadingSkeletonPr
       )}
     </div>
   )
-}
+})

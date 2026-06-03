@@ -64,7 +64,7 @@ export function useSearchSuggestions(): UseSearchSuggestionsReturn {
           query: query.trim(),
           page: 1,
           language: useSettingStore.getState().system.tmdbLanguage as TmdbSearchLanguage,
-          include_adult: false,
+          include_adult: !useSettingStore.getState().system.isAdultFilterEnabled,
         })
 
         // 检查请求是否过期

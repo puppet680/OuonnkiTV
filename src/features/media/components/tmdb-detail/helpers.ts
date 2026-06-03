@@ -57,8 +57,16 @@ const CERT_DESCRIPTIONS: Record<string, string> = {
   G: '一般观众皆可观赏',
   '18+': '只准 18 岁或以上人士观看',
   '18': '只准 18 岁或以上人士观看',
+  '19': '只准 19 岁或以上人士观看',
+  '成人': '成人内容',
   '0+': '适合所有年龄观看',
 }
+
+/** 分级是否成人：CERT_DESCRIPTIONS 描述含"或以上人士观看"，或成人/NC-17 */
+export const isAdultCert = (cert: string): boolean =>
+  cert === '成人' ||
+  cert === 'NC-17' ||
+  (CERT_DESCRIPTIONS[cert] || '').includes('或以上人士观看')
 
 export const describeCertification = (cert: string): string => {
   if (!cert) return ''
@@ -73,6 +81,7 @@ const CERT_COLOR_CLASS: Record<string, string> = {
   '限制級': 'bg-red-600/80 hover:bg-red-600',
   '18+': 'bg-red-600/80 hover:bg-red-600',
   '18': 'bg-red-600/80 hover:bg-red-600',
+  '19': 'bg-red-600/80 hover:bg-red-600',
   III: 'bg-red-600/80 hover:bg-red-600',
   R: 'bg-red-600/80 hover:bg-red-600',
   'NC-17': 'bg-red-600/80 hover:bg-red-600',

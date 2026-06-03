@@ -21,6 +21,8 @@ export type AggregatedSearchFn = (
   sources: VideoSource[],
   page: number,
   signal?: AbortSignal,
+  area?: string,
+  classParams?: string[],
 ) => Promise<VideoItem[]>
 
 /**
@@ -29,7 +31,7 @@ export type AggregatedSearchFn = (
  * @param options 聚合选项
  */
 export function createAggregatedSearch(
-  searchFn: (query: string, source: VideoSource, page: number) => Promise<SearchResult>,
+  searchFn: (query: string, source: VideoSource, page: number, area?: string, classParams?: string[]) => Promise<SearchResult>,
   options: AggregatorOptions,
 ): AggregatedSearchFn {
   const { concurrencyLimit, onProgress, onResult } = options
@@ -39,6 +41,8 @@ export function createAggregatedSearch(
     sources: VideoSource[],
     page: number = 1,
     signal?: AbortSignal,
+    area?: string,
+    classParams?: string[],
   ): Promise<VideoItem[]> => {
     if (sources.length === 0) {
       console.warn('没有选中任何 API 源')
@@ -65,7 +69,7 @@ export function createAggregatedSearch(
 
         let result: SearchResult
         try {
-          result = await searchFn(query, source, page)
+          result = await searchFn(query, source, page, area, classParams)
         } catch (error) {
           if (aborted) return [] as VideoItem[]
           console.warn(`${source.name} 源搜索失败:`, error)

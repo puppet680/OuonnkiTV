@@ -1,33 +1,42 @@
 import Navigation from '@/shared/components/Navigation'
 import { SidebarProvider, SidebarInset } from '@/shared/components/ui/sidebar'
 import SideBar from '@/shared/components/SideBar'
+import BottomNav from '@/shared/components/BottomNav'
 import { ScrollArea } from '@/shared/components/ui/scroll-area'
 import { CustomAnimatedOutlet } from '@/shared/components/AnimatedOutlet'
 import BackToTopButton from '@/shared/components/BackToTopButton'
-import { lazy, Suspense, useEffect, useState } from 'react'
-import { useVersionStore } from '@/shared/store/versionStore'
+import { useEffect, useState } from 'react'
 import { useSettingStore } from '@/shared/store/settingStore'
 import { useApiStore } from '@/shared/store/apiStore'
 import { useSubscriptionAutoRefresh } from '@/shared/hooks/useSubscriptionAutoRefresh'
 import { useScrollChromeVisibility } from '@/shared/hooks'
-import { useLocation } from 'react-router'
-
-const UpdateModal = lazy(() => import('@/shared/components/UpdateModal'))
+import { useLocation, useNavigate } from 'react-router'
+import { useIsMobile } from '@/shared/hooks/use-mobile'
 
 export default function MainLayout() {
-  const { hasNewVersion, setShowUpdateModal } = useVersionStore()
-  const { system } = useSettingStore()
+  const isScrollChromeAnimationEnabled = useSettingStore(s => s.system.isScrollChromeAnimationEnabled)
+  const isMobile = useIsMobile()
   const { initializeEnvSources } = useApiStore()
   const location = useLocation()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const isChromeVisible = useScrollChromeVisibility({
-    enabled: system.isScrollChromeAnimationEnabled,
+    enabled: isScrollChromeAnimationEnabled,
     scrollRootSelector: '[data-main-scroll-area]',
     resetKey: location.pathname,
   })
 
+  const navigate = useNavigate()
+
   // 订阅源自动刷新
   useSubscriptionAutoRefresh()
+
+  // 首次访问引导检测
+  useEffect(() => {
+    const hasCompletedGuide = localStorage.getItem('ouonnki-tv-guide-completed') === 'true'
+    if (!hasCompletedGuide) {
+      navigate('/guide', { replace: true })
+    }
+  }, [navigate])
 
   // 初始化逻辑 (从 MyRouter 迁移)
   useEffect(() => {
@@ -37,13 +46,6 @@ export default function MainLayout() {
       localStorage.setItem('envSourcesInitialized', 'true')
     }
   }, [initializeEnvSources])
-
-  // 版本更新检查
-  useEffect(() => {
-    if (hasNewVersion() && system.isUpdateLogEnabled) {
-      setShowUpdateModal(true)
-    }
-  }, [hasNewVersion, setShowUpdateModal, system.isUpdateLogEnabled])
 
   return (
     <SidebarProvider
@@ -58,12 +60,12 @@ export default function MainLayout() {
     >
       <Navigation
         hidden={!isChromeVisible}
-        enableScrollAnimation={system.isScrollChromeAnimationEnabled}
+        enableScrollAnimation={isScrollChromeAnimationEnabled}
       />
       <div className="flex flex-1 overflow-hidden">
         <SideBar
-          hidden={!isChromeVisible}
-          enableScrollAnimation={system.isScrollChromeAnimationEnabled}
+          hidden={!isChromeVisible || isMobile}
+          enableScrollAnimation={isScrollChromeAnimationEnabled}
         />
         <SidebarInset className="h-full overflow-hidden">
           <div className="h-full p-2 md:pl-1">
@@ -76,15 +78,13 @@ export default function MainLayout() {
                       : pathname
                   }
                 />
-                <Suspense fallback={null}>
-                  <UpdateModal />
-                </Suspense>
               </ScrollArea>
               <BackToTopButton scrollRootSelector="[data-main-scroll-area]" />
             </div>
           </div>
         </SidebarInset>
       </div>
+      <BottomNav />
     </SidebarProvider>
   )
 }

@@ -91,6 +91,11 @@ export default function AuthGuard({ children }: AuthGuardProps) {
     }
   }
 
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    handleLogin()
+  }
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
       handleLogin()
@@ -173,7 +178,7 @@ export default function AuthGuard({ children }: AuthGuardProps) {
               animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
               transition={{ duration: 0.5, delay: 0.25, ease: easeOutQuad }}
             >
-              <div className="flex items-center gap-2">
+              <form onSubmit={handleSubmit} className="flex items-center gap-2">
                 <Input
                   type="password"
                   placeholder="请输入访问密码"
@@ -191,7 +196,7 @@ export default function AuthGuard({ children }: AuthGuardProps) {
                 >
                   {isLoading ? <Spinner size="sm" /> : <ArrowRight className="size-5" />}
                 </Button>
-              </div>
+              </form>
             </motion.div>
           </div>
         </div>

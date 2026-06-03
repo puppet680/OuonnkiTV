@@ -17,6 +17,10 @@
 
     <!-- Theme Color -->
     <meta name="theme-color" content="#ffffff" />
+
+    <!-- 预连接 TMDB CDN 和 API，减少 LCP 图片发现延迟 -->
+    <link rel="preconnect" href="https://image.tmdb.org" />
+    <link rel="preconnect" href="https://api.themoviedb.org" />
   </head>
   <body>
     <div id="root"></div>
@@ -29,6 +33,18 @@
         },
         { passive: false },
       )
+      /* 预加载上次访问的巨幕图，跳过 React 渲染延迟 */
+      try {
+        var cached = sessionStorage.getItem('lcp_backdrop')
+        if (cached) {
+          var link = document.createElement('link')
+          link.rel = 'preload'
+          link.as = 'image'
+          link.fetchPriority = 'high'
+          link.href = cached
+          document.head.appendChild(link)
+        }
+      } catch (_) {}
     </script>
     <script type="module" src="/src/app/main.tsx"></script>
   </body>

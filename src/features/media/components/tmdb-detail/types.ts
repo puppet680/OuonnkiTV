@@ -13,8 +13,20 @@ export interface DetailCast {
   profile_path?: string | null
 }
 
+export interface DetailAggregateCast {
+  id: number
+  name: string
+  roles?: { character: string; episode_count: number }[]
+  total_episode_count: number
+  profile_path?: string | null
+}
+
 export interface DetailCredits {
   cast?: DetailCast[]
+}
+
+export interface DetailAggregateCredits {
+  cast?: DetailAggregateCast[]
 }
 
 export interface DetailRecommendationRaw {
@@ -106,7 +118,26 @@ export interface DetailEpisodeBrief {
 }
 
 export interface DetailBelongsToCollection {
+  id: number
   name: string
+  poster_path?: string | null
+  backdrop_path?: string | null
+}
+
+export interface DetailCollectionMovie {
+  id: number
+  title: string
+  poster_path?: string | null
+  release_date?: string
+  overview?: string
+}
+
+export interface DetailCollectionFull {
+  name: string
+  overview?: string
+  poster_path?: string | null
+  backdrop_path?: string | null
+  parts: DetailCollectionMovie[]
 }
 
 export interface DetailInfoField {
@@ -114,7 +145,7 @@ export interface DetailInfoField {
   value: string
 }
 
-export type DetailTab = 'overview' | 'playlist' | 'production' | 'cast' | 'seasons'
+export type DetailTab = 'overview' | 'playlist' | 'production' | 'cast' | 'seasons' | 'collection'
 
 export type TmdbRichDetail = (TmdbMovieDetail | TmdbTvDetail) & {
   id: number
@@ -145,6 +176,7 @@ export type TmdbRichDetail = (TmdbMovieDetail | TmdbTvDetail) & {
   last_episode_to_air?: DetailEpisodeBrief
   next_episode_to_air?: DetailEpisodeBrief | null
   credits?: DetailCredits
+  aggregate_credits?: DetailAggregateCredits
   recommendations?: DetailRecommendationBlock
   similar?: DetailRecommendationBlock
   keywords?: DetailKeywordsBlock

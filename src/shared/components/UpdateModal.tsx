@@ -4,10 +4,14 @@ import { ChangelogDialog } from './changelog'
 
 export default function UpdateModal() {
   const [isOpen, setIsOpen] = useState(false)
-  const { markVersionAsViewed, showUpdateModal, setShowUpdateModal, updateHistory } =
+  const { markVersionAsViewed, showUpdateModal, setShowUpdateModal, updateHistory, loadUpdateHistory } =
     useVersionStore()
 
   const latestVersion = updateHistory[0]
+
+  useEffect(() => {
+    loadUpdateHistory()
+  }, [loadUpdateHistory])
 
   useEffect(() => {
     if (showUpdateModal) {

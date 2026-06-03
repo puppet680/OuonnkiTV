@@ -1,4 +1,4 @@
-import { StrictMode } from 'react'
+import { StrictMode, lazy, Suspense } from 'react'
 import { createRoot } from 'react-dom/client'
 import '@fontsource/inter/400.css'
 import '@fontsource/inter/500.css'
@@ -8,51 +8,41 @@ import '@/app/styles/main.css'
 import { ThemeProvider } from 'next-themes'
 import AppRouter from './router'
 import { Toaster } from '@/shared/components/ui/sonner'
+import { RefreshCw } from 'lucide-react'
 import { TooltipProvider } from '@/shared/components/ui/tooltip'
+import { GlobalContextMenu } from '@/shared/components/GlobalContextMenu'
 
-import { Analytics } from '@vercel/analytics/react'
-import { SpeedInsights } from '@vercel/speed-insights/react'
-
-// PWA: 注册 Service Worker，实现离线缓存与更新提示
-function registerServiceWorker() {
-  if (typeof window === 'undefined' || 'serviceWorker' in navigator === false) return
-  if (import.meta.env.DEV) return
-  
-  import('workbox-window').then(({ Workbox }) => {
-    const wb = new Workbox('/sw.js')
-
-    // SW 首次安装或更新完成时，自动 skipWaiting 并刷新
-    // 页面刷新后 MainLayout 会检查 hasNewVersion() 并弹出 ChangelogDialog
-    wb.addEventListener('installed', (event) => {
-      if (event.isUpdate) {
-        wb.addEventListener('controlling', () => {
-          window.location.reload()
-        })
-        wb.messageSkipWaiting()
-      }
-    })
-
-    wb.register()
-  })
-}
+// ponytail: analytics 与首屏渲染无关，lazy-load 避免阻塞 INP/LCP
+const Analytics = import.meta.env.OKI_DISABLE_ANALYTICS !== 'true'
+  ? lazy(() => import('@vercel/analytics/react').then(m => ({ default: m.Analytics })))
+  : null
 
 const root = document.getElementById('root')!
+
+// 全局右键菜单内置项
+const builtInContextMenuItems = [
+  {
+    id: 'refresh',
+    label: '刷新页面',
+    icon: <RefreshCw className="size-4" />,
+    onClick: () => { window.location.reload() },
+  },
+]
 
 const app = (
   <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
     <TooltipProvider>
-      <AppRouter />
+      <GlobalContextMenu builtInItems={builtInContextMenuItems}>
+        <AppRouter />
+      </GlobalContextMenu>
       <Toaster richColors position="top-center" />
-      {import.meta.env.OKI_DISABLE_ANALYTICS !== 'true' && (
-        <>
+      {Analytics && (
+        <Suspense fallback={null}>
           <Analytics />
-          <SpeedInsights />
-        </>
+        </Suspense>
       )}
     </TooltipProvider>
   </ThemeProvider>
 )
 
 createRoot(root).render(import.meta.env.DEVELOPMENT ? <StrictMode>{app}</StrictMode> : app)
-
-registerServiceWorker()

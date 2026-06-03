@@ -13,9 +13,11 @@ import type {
   TmdbTvDetail,
 } from '@/shared/types/tmdb'
 import { useFavoritesStore } from '@/features/favorites/store/favoritesStore'
+import { useSettingStore } from '@/shared/store/settingStore'
 import { useViewingHistoryStore } from '@/shared/store/viewingHistoryStore'
 import {
   DetailCastTab,
+  DetailCollectionTab,
   DetailHeroSection,
   DetailLoadingSkeleton,
   DetailOverviewTab,
@@ -24,6 +26,7 @@ import {
   DetailProductionTab,
   DetailSeasonsTab,
   DetailTabNav,
+  type DetailCast,
   type DetailInfoField,
   type DetailTab,
   type TmdbRichDetail,
@@ -36,6 +39,7 @@ import {
   getReleaseYear,
   getCertShort,
   getCertFull,
+  isAdultCert,
   mapBooleanLabel,
   mapCountryCodeToName,
   mapLanguageCodeToName,
@@ -70,6 +74,8 @@ export default function TmdbDetailView() {
   const toggleTmdbFavorite = useFavoritesStore(state => state.toggleTmdbFavorite)
   const viewingHistory = useViewingHistoryStore(state => state.viewingHistory)
 
+  const isAdultFilterEnabled = useSettingStore(state => state.system.isAdultFilterEnabled)
+
   const { detail, loading, error } = useTmdbDetail<TmdbMovieDetail | TmdbTvDetail>(
     isValidRoute ? parsedTmdbId : undefined,
     (mediaType || 'movie') as TmdbMediaType,
@@ -80,12 +86,18 @@ export default function TmdbDetailView() {
   const tabListRef = useRef<HTMLDivElement | null>(null)
   const [tabIndicator, setTabIndicator] = useState({ x: 0, width: 0, ready: false })
 
+  const rawGenres = (detail as { genres?: Array<{ id: number; name: string }> } | null)?.genres || []
+  const isAnime = rawGenres.some(g => g.id === 16)
+
   const tabItems: Array<{ key: DetailTab; label: string }> = [
     { key: 'overview', label: '概览' },
     { key: 'playlist', label: '播放列表' },
     { key: 'production', label: '制作与发行' },
-    { key: 'cast', label: '演员' },
+    { key: 'cast', label: isAnime ? '声优' : '演员' },
     ...(mediaType === 'tv' ? [{ key: 'seasons' as const, label: '季信息' }] : []),
+    ...(mediaType === 'movie' && (detail as TmdbRichDetail | null)?.belongs_to_collection?.id
+      ? [{ key: 'collection' as const, label: '系列作品' }]
+      : []),
   ]
 
   const updateTabIndicator = useCallback(() => {
@@ -127,6 +139,9 @@ export default function TmdbDetailView() {
     if (mediaType !== 'tv' && activeTab === 'seasons') {
       setActiveTab('overview')
     }
+    if (mediaType !== 'movie' && activeTab === 'collection') {
+      setActiveTab('overview')
+    }
   }, [activeTab, mediaType])
 
   const safeRichDetail = detail as TmdbRichDetail | undefined
@@ -160,10 +175,11 @@ export default function TmdbDetailView() {
     tmdbType,
     tmdbId: parsedTmdbId,
     title: detail?.title || '',
-    originalTitle: detail?.originalTitle || '',
     alternativeTitles,
     releaseDate: detail?.releaseDate || '',
     seasons: safeSeasons,
+    originCountry: detail?.originCountry,
+    genres: rawGenres,
   })
 
   const latestTmdbHistory = useMemo(() => {
@@ -237,6 +253,27 @@ export default function TmdbDetailView() {
   const heroLogo = pickHeroLogo(richDetail.images?.logos || [])
   const certShort = getCertShort(richDetail.adult, richDetail.release_dates)
   const certFull = getCertFull(richDetail.adult, richDetail.release_dates)
+
+  if (isAdultFilterEnabled && isAdultCert(certShort)) {
+    return (
+      <div className="px-4 md:px-6">
+        <DetailStatePanel
+          mode="error"
+          title="访问被拒绝"
+          description={certFull || `分级 ${certShort}`}
+          primaryAction={{
+            label: '返回搜索页',
+            onClick: () => navigate(TMDB_SEARCH_PATH),
+          }}
+          secondaryAction={{
+            label: '回到上一页',
+            onClick: () => navigate(-1),
+          }}
+        />
+      </div>
+    )
+  }
+
   const runtimeLabel =
     tmdbType === 'movie'
       ? formatRuntime(richDetail.runtime || 0)
@@ -244,7 +281,18 @@ export default function TmdbDetailView() {
         ? `单集约${richDetail.episode_run_time?.[0] || 0}分钟`
         : ''
 
-  const castList = (richDetail.credits?.cast || [])
+  const castList: DetailCast[] = (() => {
+    if (tmdbType === 'tv' && richDetail.aggregate_credits?.cast) {
+      return richDetail.aggregate_credits.cast.map(c => ({
+        id: c.id,
+        name: c.name,
+        character: (c.roles || []).map(r => r.character).join(' / ') || undefined,
+        order: Number.MAX_SAFE_INTEGER - (c.total_episode_count || 0),
+        profile_path: c.profile_path,
+      }))
+    }
+    return (richDetail.credits?.cast || []) as DetailCast[]
+  })()
     .slice()
     .sort((a, b) => (a.order ?? 999) - (b.order ?? 999))
     .slice(0, 30)
@@ -432,6 +480,10 @@ export default function TmdbDetailView() {
             {activeTab === 'cast' && <DetailCastTab castList={castList} />}
 
             {activeTab === 'seasons' && <DetailSeasonsTab tmdbType={tmdbType} seasons={seasons} />}
+
+            {activeTab === 'collection' && richDetail.belongs_to_collection?.id && (
+              <DetailCollectionTab collectionId={richDetail.belongs_to_collection.id} currentTmdbId={detail.id} currentLabel="当前查看" />
+            )}
           </motion.div>
         </AnimatePresence>
       </div>

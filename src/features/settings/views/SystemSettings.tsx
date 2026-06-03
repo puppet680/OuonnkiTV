@@ -69,6 +69,25 @@ export default function SystemSettings() {
             />
           }
         />
+        <SettingsItem
+          title="成人内容过滤"
+          description={
+            <span>
+              关闭后，TMDB 搜索结果不过滤成人分级，CMS 直连模式不过滤标题/简介中的敏感关键词。
+              <br />
+              <span className="text-muted-foreground/70 text-xs">
+                CMS 关键词通过 <code className="bg-muted px-1 py-0.5 rounded text-[11px]">OKI_CMS_FILTER_KEYWORDS</code> 环境变量配置，逗号分隔。
+              </span>
+            </span>
+          }
+          controlClassName="self-end mt-1"
+          control={
+            <Switch
+              checked={system.isAdultFilterEnabled}
+              onCheckedChange={checked => setSystemSettings({ isAdultFilterEnabled: checked })}
+            />
+          }
+        />
         {!hasEnvToken && (
           <SettingsItem
             title="TMDB API Token"
@@ -160,20 +179,23 @@ export default function SystemSettings() {
               }
             />
             <SettingsItem
-              title="TMDB 影视偏好"
-              description="根据地区偏好展示对应平台的热门影视内容。欧美对应 Netflix 等，大陆对应爱奇艺、腾讯视频等。"
+              title="影视平台偏好"
+              description="选择首页内容的来源平台，影响剧集、综艺等分类的数据。"
               control={
                 <div className="w-full sm:w-[200px]">
                   <Select
-                    value={system.tmdbRegion}
-                    onValueChange={value => setSystemSettings({ tmdbRegion: value as 'international' | 'mainland' })}
+                    value={system.varietyNetworks}
+                    onValueChange={value => setSystemSettings({ varietyNetworks: value })}
                   >
                     <SelectTrigger className="w-full">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="international">欧美</SelectItem>
-                      <SelectItem value="mainland">大陆</SelectItem>
+                      <SelectItem value="213|1330|2007|2552">全部平台</SelectItem>
+                      <SelectItem value="213">奈飞 (Netflix)</SelectItem>
+                      <SelectItem value="1330">爱奇艺 (iQiyi)</SelectItem>
+                      <SelectItem value="2007">腾讯视频 (Tencent)</SelectItem>
+                      <SelectItem value="2552">Apple TV+</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

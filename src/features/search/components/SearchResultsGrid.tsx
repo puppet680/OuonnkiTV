@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import type { TmdbMediaItem } from '@/shared/types/tmdb'
 import type { VideoItem } from '@ouonnki/cms-core'
 import { type AggregatedVideoItem, storeCmsSources } from '../hooks/directSearch.utils'
@@ -9,7 +10,9 @@ import { AspectRatio } from '@/shared/components/ui/aspect-ratio'
 import type { SearchMode } from './SearchModeToggle'
 import { getSourceColorScheme } from '@/shared/lib/source-colors'
 import { getPosterUrl } from '@/shared/lib/tmdb'
-import { buildCmsPlayPath, buildTmdbDetailPath } from '@/shared/lib/routes'
+import { buildCmsPlayPath, buildTmdbDetailPath, buildTmdbPlayPath } from '@/shared/lib/routes'
+import { useFavoritesStore } from '@/features/favorites/store/favoritesStore'
+import { useNavigate } from 'react-router'
 
 interface SearchResultsGridProps {
   /** 搜索模式 */
@@ -69,7 +72,7 @@ function EmptyState({ mode }: { mode: SearchMode }) {
 /**
  * SearchResultsGrid - 搜索结果网格组件
  */
-export function SearchResultsGrid({
+export const SearchResultsGrid = memo(function SearchResultsGrid({
   mode,
   tmdbResults = [],
   directResults = [],
@@ -81,6 +84,9 @@ export function SearchResultsGrid({
   sentinelRef,
   className,
 }: SearchResultsGridProps) {
+  const favoritesStore = useFavoritesStore()
+  const navigate = useNavigate()
+
   // TMDB 模式：显示所有结果
   if (mode === 'tmdb') {
     const results = tmdbResults
@@ -92,15 +98,17 @@ export function SearchResultsGrid({
 
     return (
       <div className={cn('space-y-6', className)}>
-        {/* 结果统计 - 仅在非加载状态且有 totalResults 时显示 */}
-        {!loading && hasResults && totalResults !== undefined && (
-          <div className="text-muted-foreground text-sm">
-            共找到 <span className="text-primary font-medium">{totalResults}</span> 个结果
-            {results.length !== totalResults && (
-              <>，已显示 <span className="text-primary font-medium">{results.length}</span> 个</>
-            )}
-          </div>
-        )}
+        {/* 结果统计 - 固定占位，只更新数字避免布局抖动 */}
+        <div className="text-muted-foreground h-5 text-sm">
+          {hasResults && totalResults !== undefined ? (
+            <>
+              共找到 <span className="text-primary font-medium">{totalResults}</span> 个结果
+              {results.length < totalResults && (
+                <>，已显示 <span className="text-primary font-medium">{results.length}</span> 个</>
+              )}
+            </>
+          ) : null}
+        </div>
 
         {/* 内容区域 */}
         <div>
@@ -120,6 +128,11 @@ export function SearchResultsGrid({
                     title={item.title}
                     year={item.releaseDate ? item.releaseDate.split('-')[0] : undefined}
                     rating={item.voteAverage}
+                    overview={item.overview}
+                    onToggleFavorite={() => favoritesStore.toggleTmdbFavorite(item)}
+                    isFavorited={favoritesStore.isTmdbFavorited(item.id, item.mediaType)}
+                    onPlayNow={() => navigate(buildTmdbPlayPath(item.mediaType, item.id))}
+                    onViewDetail={() => navigate(buildTmdbDetailPath(item.mediaType, item.id))}
                   />
                 </div>
               ))}
@@ -233,4 +246,4 @@ export function SearchResultsGrid({
       )}
     </div>
   )
-}
+})

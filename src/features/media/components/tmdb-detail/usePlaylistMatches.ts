@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, useDeferredValue } from 'react'
 import type {
   SearchProgressEvent,
   SearchResultEvent,
@@ -13,21 +13,24 @@ import { useSettingStore } from '@/shared/store/settingStore'
 import { useTmdbMatchCacheStore } from '@/shared/store/tmdbMatchCacheStore'
 import {
   buildPlaylistMatches,
+  isEnglishText,
   type PlaylistMatchItem,
   type SeasonSourceMatches,
   type SourceBestMatch,
 } from './playlistMatcher'
 import type { DetailSeason } from './types'
+import { COUNTRY_CHINESE_NAMES } from '@/shared/constants/countries'
 
 interface UsePlaylistMatchesParams {
   active: boolean
   tmdbType: TmdbMediaType
   tmdbId: number
   title: string
-  originalTitle?: string
   alternativeTitles?: string[]
   releaseDate?: string
   seasons: DetailSeason[]
+  originCountry?: string[]
+  genres?: Array<{ id: number; name: string }>
 }
 
 export interface PlaylistMatchesProgress {
@@ -106,25 +109,16 @@ const buildSourceSignature = (sources: VideoSource[]) =>
     })
     .join(';;')
 
-const buildSeasonSignature = (seasons: DetailSeason[]) =>
-  seasons
-    .slice()
-    .sort((a, b) => {
-      if (a.season_number !== b.season_number) return a.season_number - b.season_number
-      return a.id - b.id
-    })
-    .map(season => `${season.id}|${season.season_number}`)
-    .join(';;')
-
 export function usePlaylistMatches({
   active,
   tmdbType,
   tmdbId,
   title,
-  originalTitle,
   alternativeTitles,
   releaseDate,
   seasons,
+  originCountry,
+  genres,
 }: UsePlaylistMatchesParams) {
   const cmsClient = useCmsClient()
   const videoAPIs = useApiStore(state => state.videoAPIs)
@@ -145,6 +139,12 @@ export function usePlaylistMatches({
   const uniqueMapRef = useRef<Map<string, VideoItem>>(new Map())
   const recomputeTimerRef = useRef<number | null>(null)
   const unsubRef = useRef<Array<() => void>>([])
+  // Track accumulated item count to trigger deferred fuse computation
+  const [accumulatedVersion, setAccumulatedVersion] = useState(0)
+  const deferredAccumulatedVersion = useDeferredValue(accumulatedVersion)
+  const isFuseStale = accumulatedVersion !== deferredAccumulatedVersion
+  const isFuseStaleRef = useRef(false)
+  isFuseStaleRef.current = isFuseStale
 
   const clearRecomputeTimer = useCallback(() => {
     if (!recomputeTimerRef.current) return
@@ -166,12 +166,17 @@ export function usePlaylistMatches({
       clearRecomputeTimer()
 
       recomputeTimerRef.current = window.setTimeout(() => {
+        if (isFuseStaleRef.current) {
+          // Items are still being accumulated (deferred value hasn't caught up),
+          // reschedule to avoid blocking the main thread with CPU-intensive Fuse matching
+          scheduleRecompute(params)
+          return
+        }
         const items = Array.from(uniqueMapRef.current.values())
         const { candidates, movieSourceMatches, seasonSourceMatches } = buildPlaylistMatches({
           mediaType: tmdbType,
           items,
           title: params.keyword,
-          originalTitle,
           alternativeTitles,
           releaseYear: params.releaseYear,
           seasons,
@@ -186,22 +191,21 @@ export function usePlaylistMatches({
         }))
       }, 160)
     },
-    [clearRecomputeTimer, originalTitle, alternativeTitles, seasons, tmdbType],
+    [clearRecomputeTimer, alternativeTitles, seasons, tmdbType],
   )
 
   const runSearch = useCallback(
     async (force = false) => {
       const keyword = title.trim()
       const releaseYear = releaseDate ? releaseDate.slice(0, 4) : undefined
+      const area = originCountry?.[0] ? COUNTRY_CHINESE_NAMES[originCountry[0]] : undefined
+      const classParams = genres?.map(g => g.name).filter(Boolean)
       const normalizedKeyword = normalizeCacheText(keyword)
-      const normalizedOriginalTitle = normalizeCacheText(originalTitle || '')
       const sourceSignature = buildSourceSignature(enabledSources)
-      const seasonSignature = tmdbType === 'tv' ? buildSeasonSignature(seasons) : 'movie'
       const currentKey = [
         tmdbType,
         tmdbId,
         normalizedKeyword,
-        normalizedOriginalTitle,
         releaseYear || '',
         sourceSignature,
       ].join('::')
@@ -290,6 +294,7 @@ export function usePlaylistMatches({
 
       clearSubscriptions()
       uniqueMapRef.current = new Map()
+      setAccumulatedVersion(0)
 
       const sourceMetaList = enabledSources.map(source => ({
         id: source.id,
@@ -393,12 +398,18 @@ export function usePlaylistMatches({
             },
           }))
 
+          let hasNewItems = false
           event.items.forEach(item => {
             const key = `${item.source_code || 'unknown'}::${item.vod_id}`
             if (!uniqueMapRef.current.has(key)) {
               uniqueMapRef.current.set(key, item)
+              hasNewItems = true
             }
           })
+
+          if (hasNewItems) {
+            setAccumulatedVersion(v => v + 1)
+          }
 
           scheduleRecompute({ keyword, releaseYear, sourceMetaList })
         }
@@ -435,7 +446,6 @@ export function usePlaylistMatches({
             mediaType: tmdbType,
             items,
             title: keyword,
-            originalTitle,
             alternativeTitles,
             releaseYear,
             seasons,
@@ -456,27 +466,41 @@ export function usePlaylistMatches({
           return bestScore < 85 || lowScoreCount > allMatches.length / 2
         }
 
-        // 回退关键词：译名 + 原名（去重）
+        // 回退关键词：译名（去重）
         const fallbackKeywords = [
-          ...new Set([...(alternativeTitles || []), originalTitle].filter((v): v is string => !!v?.trim())),
+          ...new Set((alternativeTitles || []).filter((v): v is string => !!v?.trim())),
         ]
+
+        const isTitleEnglish = isEnglishText(keyword)
+        let fallbackAttempted = false
 
         if (keyword.length < 2 && fallbackKeywords.length > 0) {
           // 短标题：直接用回退关键词搜索
+          fallbackAttempted = true
           await Promise.all(
             fallbackKeywords.map(altKwd =>
-              cmsClient.aggregatedSearch(altKwd, enabledSources, 1, controller.signal).catch(() => {}),
+              cmsClient.aggregatedSearch(altKwd, enabledSources, 1, controller.signal, area, classParams).catch(() => {}),
             ),
           )
+        } else if (isTitleEnglish && fallbackKeywords.length > 0) {
+          // 主标题为全英文：并发搜索 title + 所有别名，不等回退
+          fallbackAttempted = true
+          await Promise.all([
+            cmsClient.aggregatedSearch(keyword, enabledSources, 1, controller.signal, area, classParams).catch(() => {}),
+            ...fallbackKeywords.map(altKwd =>
+              cmsClient.aggregatedSearch(altKwd, enabledSources, 1, controller.signal, area, classParams).catch(() => {}),
+            ),
+          ])
         } else {
           // 先用 title 搜索
-          await cmsClient.aggregatedSearch(keyword, enabledSources, 1, controller.signal)
+          await cmsClient.aggregatedSearch(keyword, enabledSources, 1, controller.signal, area, classParams)
 
           // 评分低则用回退关键词搜索
           if (await needsFallbackSearch()) {
+            fallbackAttempted = true
             await Promise.all(
               fallbackKeywords.map(altKwd =>
-                cmsClient.aggregatedSearch(altKwd, enabledSources, 1, controller.signal).catch(() => {}),
+                cmsClient.aggregatedSearch(altKwd, enabledSources, 1, controller.signal, area, classParams).catch(() => {}),
               ),
             )
           }
@@ -487,11 +511,11 @@ export function usePlaylistMatches({
           mediaType: tmdbType,
           items,
           title: keyword,
-          originalTitle,
           alternativeTitles,
           releaseYear,
           seasons,
           sources: sourceMetaList,
+          strictScore: fallbackAttempted,
         })
 
         setState(prev => ({
@@ -548,7 +572,6 @@ export function usePlaylistMatches({
       cmsClient,
       enabledSources,
       getTmdbMatchCacheEntry,
-      originalTitle,
       alternativeTitles,
       pruneTmdbMatchCache,
       releaseDate,

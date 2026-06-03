@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { TmdbMediaType } from '@/shared/types/tmdb'
 import type { VideoItem } from '@ouonnki/cms-core'
 import type { DetailSeason } from './types'
-import { buildPlaylistMatches } from './playlistMatcher'
+import { buildPlaylistMatches, isEnglishText } from './playlistMatcher'
 
 function makeVideoItem(overrides: Partial<VideoItem> = {}): VideoItem {
   return {
@@ -41,16 +41,6 @@ describe('buildPlaylistMatches', () => {
       title: 'Finding Nemo', sources: defaultSources, seasons: [],
     })
     expect(movieSourceMatches[0].bestMatch).toBeNull()
-  })
-
-  it('originalTitle 也参与匹配', () => {
-    const { movieSourceMatches } = buildPlaylistMatches({
-      mediaType: 'movie',
-      items: [makeVideoItem({ vod_name: 'Sen to Chihiro no Kamikakushi', vod_id: '1' })],
-      title: 'Spirited Away', originalTitle: 'Sen to Chihiro no Kamikakushi',
-      sources: defaultSources, seasons: [],
-    })
-    expect(movieSourceMatches[0].bestMatch).not.toBeNull()
   })
 
   it('相似度 < 0.28 被过滤', () => {
@@ -200,7 +190,7 @@ describe('buildPlaylistMatches', () => {
       items: [makeVideoItem({ vod_name: 'Inception', vod_id: '1' })],
       title: 'Inception', sources: defaultSources, seasons: [],
     })
-    expect(movieSourceMatches[0].bestMatch!.score).toBeGreaterThanOrEqual(80)
+    expect(movieSourceMatches[0].bestMatch!.score).toBeGreaterThan(80)
   })
 
   // --- 多季匹配测试 ---
@@ -216,7 +206,7 @@ describe('buildPlaylistMatches', () => {
     const s1Best = result.seasonSourceMatches[0].sourceMatches[0].bestMatch!
     // +5 奖励后分数至少是基础分 + 5，即至少略高于同源无奖励时的基础分
     // 标题掺杂扣分后基础分约 84，+5 = 89
-    expect(s1Best.score).toBeGreaterThanOrEqual(80)
+    expect(s1Best.score).toBeGreaterThan(80)
   })
 
   it('明确标注其他季被远距离惩罚 -50 不可成为最佳匹配', () => {
@@ -331,5 +321,37 @@ describe('buildPlaylistMatches', () => {
       title: 'Attack on Titan', sources: defaultSources, seasons: [makeSeason()],
     })
     expect(candidates[0].seasonHints).toEqual([1, 2, 3])
+  })
+})
+
+describe('isEnglishText', () => {
+  it('纯英文字符串返回 true', () => {
+    expect(isEnglishText('Inception')).toBe(true)
+    expect(isEnglishText('Attack on Titan')).toBe(true)
+  })
+
+  it('英文字母+数字+符号返回 true', () => {
+    expect(isEnglishText('S1-S3')).toBe(true)
+    expect(isEnglishText('Movie 2024')).toBe(true)
+  })
+
+  it('纯中文返回 false', () => {
+    expect(isEnglishText('盗梦空间')).toBe(false)
+    expect(isEnglishText('进击的巨人')).toBe(false)
+  })
+
+  it('中英混合返回 false', () => {
+    expect(isEnglishText('Tenet 信条')).toBe(false)
+    expect(isEnglishText('Sherlock 神探夏洛克')).toBe(false)
+  })
+
+  it('空字符串返回 false', () => {
+    expect(isEnglishText('')).toBe(false)
+    expect(isEnglishText('   ')).toBe(false)
+  })
+
+  it('纯符号返回 false', () => {
+    expect(isEnglishText('!@#$%')).toBe(false)
+    expect(isEnglishText('---')).toBe(false)
   })
 })

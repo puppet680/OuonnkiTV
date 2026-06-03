@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useTransition } from 'react'
 import { useSearchParams } from 'react-router'
 import { motion, AnimatePresence } from 'framer-motion'
 import { X } from 'lucide-react'
@@ -78,20 +78,24 @@ export default function SearchHubView() {
     [setSearchParams],
   )
 
+  const [, startSearchTransition] = useTransition()
+
   // 处理搜索
   const handleSearch = useCallback(
     (searchQuery: string) => {
       const normalizedQuery = searchQuery.trim().replace(/\s+/g, ' ')
       if (!normalizedQuery) return
 
-      addSearchHistoryItem(normalizedQuery)
+      startSearchTransition(() => {
+        addSearchHistoryItem(normalizedQuery)
 
-      // 更新 URL
-      setSearchParams(prev => {
-        const params = new URLSearchParams(prev)
-        params.set('q', normalizedQuery)
-        params.set('mode', mode)
-        return params
+        // 更新 URL
+        setSearchParams(prev => {
+          const params = new URLSearchParams(prev)
+          params.set('q', normalizedQuery)
+          params.set('mode', mode)
+          return params
+        })
       })
     },
     [addSearchHistoryItem, mode, setSearchParams],

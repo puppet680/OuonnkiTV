@@ -6,7 +6,7 @@ import { createDefaultAdFilter, composeFilters, type M3u8Filter } from './filter
 export interface M3u8ProcessorConfig {
   /** 是否过滤广告 */
   filterAds?: boolean
-  /** 自定义过滤器 */
+  /** 自定义过滤器（在默认管道之后执行） */
   customFilters?: M3u8Filter[]
 }
 
