@@ -204,7 +204,6 @@ export function usePlaylistMatches({
         normalizedOriginalTitle,
         releaseYear || '',
         sourceSignature,
-        seasonSignature,
       ].join('::')
 
       if (!keyword) {
@@ -443,18 +442,29 @@ export function usePlaylistMatches({
             sources: sourceMetaList,
           })
 
-          const bestScore = movieSourceMatches.length > 0
-            ? Math.max(...movieSourceMatches.map(m => m.bestMatch?.score ?? 0))
+          const allMatches = movieSourceMatches.length > 0
+            ? movieSourceMatches
             : seasonSourceMatches.length > 0
-              ? Math.max(...seasonSourceMatches.flatMap(s => s.sourceMatches.map(m => m.bestMatch?.score ?? 0)))
-              : 0
-          return bestScore < 60
+              ? seasonSourceMatches.flatMap(s => s.sourceMatches)
+              : []
+
+          const bestScore = allMatches.length > 0
+            ? Math.max(...allMatches.map(m => m.bestMatch?.score ?? 0))
+            : 0
+
+          const lowScoreCount = allMatches.filter(m => (m.bestMatch?.score ?? 0) < 80).length
+          return bestScore < 85 || lowScoreCount > allMatches.length / 2
         }
 
-        if (keyword.length < 2 && (alternativeTitles || []).length > 0) {
-          // 短标题：直接用译名搜索
+        // 回退关键词：译名 + 原名（去重）
+        const fallbackKeywords = [
+          ...new Set([...(alternativeTitles || []), originalTitle].filter((v): v is string => !!v?.trim())),
+        ]
+
+        if (keyword.length < 2 && fallbackKeywords.length > 0) {
+          // 短标题：直接用回退关键词搜索
           await Promise.all(
-            alternativeTitles!.filter(a => a.trim()).map(altKwd =>
+            fallbackKeywords.map(altKwd =>
               cmsClient.aggregatedSearch(altKwd, enabledSources, 1, controller.signal).catch(() => {}),
             ),
           )
@@ -462,10 +472,10 @@ export function usePlaylistMatches({
           // 先用 title 搜索
           await cmsClient.aggregatedSearch(keyword, enabledSources, 1, controller.signal)
 
-          // 评分低则用译名回退搜索
+          // 评分低则用回退关键词搜索
           if (await needsFallbackSearch()) {
             await Promise.all(
-              alternativeTitles!.filter(a => a.trim()).map(altKwd =>
+              fallbackKeywords.map(altKwd =>
                 cmsClient.aggregatedSearch(altKwd, enabledSources, 1, controller.signal).catch(() => {}),
               ),
             )

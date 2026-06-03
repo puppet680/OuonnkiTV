@@ -239,7 +239,7 @@ describe('buildPlaylistMatches', () => {
     expect(wrongSeason!.score).toBeLessThanOrEqual(55)
   })
 
-  it('无季标注 + 非 S1 扣 -15', () => {
+  it('无季标注 + 非 S1 扣 -30，低于阈值被过滤', () => {
     const s2Season = makeSeason({ id: 2, season_number: 2, name: '第二季' })
     const items = [makeVideoItem({ vod_name: '进击的巨人', vod_id: '1' })]
     const result = buildPlaylistMatches({
@@ -247,13 +247,13 @@ describe('buildPlaylistMatches', () => {
       items, title: '进击的巨人',
       sources: defaultSources, seasons: [makeSeason(), s2Season],
     })
-    const s1Best = result.seasonSourceMatches[0].sourceMatches[0].bestMatch!
-    const s2Best = result.seasonSourceMatches[1].sourceMatches[0].bestMatch!
-    // 同一个无标注条目，S2 比 S1 至少低 15
-    expect(s1Best.score - s2Best.score).toBeGreaterThanOrEqual(15)
+    // S1 无季标注不扣分，保留
+    expect(result.seasonSourceMatches[0].sourceMatches[0].bestMatch).not.toBeNull()
+    // S2 无季标注扣 -30，低于阈值被过滤
+    expect(result.seasonSourceMatches[1].sourceMatches[0].bestMatch).toBeNull()
   })
 
-  it('相邻季惩罚 -20', () => {
+  it('相邻季惩罚 -35，明确标注其他季应被过滤', () => {
     const seasons = [
       makeSeason(),
       makeSeason({ id: 2, season_number: 2, name: '第二季' }),
@@ -265,12 +265,11 @@ describe('buildPlaylistMatches', () => {
       items, title: '进击的巨人',
       sources: defaultSources, seasons,
     })
-    // S2 最佳匹配是"第三季"条目（相邻季 -20，不是 -50）
-    const s2Best = result.seasonSourceMatches[1].sourceMatches[0].bestMatch!
-    const s3Best = result.seasonSourceMatches[2].sourceMatches[0].bestMatch!
-    expect(s2Best.score).toBeLessThan(s3Best.score)
-    // -20 惩罚：S3 得奖励 +5，S2 扣 -20，差 25
-    expect(s3Best.score - s2Best.score).toBeGreaterThanOrEqual(25)
+    // S2 最佳匹配是"第三季"条目，相邻季 -20，分数低于阈值被过滤
+    const s2Best = result.seasonSourceMatches[1].sourceMatches[0].bestMatch
+    const s3Best = result.seasonSourceMatches[2].sourceMatches[0].bestMatch
+    expect(s2Best).toBeNull()
+    expect(s3Best).not.toBeNull()
   })
 
   it('范围季标注提取 seasonHints 包含连续季数', () => {
@@ -298,17 +297,19 @@ describe('buildPlaylistMatches', () => {
       items, title: '进击的巨人',
       sources: defaultSources, seasons,
     })
-    const s1Score = result.seasonSourceMatches[0].sourceMatches[0].bestMatch!.score
-    const s2Score = result.seasonSourceMatches[1].sourceMatches[0].bestMatch!.score
-    const s3Score = result.seasonSourceMatches[2].sourceMatches[0].bestMatch!.score
-    const s4Score = result.seasonSourceMatches[3].sourceMatches[0].bestMatch!.score
-    const s5Score = result.seasonSourceMatches[4].sourceMatches[0].bestMatch!.score
-    // S1/S2/S3 都 +5，S4 相邻季扣 -20（差1季）
-    expect(s1Score).toBeGreaterThan(s4Score)
-    expect(s2Score).toBeGreaterThan(s4Score)
-    expect(s3Score).toBeGreaterThan(s4Score)
-    // S5 远距离扣 -50
-    expect(s5Score).toBeLessThan(60)
+    const s1Best = result.seasonSourceMatches[0].sourceMatches[0].bestMatch
+    const s2Best = result.seasonSourceMatches[1].sourceMatches[0].bestMatch
+    const s3Best = result.seasonSourceMatches[2].sourceMatches[0].bestMatch
+    const s4Best = result.seasonSourceMatches[3].sourceMatches[0].bestMatch
+    const s5Best = result.seasonSourceMatches[4].sourceMatches[0].bestMatch
+    // S1/S2/S3 都 +5，高分保留
+    expect(s1Best).not.toBeNull()
+    expect(s2Best).not.toBeNull()
+    expect(s3Best).not.toBeNull()
+    // S4 相邻季扣 -20，低于 MIN_MATCH_SCORE(75)，被过滤
+    expect(s4Best).toBeNull()
+    // S5 远距离扣 -50，被过滤
+    expect(s5Best).toBeNull()
   })
 
   it('电影匹配不受季评分影响', () => {

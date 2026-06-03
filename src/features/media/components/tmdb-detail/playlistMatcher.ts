@@ -201,7 +201,7 @@ const scoreItem = (
     }
   }
 
-  // 4. 媒体类型不匹配扣 -5
+  // 4. 媒体类型不匹配扣分
   const typeText = `${item.type_name || ''} ${item.vod_remarks || ''}`.toLowerCase()
   if (mediaType === 'movie') {
     if (/季|集|连载|更新/.test(typeText)) s -= 5
@@ -230,9 +230,24 @@ const scoreItem = (
       count++
       idx += searchLower.length
     }
-    const extra = nameOnly.length - count * searchLower.length
-    if (extra > 3) s -= 8
-    if (extra > 8) s -= 8
+    const totalSearchLen = count * searchLower.length
+    let extra = nameOnly.length - totalSearchLen
+
+    // TV 类型：去除常见的季号后缀，这些不应算作"标题掺杂"
+    if (mediaType === 'tv') {
+      const seasonSuffixPattern = /(?:第\s*(?:[0-9一二两三四五六七八九十]{1,3})\s*季|Season\s*[0-9]{1,2}|S[0-9]{1,2})/gi
+      const cleanedName = nameOnly.replace(seasonSuffixPattern, '')
+      const cleanedLen = cleanedName.trim().length
+      extra = Math.max(0, cleanedLen - totalSearchLen)
+    }
+
+    // 额外字符占比：extra 占 nameOnly 的比例越大，说明掺杂越严重
+    const extraRatio = extra / Math.max(nameOnly.length, 1)
+
+    if (extra > 2 && extraRatio > 0.15) {
+      // 额外字符超过15%，按比例扣分，最多扣30
+      s -= Math.round(extraRatio * 30)
+    }
   }
 
   return Math.max(0, Math.min(100, s))
@@ -298,17 +313,20 @@ const buildSourceOrder = (sources: SourceMeta[], grouped: Map<string, PlaylistMa
   return ordered
 }
 
+const MIN_MATCH_SCORE = 80
+
 const toSourceMatches = (
   grouped: Map<string, PlaylistMatchItem[]>,
   orderedSources: SourceMeta[],
 ): SourceBestMatch[] => {
   const matches = orderedSources.map(source => {
     const entries = grouped.get(source.id) || []
+    const best = entries[0]
     return {
       sourceCode: source.id,
       sourceName: source.name,
-      bestMatch: entries[0] || null,
-      alternatives: entries.slice(1),
+      bestMatch: best && best.score >= MIN_MATCH_SCORE ? best : null,
+      alternatives: best && best.score >= MIN_MATCH_SCORE ? entries.slice(1) : entries,
     }
   })
 
@@ -334,7 +352,7 @@ const applySeasonScore = (entry: PlaylistMatchItem, seasonNumber: number): Playl
         return dist < best ? dist : best
       }, Infinity)
       if (nearestDist === 1) {
-        s -= 20 // 相邻季，可能标签混淆
+        s -= 35 // 相邻季但标注了其他季号，大概率不匹配
       } else {
         s -= 50 // 远距离，几乎确定不是这个季
       }
@@ -342,7 +360,7 @@ const applySeasonScore = (entry: PlaylistMatchItem, seasonNumber: number): Playl
   } else if (seasonNumber === 1) {
     // 无季信息且是第一季，不扣不奖（常见默认假设）
   } else {
-    s -= 15 // 无季标注作为非 S1 匹配，不够可靠
+    s -= 30 // 无季标注作为非 S1 匹配，极不可靠
   }
 
   return { ...entry, score: Math.max(0, Math.min(100, s)) }

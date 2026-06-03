@@ -96,7 +96,7 @@ export const useTmdbMatchCacheStore = create<TmdbMatchCacheStore>()(
       })),
       {
         name: 'ouonnki-tv-tmdb-match-cache-store',
-        version: 1,
+        version: 2,
         storage: createJSONStorage(() => ({
           getItem: async (name) => (await get<string>(name)) ?? null,
           setItem: async (name, value) => await set(name, value),

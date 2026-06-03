@@ -51,6 +51,22 @@ const formatDate = (dateStr: string) => {
 // 版本更新历史
 const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: '1.2.1',
+    title: '搜索匹配与季补全优化',
+    date: formatDate('2026-06-03'),
+    features: [
+      '搜索回退策略优化：原名和译名均作为回退关键词，提升搜索结果覆盖率',
+      '多季标题掺杂检测优化，消除"第X季"后缀导致的错误扣分',
+      '播放页默认季选择优化，修复补全季跳转后回退到S1的问题',
+    ],
+    fixes: [
+      '修复部分影视主搜索无结果时不回退译名搜索的问题',
+      '修复播放页补全季 matchedSourceCount 全为0的问题',
+      '修复详情页"各地译名"中 key 重复的 React 警告',
+      '修复从补全季进入播放页时默认显示S1的问题',
+    ],
+  },
+  {
     version: '1.2.0',
     title: '搜索聚合与 CMS 换源',
     date: formatDate('2026-06-02'),

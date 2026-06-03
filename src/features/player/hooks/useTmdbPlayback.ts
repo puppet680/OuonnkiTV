@@ -105,6 +105,12 @@ export function useTmdbPlayback({
       return querySeasonNumber
     }
 
+    // querySeasonNumber 在 seasons 中找不到时（如补全季尚未生成），
+    // 返回 querySeasonNumber 而不是 fallback，避免错误 navigate
+    if (querySeasonNumber) {
+      return querySeasonNumber
+    }
+
     const firstPlayableSeason = playlist.seasonSourceMatches.find(seasonMatch =>
       seasonMatch.sourceMatches.some(sourceMatch => Boolean(sourceMatch.bestMatch)),
     )
