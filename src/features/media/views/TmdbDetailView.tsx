@@ -29,6 +29,7 @@ import {
   type TmdbRichDetail,
   extractRecommendations,
   extractTranslationTitles,
+  augmentSeasonsFromTitles,
   formatCurrencyUSD,
   formatLargeNumber,
   formatRuntime,
@@ -129,7 +130,6 @@ export default function TmdbDetailView() {
   }, [activeTab, mediaType])
 
   const safeRichDetail = detail as TmdbRichDetail | undefined
-  const safeSeasons = safeRichDetail?.seasons || []
 
   const translationEntries = useMemo(() => {
     if (!detail) return []
@@ -140,6 +140,11 @@ export default function TmdbDetailView() {
     () => translationEntries.map(entry => entry.title),
     [translationEntries],
   )
+
+  const safeSeasons = useMemo(() => {
+    if (!safeRichDetail?.seasons) return []
+    return augmentSeasonsFromTitles(safeRichDetail.seasons, alternativeTitles)
+  }, [safeRichDetail?.seasons, alternativeTitles])
 
   const translationFields: DetailInfoField[] = useMemo(
     () =>
@@ -252,7 +257,7 @@ export default function TmdbDetailView() {
   const productionCountries = richDetail.production_countries || []
   const spokenLanguages = richDetail.spoken_languages || []
   const networks = richDetail.networks || []
-  const seasons = richDetail.seasons || []
+  const seasons = safeSeasons
 
   const mappedOriginalLanguage = mapLanguageCodeToName(detail.originalLanguage, spokenLanguages)
   const mappedOriginCountries =
@@ -300,7 +305,7 @@ export default function TmdbDetailView() {
 
   const tvInfoFields: DetailInfoField[] = [
     { label: '单集时长', value: runtimeLabel },
-    { label: '季数', value: richDetail.number_of_seasons ? `${richDetail.number_of_seasons}` : '' },
+    { label: '季数', value: `${Math.max(safeSeasons.filter(s => s.season_number > 0).length, richDetail.number_of_seasons || 0)}` || '' },
     { label: '集数', value: richDetail.number_of_episodes ? `${richDetail.number_of_episodes}` : '' },
     { label: '制作中', value: mapBooleanLabel(richDetail.in_production) },
     {
