@@ -112,6 +112,25 @@ const extractSeasonHints = (item: VideoItem): number[] => {
     match = seasonRegex.exec(text)
   }
 
+  // 范围季节：第1-3季 / 1-3季合集 / S1-S3
+  const rangeRegex = /(?:第\s*)?([0-9]{1,3})\s*[-~至到]\s*([0-9]{1,3})\s*[季部篇]|S(?:EASON)?\s*([0-9]{1,2})\s*[-~]\s*S?(?:EASON)?\s*([0-9]{1,2})/gi
+
+  match = rangeRegex.exec(text)
+  while (match) {
+    const rangeStart = match[1] || match[3]
+    const rangeEnd = match[2] || match[4]
+    if (rangeStart && rangeEnd) {
+      const start = Number.parseInt(rangeStart, 10)
+      const end = Number.parseInt(rangeEnd, 10)
+      if (start > 0 && end > start && end - start <= 20) {
+        for (let i = start; i <= end && i < 100; i++) {
+          hints.add(i)
+        }
+      }
+    }
+    match = rangeRegex.exec(text)
+  }
+
   return Array.from(hints)
 }
 
@@ -133,16 +152,26 @@ const scoreItem = (
   s -= Math.round((1 - titleSimilarity) * 50)
 
   // 2. 译名未命中扣 -25，部分命中扣 -10，精确命中不扣
+  // 注意：searchTitle 本身也算一个有效译名（vod_name 包含主标题即命中）
+  const allAlts = searchTitle ? [searchTitle, ...(alternativeTitles || [])] : (alternativeTitles || [])
   const searchText = `${item.vod_name || ''} ${item.vod_sub || ''}`.toLowerCase()
   const nameOnly = (item.vod_name || '').toLowerCase()
   let altMiss = true
   let altPartial = false
-  for (const alt of alternativeTitles || []) {
+  for (const alt of allAlts) {
     const keyword = alt.toLowerCase().trim()
     if (!keyword) continue
     if (searchText.includes(keyword)) {
-      const ratio = keyword.length / Math.max(nameOnly.length, 1)
-      if (ratio >= 0.5) { altMiss = false; altPartial = false; break }
+      // 统计 keyword 在 nameOnly 中的出现次数，用累计命中长度判断
+      let hitCount = 0
+      let hitIdx = 0
+      while ((hitIdx = nameOnly.indexOf(keyword, hitIdx)) !== -1) {
+        hitCount++
+        hitIdx += keyword.length
+      }
+      const totalHitLen = hitCount * keyword.length
+      const ratio = totalHitLen / Math.max(nameOnly.length, 1)
+      if (ratio >= 0.4) { altMiss = false; altPartial = false; break }
       altMiss = false
       altPartial = true
     } else if (keyword.length >= 3) {
@@ -155,7 +184,7 @@ const scoreItem = (
       }
     }
   }
-  if ((alternativeTitles || []).length > 0) {
+  if (allAlts.length > 0) {
     if (altMiss) s -= 25
     else if (altPartial) s -= 10
   }
@@ -185,10 +214,23 @@ const scoreItem = (
     s -= 5
   }
 
+  // 5.5 配音/语言版本扣分：vod_name / vod_remarks / type_name 中含国语/台配/粤语/配音等
+  const dubPattern = /国语|台配|粤语|配音|中配|日配|英配|国配|普通话/
+  if (dubPattern.test(typeText) || dubPattern.test(nameOnly)) {
+    s -= 8
+  }
+
   // 6. 标题掺杂：vod_name 包含 title 但多了额外字符（如"重生，消失的她"）
   const searchLower = (searchTitle || '').toLowerCase().trim()
   if (searchLower && nameOnly.includes(searchLower)) {
-    const extra = nameOnly.length - searchLower.length
+    // 统计 title 在 nameOnly 中出现的次数，避免 title 本身重复（如"间谍过家家间谍过家家"）被误当掺杂
+    let count = 0
+    let idx = 0
+    while ((idx = nameOnly.indexOf(searchLower, idx)) !== -1) {
+      count++
+      idx += searchLower.length
+    }
+    const extra = nameOnly.length - count * searchLower.length
     if (extra > 3) s -= 8
     if (extra > 8) s -= 8
   }
@@ -283,11 +325,24 @@ const applySeasonScore = (entry: PlaylistMatchItem, seasonNumber: number): Playl
   let s = entry.score
 
   if (entry.seasonHints.length > 0) {
-    if (!entry.seasonHints.includes(seasonNumber)) s -= 10
+    if (entry.seasonHints.includes(seasonNumber)) {
+      s += 5 // 明确标注目标季，奖励
+    } else {
+      // 明确标注了其他季，按距离分层惩罚
+      const nearestDist = entry.seasonHints.reduce((best, h) => {
+        const dist = Math.abs(h - seasonNumber)
+        return dist < best ? dist : best
+      }, Infinity)
+      if (nearestDist === 1) {
+        s -= 20 // 相邻季，可能标签混淆
+      } else {
+        s -= 50 // 远距离，几乎确定不是这个季
+      }
+    }
   } else if (seasonNumber === 1) {
-    // 无季信息且是第一季，不扣不奖
+    // 无季信息且是第一季，不扣不奖（常见默认假设）
   } else {
-    s -= 5
+    s -= 15 // 无季标注作为非 S1 匹配，不够可靠
   }
 
   return { ...entry, score: Math.max(0, Math.min(100, s)) }

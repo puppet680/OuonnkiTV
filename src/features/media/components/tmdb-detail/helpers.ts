@@ -347,6 +347,38 @@ export function extractSeasonFromTitle(title: string): number | null {
 }
 
 /**
+ * 从单个标题中提取所有季数（单季 + 范围季展开）
+ * 支持："第1-3季合集"、"S1-S3"、"咒术回战 第二季"
+ */
+export function extractSeasonsFromTitle(title: string): number[] {
+  const found = new Set<number>()
+
+  const single = extractSeasonFromTitle(title)
+  if (single) found.add(single)
+
+  // 范围：第1-3季 / 1-3季合集 / S1-S3
+  const rangeRegex = /(?:第\s*)?([0-9]{1,3})\s*[-~至到]\s*([0-9]{1,3})\s*[季部篇]|S(?:EASON)?\s*([0-9]{1,2})\s*[-~]\s*S?(?:EASON)?\s*([0-9]{1,2})/gi
+
+  let match = rangeRegex.exec(title)
+  while (match) {
+    const rangeStart = match[1] || match[3]
+    const rangeEnd = match[2] || match[4]
+    if (rangeStart && rangeEnd) {
+      const start = Number.parseInt(rangeStart, 10)
+      const end = Number.parseInt(rangeEnd, 10)
+      if (start > 0 && end > start && end - start <= 20) {
+        for (let i = start; i <= end && i < 100; i++) {
+          found.add(i)
+        }
+      }
+    }
+    match = rangeRegex.exec(title)
+  }
+
+  return Array.from(found).sort((a, b) => a - b)
+}
+
+/**
  * 从别名标题中推断额外的季数，扩充 seasons 列表
  * 用于 TMDB 只有 1 季但译名标注了多个季数的情况
  */
@@ -360,18 +392,20 @@ export function augmentSeasonsFromTitles(
   const result = [...seasons]
 
   for (const title of titles) {
-    const seasonNumber = extractSeasonFromTitle(title)
-    if (seasonNumber && !existingSeasonNumbers.has(seasonNumber)) {
-      existingSeasonNumbers.add(seasonNumber)
-      result.push({
-        id: -seasonNumber,
-        season_number: seasonNumber,
-        name: `第 ${seasonNumber} 季`,
-        episode_count: 0,
-        overview: '',
-        air_date: undefined,
-        poster_path: null,
-      })
+    const seasonNumbers = extractSeasonsFromTitle(title)
+    for (const seasonNumber of seasonNumbers) {
+      if (!existingSeasonNumbers.has(seasonNumber)) {
+        existingSeasonNumbers.add(seasonNumber)
+        result.push({
+          id: -seasonNumber,
+          season_number: seasonNumber,
+          name: `第 ${seasonNumber} 季`,
+          episode_count: 0,
+          overview: '',
+          air_date: undefined,
+          poster_path: null,
+        })
+      }
     }
   }
 
