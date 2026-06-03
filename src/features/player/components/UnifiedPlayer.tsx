@@ -1303,10 +1303,22 @@ export default function UnifiedPlayer() {
     const preferredSource =
       seasonSourceOptions.find(option => option.sourceCode === resolvedSourceCode) || seasonSourceOptions[0]
 
+    if (preferredSource.bestScore < 60) {
+      showPlayerNotice(`该季最佳匹配得分偏低 (${preferredSource.bestScore})，建议检查视频源设置`)
+    }
+
+    // 查找该季观看历史，有则续播
+    const seasonHistory = viewingHistory.filter(
+      h => isTmdbHistoryItem(h) && h.tmdbId === parsedTmdbId && h.tmdbSeasonNumber === seasonNumber,
+    )
+    const resumeEpisode = seasonHistory.length > 0
+      ? Math.max(...seasonHistory.map(h => h.episodeIndex))
+      : 0
+
     const nextPath = buildTmdbPlayPath('tv', parsedTmdbId, {
       sourceCode: preferredSource.sourceCode,
       vodId: preferredSource.bestVodId,
-      episodeIndex: 0,
+      episodeIndex: resumeEpisode,
       seasonNumber,
     })
 

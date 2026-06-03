@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import { useTmdbDetail } from '@/shared/hooks/useTmdb'
 import type { TmdbMediaType, TmdbMovieDetail, TmdbTvDetail, TmdbMediaItem } from '@/shared/types/tmdb'
 import {
+  augmentSeasonsFromTitles,
   extractRecommendations,
   extractTranslationTitles,
   type SourceBestMatch,
@@ -70,9 +71,12 @@ export function useTmdbPlayback({
   const seasons = useMemo(
     () =>
       mediaType === 'tv'
-        ? (richDetail?.seasons || []).filter(season => season.season_number > 0)
+        ? augmentSeasonsFromTitles(
+            (richDetail?.seasons || []).filter(season => season.season_number > 0),
+            alternativeTitles,
+          )
         : [],
-    [mediaType, richDetail?.seasons],
+    [mediaType, richDetail?.seasons, alternativeTitles],
   )
 
   const playlist = usePlaylistMatches({
@@ -136,7 +140,7 @@ export function useTmdbPlayback({
 
     return seasons.map(season => {
       const sourceMatches = seasonSourceMap.get(season.season_number) || []
-      const matchedSourceCount = sourceMatches.filter(match => Boolean(match.bestMatch)).length
+      const matchedSourceCount = sourceMatches.filter(m => m.bestMatch !== null).length
 
       return {
         seasonNumber: season.season_number,
