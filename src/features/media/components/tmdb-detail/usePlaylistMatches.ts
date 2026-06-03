@@ -106,16 +106,6 @@ const buildSourceSignature = (sources: VideoSource[]) =>
     })
     .join(';;')
 
-const buildSeasonSignature = (seasons: DetailSeason[]) =>
-  seasons
-    .slice()
-    .sort((a, b) => {
-      if (a.season_number !== b.season_number) return a.season_number - b.season_number
-      return a.id - b.id
-    })
-    .map(season => `${season.id}|${season.season_number}`)
-    .join(';;')
-
 export function usePlaylistMatches({
   active,
   tmdbType,
@@ -196,7 +186,6 @@ export function usePlaylistMatches({
       const normalizedKeyword = normalizeCacheText(keyword)
       const normalizedOriginalTitle = normalizeCacheText(originalTitle || '')
       const sourceSignature = buildSourceSignature(enabledSources)
-      const seasonSignature = tmdbType === 'tv' ? buildSeasonSignature(seasons) : 'movie'
       const currentKey = [
         tmdbType,
         tmdbId,
