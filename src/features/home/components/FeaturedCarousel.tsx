@@ -461,7 +461,7 @@ export function FeaturedCarousel({
                         api.scrollTo(posterIdx)
                       }
                     }}
-                    className={`w-24 shrink-0 overflow-hidden rounded-lg border transition-all duration-300 cursor-pointer ${
+                    className={`w-24 shrink-0 overflow-hidden rounded-lg transition-all duration-300 cursor-pointer ${
                       isActive
                         ? 'shadow-lg scale-105'
                         : 'opacity-40 hover:opacity-80'
