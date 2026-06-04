@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import { ArrowDownUp, ArrowUpDown } from 'lucide-react'
 import { Badge } from '@/shared/components/ui/badge'
 import { Button } from '@/shared/components/ui/button'
@@ -34,7 +35,7 @@ interface PlayerEpisodePanelProps {
   episodeProgressMap?: Map<number, number> | null
 }
 
-export function PlayerEpisodePanel({
+export const PlayerEpisodePanel = memo(function PlayerEpisodePanel({
   totalEpisodes,
   selectedEpisode,
   isReversed,
@@ -147,4 +148,4 @@ export function PlayerEpisodePanel({
       </div>
     </section>
   )
-}
+})

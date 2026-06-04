@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import type { TmdbMediaItem } from '@/shared/types/tmdb'
 import type { VideoItem } from '@ouonnki/cms-core'
 import { type AggregatedVideoItem, storeCmsSources } from '../hooks/directSearch.utils'
@@ -69,7 +70,7 @@ function EmptyState({ mode }: { mode: SearchMode }) {
 /**
  * SearchResultsGrid - 搜索结果网格组件
  */
-export function SearchResultsGrid({
+export const SearchResultsGrid = memo(function SearchResultsGrid({
   mode,
   tmdbResults = [],
   directResults = [],
@@ -233,4 +234,4 @@ export function SearchResultsGrid({
       )}
     </div>
   )
-}
+})

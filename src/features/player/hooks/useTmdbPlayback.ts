@@ -1,4 +1,5 @@
 import { useMemo } from 'react'
+import { useApiStore } from '@/shared/store/apiStore'
 import { useTmdbDetail } from '@/shared/hooks/useTmdb'
 import type { TmdbMediaType, TmdbMovieDetail, TmdbTvDetail, TmdbMediaItem } from '@/shared/types/tmdb'
 import {
@@ -15,6 +16,7 @@ interface TmdbPlaybackParams {
   mediaType: TmdbMediaType | null
   tmdbId: number
   querySourceCode: string
+  queryVodId: string
   querySeasonNumber: number | null
 }
 
@@ -47,6 +49,7 @@ export function useTmdbPlayback({
   mediaType,
   tmdbId,
   querySourceCode,
+  queryVodId,
   querySeasonNumber,
 }: TmdbPlaybackParams) {
   const validTmdbId = Number.isInteger(tmdbId) && tmdbId > 0
@@ -130,7 +133,25 @@ export function useTmdbPlayback({
     return []
   }, [mediaType, playlist.movieSourceMatches, seasonSourceMap, selectedSeasonNumber])
 
-  const sourceOptions = useMemo(() => toSourceOptions(activeSourceMatches), [activeSourceMatches])
+  const sourceOptions = useMemo(() => {
+    const options = toSourceOptions(activeSourceMatches)
+
+    // 如果 querySourceCode 不在 playlist 匹配结果中（如来自历史记录），
+    // 也将其加入选项列表，避免后续自动切源逻辑找不到当前源
+    if (querySourceCode && !options.some(o => o.sourceCode === querySourceCode)) {
+      const apiSource = useApiStore.getState().videoAPIs.find(api => api.id === querySourceCode)
+      if (apiSource && apiSource.isEnabled) {
+        options.push({
+          sourceCode: querySourceCode,
+          sourceName: apiSource.name || querySourceCode,
+          bestVodId: queryVodId || '',
+          bestScore: 0,
+        })
+      }
+    }
+
+    return options
+  }, [activeSourceMatches, querySourceCode, queryVodId])
 
   const selectedSource = useMemo(() => {
     if (sourceOptions.length === 0) return null

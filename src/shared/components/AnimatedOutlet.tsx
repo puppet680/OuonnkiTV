@@ -22,7 +22,7 @@ export default function AnimatedOutlet() {
   }
 
   return (
-    <AnimatePresence mode="wait" initial={false}>
+    <AnimatePresence mode="popLayout" initial={false}>
       <motion.div
         key={location.pathname}
         variants={pageVariants}
@@ -30,6 +30,7 @@ export default function AnimatedOutlet() {
         animate="animate"
         exit="exit"
         className="h-full"
+        layout="position"
       >
         {outlet || outletRef.current}
       </motion.div>
@@ -72,7 +73,7 @@ export function CustomAnimatedOutlet({
   }
 
   return (
-    <AnimatePresence mode="wait" initial={false}>
+    <AnimatePresence mode="popLayout" initial={false}>
       <motion.div
         key={animationKey}
         variants={variants}
@@ -80,6 +81,8 @@ export function CustomAnimatedOutlet({
         animate="animate"
         exit="exit"
         className={className}
+        // popLayout 模式下新内容立即渲染旧内容 position:absolute 脱离流，两项动画可并行
+        layout="position"
       >
         {outlet || outletRef.current}
       </motion.div>

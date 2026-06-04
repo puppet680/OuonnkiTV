@@ -16,12 +16,13 @@ const UpdateModal = lazy(() => import('@/shared/components/UpdateModal'))
 
 export default function MainLayout() {
   const { hasNewVersion, setShowUpdateModal } = useVersionStore()
-  const { system } = useSettingStore()
+  const isScrollChromeAnimationEnabled = useSettingStore(s => s.system.isScrollChromeAnimationEnabled)
+  const isUpdateLogEnabled = useSettingStore(s => s.system.isUpdateLogEnabled)
   const { initializeEnvSources } = useApiStore()
   const location = useLocation()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const isChromeVisible = useScrollChromeVisibility({
-    enabled: system.isScrollChromeAnimationEnabled,
+    enabled: isScrollChromeAnimationEnabled,
     scrollRootSelector: '[data-main-scroll-area]',
     resetKey: location.pathname,
   })
@@ -40,10 +41,10 @@ export default function MainLayout() {
 
   // 版本更新检查
   useEffect(() => {
-    if (hasNewVersion() && system.isUpdateLogEnabled) {
+    if (hasNewVersion() && isUpdateLogEnabled) {
       setShowUpdateModal(true)
     }
-  }, [hasNewVersion, setShowUpdateModal, system.isUpdateLogEnabled])
+  }, [hasNewVersion, setShowUpdateModal, isUpdateLogEnabled])
 
   return (
     <SidebarProvider
@@ -58,12 +59,12 @@ export default function MainLayout() {
     >
       <Navigation
         hidden={!isChromeVisible}
-        enableScrollAnimation={system.isScrollChromeAnimationEnabled}
+        enableScrollAnimation={isScrollChromeAnimationEnabled}
       />
       <div className="flex flex-1 overflow-hidden">
         <SideBar
           hidden={!isChromeVisible}
-          enableScrollAnimation={system.isScrollChromeAnimationEnabled}
+          enableScrollAnimation={isScrollChromeAnimationEnabled}
         />
         <SidebarInset className="h-full overflow-hidden">
           <div className="h-full p-2 md:pl-1">

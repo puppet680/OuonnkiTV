@@ -4,7 +4,7 @@ import { OkiLogo } from '@/shared/components/icons'
 
 // Layouts
 import MainLayout from '@/app/layouts/MainLayout'
-import SettingsLayout from '@/app/layouts/SettingsLayout'
+const SettingsLayout = lazy(() => import('@/app/layouts/SettingsLayout'))
 
 // Auth
 const AuthGuard = lazy(() => import('@/shared/components/AuthGuard'))
@@ -125,7 +125,11 @@ const router = createBrowserRouter([
       },
       {
         path: 'settings',
-        element: <SettingsLayout />,
+        element: (
+          <SuspenseWrapper>
+            <SettingsLayout />
+          </SuspenseWrapper>
+        ),
         children: [
           { index: true, element: <Navigate to="source" replace /> },
           {

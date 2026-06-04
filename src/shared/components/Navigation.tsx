@@ -38,7 +38,7 @@ export default function Navigation({ hidden = false, enableScrollAnimation = fal
         className={cn(
           'flex w-full justify-center',
           enableScrollAnimation
-            ? 'transform-gpu will-change-[transform,opacity] transition-[opacity,transform] duration-220 ease-out motion-reduce:transition-none'
+            ? 'transition-[opacity,transform] duration-220 ease-out motion-reduce:transition-none'
             : 'transition-none',
           hidden ? 'pointer-events-none -translate-y-2 opacity-0' : 'translate-y-0 opacity-100',
         )}
@@ -84,7 +84,7 @@ export default function Navigation({ hidden = false, enableScrollAnimation = fal
                   initial={{ opacity: 0, scale: 0.9 }}
                   animate={{ opacity: 1, scale: 1 }}
                   exit={{ opacity: 0, scale: 0.9, transition: { duration: 0.2 } }}
-                  transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+                  transition={{ type: 'spring', stiffness: 200, damping: 25 }}
                   className="flex flex-auto items-center"
                 >
                   <SearchBox onMobileSearchChange={setIsMobileSearchOpen} />

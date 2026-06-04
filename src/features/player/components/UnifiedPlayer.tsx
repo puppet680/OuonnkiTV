@@ -1,10 +1,10 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from 'react'
 import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router'
 import { createPortal } from 'react-dom'
 import Artplayer from 'artplayer'
 import type Hls from 'hls.js'
 import type { HlsConfig } from 'hls.js'
-import { ChevronDown, X } from 'lucide-react'
+import { ChevronDown } from 'lucide-react'
 import { type DetailResult, type VideoItem as CmsVideoItem } from '@ouonnki/cms-core'
 import { createM3u8Processor, createHlsLoaderClass } from '@ouonnki/cms-core/m3u8'
 import { Button } from '@/shared/components/ui/button'
@@ -31,13 +31,15 @@ import type { ViewingHistoryItem } from '@/shared/types'
 import type { VideoItem } from '@/shared/types/video'
 import { useTmdbRecommendations } from '@/shared/hooks/useTmdb'
 import { toast } from 'sonner'
-import _ from 'lodash'
+import throttle from 'lodash/throttle'
 import {
+  CmsEpisodePanel,
   PlayerEpisodePanel,
   PlayerErrorState,
   PlayerHeroSection,
   PlayerInfoAndRecommendations,
   PlayerLoadingSkeleton,
+  PlayerOverlayNotices,
 } from '@/features/player/components'
 import { useEpisodePagination, useMobilePlayerGestures, useTmdbPlayback } from '@/features/player/hooks'
 import {
@@ -211,6 +213,7 @@ export default function UnifiedPlayer() {
     mediaType: tmdbMediaType,
     tmdbId: parsedTmdbId,
     querySourceCode,
+    queryVodId,
     querySeasonNumber,
   })
 
@@ -889,12 +892,36 @@ export default function UnifiedPlayer() {
       syncFullscreenMiniProgressBar()
     }
 
-    const handleControlViewportChange = _.throttle(() => {
+    const handleControlViewportChange = throttle(() => {
       syncMobileControlBar()
     }, 120)
 
-    art.on('fullscreen', syncMobileControlBar)
-    art.on('fullscreenWeb', syncMobileControlBar)
+    // 根据视频实际宽高比决定是否锁定横屏
+    const tryLockOrientationForVideo = () => {
+      if (!isMobileDevice || !art.video) return
+      const isLandscapeVideo = art.video.videoWidth > art.video.videoHeight
+      if (!isLandscapeVideo) return
+      try { void (screen.orientation as unknown as { lock?: (mode: string) => Promise<void> })?.lock?.('landscape') } catch {}
+    }
+    const tryUnlockOrientation = () => {
+      if (!isMobileDevice) return
+      try { void (screen.orientation as unknown as { unlock?: () => void })?.unlock?.() } catch {}
+    }
+
+    art.on('fullscreen', () => {
+      syncMobileControlBar()
+      tryLockOrientationForVideo()
+    })
+    art.on('fullscreenWeb', () => {
+      syncMobileControlBar()
+      tryLockOrientationForVideo()
+    })
+    art.on('resize', () => {
+      if (!(art.fullscreen || art.fullscreenWeb)) tryUnlockOrientation()
+    })
+    art.on('video:resize', () => {
+      if (art.fullscreen || art.fullscreenWeb) tryLockOrientationForVideo()
+    })
     window.addEventListener('resize', handleControlViewportChange, { passive: true })
     window.addEventListener('orientationchange', handleControlViewportChange)
 
@@ -1032,7 +1059,7 @@ export default function UnifiedPlayer() {
       }
     }
 
-    const throttledTimeUpdate = _.throttle(timeUpdateHandler, TIME_UPDATE_INTERVAL)
+    const throttledTimeUpdate = throttle(timeUpdateHandler, TIME_UPDATE_INTERVAL)
     art.on('video:timeupdate', throttledTimeUpdate)
 
     // 手动实现 autoMini：Artplayer 内置 autoMini 监听 window.scroll，
@@ -1070,12 +1097,12 @@ export default function UnifiedPlayer() {
           miniEl.style.top = `${rect.top}px`
           miniEl.style.left = `${rect.left}px`
         }
-        const handleViewportChange = _.throttle(() => {
+        const handleViewportChange = throttle(() => {
           if (!isMini) return
           requestAnimationFrame(applyMiniPosition)
         }, 120)
 
-        const checkVisibility = _.throttle(() => {
+        const checkVisibility = throttle(() => {
           if (!playerRef.current) return
 
           const scrollRect = scrollViewport.getBoundingClientRect()
@@ -1130,6 +1157,7 @@ export default function UnifiedPlayer() {
       window.removeEventListener('orientationchange', handleControlViewportChange)
       art.off('fullscreen', syncMobileControlBar)
       art.off('fullscreenWeb', syncMobileControlBar)
+      tryUnlockOrientation()
       if (playerRef.current && playerRef.current.destroy) {
         addHistorySnapshot()
         setActiveArt(current => (current === art ? null : current))
@@ -1214,6 +1242,7 @@ export default function UnifiedPlayer() {
 
   // CMS 直连模式：后台搜索标题匹配更多源
   const cmsMatchFiredRef = useRef(false)
+  const [, startCmsMatchTransition] = useTransition()
   useEffect(() => {
     if (!isCmsRoute || !detail?.videoInfo?.title || !resolvedSourceCode || !resolvedVodId) return
     if (cmsMatchFiredRef.current) return
@@ -1237,8 +1266,10 @@ export default function UnifiedPlayer() {
           }))
         if (matched.length > 0) {
           storeCmsSources(title, matched)
-          setCmsMatchedSources(matched)
-          showPlayerNotice(`已匹配到 ${matched.length} 个额外源`)
+          startCmsMatchTransition(() => {
+            setCmsMatchedSources(matched)
+            showPlayerNotice(`已匹配到 ${matched.length} 个额外源`)
+          })
         }
       })
       .catch(err => {
@@ -1248,7 +1279,7 @@ export default function UnifiedPlayer() {
       })
 
     return () => controller.abort()
-  }, [isCmsRoute, detail?.videoInfo?.title, resolvedSourceCode, resolvedVodId, cmsClient, showPlayerNotice])
+  }, [isCmsRoute, detail?.videoInfo?.title, resolvedSourceCode, resolvedVodId, cmsClient, showPlayerNotice, startCmsMatchTransition])
 
   const handleSourceChange = useCallback(
     (sourceCode: string) => {
@@ -1515,9 +1546,6 @@ export default function UnifiedPlayer() {
     return sourceText ? `持续匹配中 ${progressText} · ${sourceText}` : `持续匹配中 ${progressText}`
   }, [tmdbPlayback.playlist.progress])
 
-  const shouldShowOverlayNotices =
-    shouldShowMatchingNotice || shouldShowBetterSourceNotice || transientNotices.length > 0
-
   const title = detail?.videoInfo?.title || tmdbPlayback.tmdbDetail?.title || '未知视频'
   const sourceName =
     detail?.videoInfo?.source_name ||
@@ -1704,76 +1732,18 @@ export default function UnifiedPlayer() {
                 : seekPreviewOverlay)}
             {volumeOverlay &&
               (playerOverlayContainer ? createPortal(volumeOverlay, playerOverlayContainer) : volumeOverlay)}
-            {shouldShowOverlayNotices && (
-              <div className="pointer-events-none absolute top-3 right-3 z-30 flex max-w-[min(92vw,420px)] flex-col items-end gap-2">
-                {shouldShowMatchingNotice && (
-                  <div className="pointer-events-auto w-[min(86vw,320px)] overflow-hidden rounded-md border border-amber-300/35 bg-black/68 shadow-lg backdrop-blur-sm">
-                    <div className="flex items-center gap-2 px-3 py-2 text-xs text-white">
-                      <span className="inline-flex size-3.5 animate-spin rounded-full border border-amber-200 border-t-transparent" />
-                      <span className="truncate">{matchingNoticeText}</span>
-                    </div>
-                  </div>
-                )}
-
-                {shouldShowBetterSourceNotice && bestSourceOption && (
-                  <div className="pointer-events-auto w-[min(90vw,360px)] overflow-hidden rounded-md border border-emerald-300/35 bg-black/72 shadow-lg backdrop-blur-sm">
-                    <div className="flex items-center justify-between gap-2 px-3 py-2 text-xs text-white">
-                      <div className="min-w-0">
-                        <p className="truncate text-[12px] font-semibold">匹配到更优结果</p>
-                        <p className="mt-0.5 truncate text-[11px] text-white/80">
-                          {bestSourceOption.sourceName}（{bestSourceOption.bestScore} 分）
-                        </p>
-                      </div>
-                      <div className="flex shrink-0 items-center gap-1.5">
-                        <Button
-                          size="sm"
-                          variant="secondary"
-                          className="h-7 rounded-full px-3 text-[11px]"
-                          onClick={handleSwitchToBetterSource}
-                        >
-                          切换
-                        </Button>
-                        <button
-                          type="button"
-                          className="text-white/70 transition-colors hover:text-white"
-                          aria-label="关闭更优匹配提示"
-                          onClick={dismissBetterSourceNotice}
-                        >
-                          <X className="size-3.5" />
-                        </button>
-                      </div>
-                    </div>
-                    <div className="h-0.5 border-t border-white/12 bg-white/20">
-                      <div
-                        className="h-full bg-emerald-400 transition-[width] ease-linear"
-                        style={{
-                          width: `${betterNoticeProgress}%`,
-                          transitionDuration: `${BETTER_SOURCE_NOTICE_DURATION}ms`,
-                        }}
-                      />
-                    </div>
-                  </div>
-                )}
-
-                {transientNotices.map(notice => (
-                  <div
-                    key={notice.id}
-                    className="pointer-events-auto w-[min(78vw,340px)] overflow-hidden rounded-md border border-white/15 bg-black/65 shadow-lg backdrop-blur-sm"
-                  >
-                    <div className="px-3 py-1.5 text-xs text-white">{notice.message}</div>
-                    <div className="h-0.5 bg-white/20">
-                      <div
-                        className="h-full bg-red-500 transition-[width] ease-linear"
-                        style={{
-                          width: `${notice.progress}%`,
-                          transitionDuration: `${notice.duration}ms`,
-                        }}
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
+            <PlayerOverlayNotices
+              shouldShowMatchingNotice={shouldShowMatchingNotice}
+              matchingNoticeText={matchingNoticeText}
+              shouldShowBetterSourceNotice={shouldShowBetterSourceNotice}
+              betterSourceNoticeKey={betterSourceNoticeKey}
+              bestSourceOption={bestSourceOption}
+              betterNoticeProgress={betterNoticeProgress}
+              betterSourceNoticeDuration={BETTER_SOURCE_NOTICE_DURATION}
+              transientNotices={transientNotices}
+              onSwitchToBetterSource={handleSwitchToBetterSource}
+              onDismissBetterSourceNotice={dismissBetterSourceNotice}
+            />
             {isDetailRefreshing && (
               <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/50 backdrop-blur-[2px]">
                 <div className="flex items-center gap-2 rounded-full bg-black/55 px-3 py-1.5 text-sm text-white">
@@ -1787,28 +1757,18 @@ export default function UnifiedPlayer() {
 
         <aside className="min-w-0 xl:sticky xl:top-20 xl:h-[clamp(240px,56vw,74vh)] xl:min-h-[220px] xl:pr-1">
           {(isCmsRoute && !hasSourcePanel) ? (
-            <section className="space-y-3 rounded-lg border border-border/60 bg-card/55 p-3 md:p-4 xl:h-full xl:min-h-0">
-              <div className="flex items-center justify-between">
-                <h2 className="text-sm font-semibold">选集</h2>
-                <span className="text-muted-foreground text-xs">共 {detail.episodes.length} 集</span>
-              </div>
-              <PlayerEpisodePanel
-                totalEpisodes={detail.episodes.length}
-                selectedEpisode={selectedEpisode}
-                isReversed={episodePagination.isReversed}
-                onToggleOrder={() => episodePagination.setIsReversed(prev => !prev)}
-                pageRanges={episodePagination.pageRanges}
-                currentPageRange={episodePagination.currentPageRange}
-                onPageRangeChange={episodePagination.setCurrentPageRange}
-                episodes={episodePagination.currentPageEpisodes}
-                onEpisodeSelect={handleEpisodeChange}
-                episodeProgressMap={episodeProgressMap}
-                compact
-                fillHeight
-                hideHeader
-                className="border-0 bg-transparent p-0 md:p-0"
-              />
-            </section>
+            <CmsEpisodePanel
+              totalEpisodes={detail.episodes.length}
+              selectedEpisode={selectedEpisode}
+              isReversed={episodePagination.isReversed}
+              onToggleOrder={() => episodePagination.setIsReversed(prev => !prev)}
+              pageRanges={episodePagination.pageRanges}
+              currentPageRange={episodePagination.currentPageRange}
+              onPageRangeChange={episodePagination.setCurrentPageRange}
+              episodes={episodePagination.currentPageEpisodes}
+              onEpisodeSelect={handleEpisodeChange}
+              episodeProgressMap={episodeProgressMap}
+            />
           ) : (
             <div className="space-y-3 xl:flex xl:h-full xl:flex-col xl:gap-3 xl:space-y-0">
               <Collapsible

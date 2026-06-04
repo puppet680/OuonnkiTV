@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import {
   type CarouselApi,
@@ -54,7 +55,7 @@ function ContinueWatchingSkeleton() {
  * ContinueWatching - 继续观看组件
  * 展示用户的观看历史记录，支持轮播浏览
  */
-export function ContinueWatching() {
+export const ContinueWatching = memo(function ContinueWatching() {
   const { viewingHistory } = useViewingHistoryStore()
   const hasHydrated = useViewingHistoryStore.persist.hasHydrated()
   const tmdbEnabled = useTmdbEnabled()
@@ -167,4 +168,4 @@ export function ContinueWatching() {
       </div>
     </div>
   )
-}
+})

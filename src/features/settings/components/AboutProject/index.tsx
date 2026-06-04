@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { OkiLogo } from '@/shared/components/icons'
 import { Badge } from '@/shared/components/ui/badge'
 import { Github, History, Sparkles } from 'lucide-react'
@@ -6,8 +7,12 @@ import { SettingsPageShell, SettingsSection } from '../common'
 
 export default function AboutProject() {
   const currentYear = new Date().getFullYear()
-  const { setShowUpdateModal, currentVersion, updateHistory } = useVersionStore()
+  const { setShowUpdateModal, currentVersion, updateHistory, loadUpdateHistory } = useVersionStore()
   const latestUpdate = updateHistory[0]
+
+  useEffect(() => {
+    loadUpdateHistory()
+  }, [loadUpdateHistory])
 
   return (
     <SettingsPageShell

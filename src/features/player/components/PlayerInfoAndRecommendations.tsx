@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import { NavLink } from 'react-router'
 import { Star, CalendarDays, Clapperboard, Tv, Heart } from 'lucide-react'
 import type { TmdbMediaItem, TmdbMediaType } from '@/shared/types/tmdb'
@@ -29,7 +30,7 @@ interface PlayerInfoAndRecommendationsProps {
   recommendations: TmdbMediaItem[]
 }
 
-export function PlayerInfoAndRecommendations({
+export const PlayerInfoAndRecommendations = memo(function PlayerInfoAndRecommendations({
   title,
   originalTitle,
   overview,
@@ -206,4 +207,4 @@ export function PlayerInfoAndRecommendations({
       )}
     </div>
   )
-}
+})

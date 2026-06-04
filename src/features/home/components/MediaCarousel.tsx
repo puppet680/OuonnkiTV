@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { MediaPosterCard } from '@/shared/components/common'
 import {
@@ -64,7 +65,7 @@ function MediaCarouselSkeleton({ title }: { title: string }) {
  * MediaCarousel - 媒体轮播组件
  * 展示电影或剧集列表，支持轮播浏览，使用竖向海报卡片
  */
-export function MediaCarousel({ title, items, loading = false, linkTo }: MediaCarouselProps) {
+export const MediaCarousel = memo(function MediaCarousel({ title, items, loading = false, linkTo }: MediaCarouselProps) {
   const isMobile = useIsMobile()
   const isTablet = !isMobile && typeof window !== 'undefined' && window.innerWidth < 1024
   // 根据屏幕尺寸计算可见卡片数量
@@ -163,4 +164,4 @@ export function MediaCarousel({ title, items, loading = false, linkTo }: MediaCa
       </div>
     </div>
   )
-}
+})

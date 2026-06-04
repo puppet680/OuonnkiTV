@@ -1,4 +1,5 @@
 import { useLocation } from 'react-router'
+import { useEffect, useRef, useState } from 'react'
 import {
   Sidebar,
   SidebarContent,
@@ -34,6 +35,21 @@ export default function SideBar({
 }: SideBarProps) {
   const location = useLocation()
   const { isMobile, setOpenMobile } = useSidebar()
+
+  // 高亮路径：延迟更新，等页面 enter 动画（300ms）完成后再切换高亮位置
+  const [highlightedPath, setHighlightedPath] = useState(location.pathname)
+  const prevPathRef = useRef(location.pathname)
+  useEffect(() => {
+    const prev = prevPathRef.current
+    prevPathRef.current = location.pathname
+    if (prev === location.pathname) return
+
+    // 延迟 300ms（匹配 pageVariants enter 动画时长），让页面过渡完成后再移动高亮
+    const timer = setTimeout(() => {
+      setHighlightedPath(location.pathname)
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [location.pathname])
 
   const handleNavLinkClick = () => {
     if (isMobile) {
@@ -82,7 +98,7 @@ export default function SideBar({
         enableScrollAnimation
           ? '[&_[data-slot=sidebar-gap]]:transition-[width] [&_[data-slot=sidebar-gap]]:duration-220 [&_[data-slot=sidebar-gap]]:ease-out'
           : '[&_[data-slot=sidebar-gap]]:transition-none',
-        '[&_[data-slot=sidebar-container]]:translate-x-0 [&_[data-slot=sidebar-container]]:opacity-100 [&_[data-slot=sidebar-container]]:transform-gpu [&_[data-slot=sidebar-container]]:will-change-[transform,opacity,top]',
+        '[&_[data-slot=sidebar-container]]:translate-x-0 [&_[data-slot=sidebar-container]]:opacity-100',
         enableScrollAnimation
           ? '[&_[data-slot=sidebar-container]]:transition-[transform,opacity,top] [&_[data-slot=sidebar-container]]:duration-220 [&_[data-slot=sidebar-container]]:ease-out'
           : '[&_[data-slot=sidebar-container]]:transition-none',
@@ -120,7 +136,7 @@ export default function SideBar({
                       className="group data-[mactive=true]:text-sidebar-primary-foreground relative h-10 overflow-visible"
                       data-mactive={location.pathname === item.url}
                     >
-                      {location.pathname === item.url && (
+                      {highlightedPath === item.url && (
                         <motion.div
                           layoutId="sidebar-selected-item"
                           className="bg-sidebar-primary absolute top-0 left-0 h-full w-full rounded-md"

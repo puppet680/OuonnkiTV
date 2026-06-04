@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import { Link } from 'react-router'
 import { VideoCameraSlash } from '@phosphor-icons/react'
 import { Button } from '@/shared/components/ui/button'
@@ -19,7 +20,7 @@ interface PlayerErrorStateProps {
   className?: string
 }
 
-export function PlayerErrorState({
+export const PlayerErrorState = memo(function PlayerErrorState({
   title,
   description,
   tag,
@@ -74,4 +75,4 @@ export function PlayerErrorState({
       </section>
     </div>
   )
-}
+})

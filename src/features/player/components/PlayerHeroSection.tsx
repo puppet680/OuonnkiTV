@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import { ArrowLeft, Sparkles, Tv, Film } from 'lucide-react'
 import { Badge } from '@/shared/components/ui/badge'
 import { Button } from '@/shared/components/ui/button'
@@ -17,7 +18,7 @@ interface PlayerHeroSectionProps {
   onBack: () => void
 }
 
-export function PlayerHeroSection({
+export const PlayerHeroSection = memo(function PlayerHeroSection({
   modeLabel,
   sourceName,
   title,
@@ -106,4 +107,4 @@ export function PlayerHeroSection({
       </div>
     </section>
   )
-}
+})

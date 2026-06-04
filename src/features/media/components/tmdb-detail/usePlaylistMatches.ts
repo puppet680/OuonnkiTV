@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, useDeferredValue } from 'react'
 import type {
   SearchProgressEvent,
   SearchResultEvent,
@@ -135,6 +135,12 @@ export function usePlaylistMatches({
   const uniqueMapRef = useRef<Map<string, VideoItem>>(new Map())
   const recomputeTimerRef = useRef<number | null>(null)
   const unsubRef = useRef<Array<() => void>>([])
+  // Track accumulated item count to trigger deferred fuse computation
+  const [accumulatedVersion, setAccumulatedVersion] = useState(0)
+  const deferredAccumulatedVersion = useDeferredValue(accumulatedVersion)
+  const isFuseStale = accumulatedVersion !== deferredAccumulatedVersion
+  const isFuseStaleRef = useRef(false)
+  isFuseStaleRef.current = isFuseStale
 
   const clearRecomputeTimer = useCallback(() => {
     if (!recomputeTimerRef.current) return
@@ -156,6 +162,12 @@ export function usePlaylistMatches({
       clearRecomputeTimer()
 
       recomputeTimerRef.current = window.setTimeout(() => {
+        if (isFuseStaleRef.current) {
+          // Items are still being accumulated (deferred value hasn't caught up),
+          // reschedule to avoid blocking the main thread with CPU-intensive Fuse matching
+          scheduleRecompute(params)
+          return
+        }
         const items = Array.from(uniqueMapRef.current.values())
         const { candidates, movieSourceMatches, seasonSourceMatches } = buildPlaylistMatches({
           mediaType: tmdbType,
@@ -279,6 +291,7 @@ export function usePlaylistMatches({
 
       clearSubscriptions()
       uniqueMapRef.current = new Map()
+      setAccumulatedVersion(0)
 
       const sourceMetaList = enabledSources.map(source => ({
         id: source.id,
@@ -382,12 +395,18 @@ export function usePlaylistMatches({
             },
           }))
 
+          let hasNewItems = false
           event.items.forEach(item => {
             const key = `${item.source_code || 'unknown'}::${item.vod_id}`
             if (!uniqueMapRef.current.has(key)) {
               uniqueMapRef.current.set(key, item)
+              hasNewItems = true
             }
           })
+
+          if (hasNewItems) {
+            setAccumulatedVersion(v => v + 1)
+          }
 
           scheduleRecompute({ keyword, releaseYear, sourceMetaList })
         }
