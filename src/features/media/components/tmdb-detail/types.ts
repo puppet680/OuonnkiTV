@@ -13,8 +13,20 @@ export interface DetailCast {
   profile_path?: string | null
 }
 
+export interface DetailAggregateCast {
+  id: number
+  name: string
+  roles?: { character: string; episode_count: number }[]
+  total_episode_count: number
+  profile_path?: string | null
+}
+
 export interface DetailCredits {
   cast?: DetailCast[]
+}
+
+export interface DetailAggregateCredits {
+  cast?: DetailAggregateCast[]
 }
 
 export interface DetailRecommendationRaw {
@@ -145,6 +157,7 @@ export type TmdbRichDetail = (TmdbMovieDetail | TmdbTvDetail) & {
   last_episode_to_air?: DetailEpisodeBrief
   next_episode_to_air?: DetailEpisodeBrief | null
   credits?: DetailCredits
+  aggregate_credits?: DetailAggregateCredits
   recommendations?: DetailRecommendationBlock
   similar?: DetailRecommendationBlock
   keywords?: DetailKeywordsBlock

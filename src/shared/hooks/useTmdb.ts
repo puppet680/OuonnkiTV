@@ -362,7 +362,7 @@ export function useTmdbDetail<T extends TmdbMovieDetail | TmdbTvDetail>(
     try {
       // 1. 核心数据类型定义
       const coreAppendMovie: AppendToResponseMovieKey[] = ['credits', 'images', 'external_ids', 'release_dates'];
-      const coreAppendTv: AppendToResponseTvKey[] = ['credits', 'images', 'external_ids', 'content_ratings'];
+      const coreAppendTv: AppendToResponseTvKey[] = ['aggregate_credits', 'images', 'external_ids', 'content_ratings'];
 
       // 2. 次要数据类型定义
       const secondaryAppendMovie: AppendToResponseMovieKey[] = [

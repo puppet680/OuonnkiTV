@@ -13,6 +13,7 @@ import { useSettingStore } from '@/shared/store/settingStore'
 import { useTmdbMatchCacheStore } from '@/shared/store/tmdbMatchCacheStore'
 import {
   buildPlaylistMatches,
+  isEnglishText,
   type PlaylistMatchItem,
   type SeasonSourceMatches,
   type SourceBestMatch,
@@ -24,7 +25,6 @@ interface UsePlaylistMatchesParams {
   tmdbType: TmdbMediaType
   tmdbId: number
   title: string
-  originalTitle?: string
   alternativeTitles?: string[]
   releaseDate?: string
   seasons: DetailSeason[]
@@ -111,7 +111,6 @@ export function usePlaylistMatches({
   tmdbType,
   tmdbId,
   title,
-  originalTitle,
   alternativeTitles,
   releaseDate,
   seasons,
@@ -173,7 +172,6 @@ export function usePlaylistMatches({
           mediaType: tmdbType,
           items,
           title: params.keyword,
-          originalTitle,
           alternativeTitles,
           releaseYear: params.releaseYear,
           seasons,
@@ -188,7 +186,7 @@ export function usePlaylistMatches({
         }))
       }, 160)
     },
-    [clearRecomputeTimer, originalTitle, alternativeTitles, seasons, tmdbType],
+    [clearRecomputeTimer, alternativeTitles, seasons, tmdbType],
   )
 
   const runSearch = useCallback(
@@ -196,13 +194,11 @@ export function usePlaylistMatches({
       const keyword = title.trim()
       const releaseYear = releaseDate ? releaseDate.slice(0, 4) : undefined
       const normalizedKeyword = normalizeCacheText(keyword)
-      const normalizedOriginalTitle = normalizeCacheText(originalTitle || '')
       const sourceSignature = buildSourceSignature(enabledSources)
       const currentKey = [
         tmdbType,
         tmdbId,
         normalizedKeyword,
-        normalizedOriginalTitle,
         releaseYear || '',
         sourceSignature,
       ].join('::')
@@ -443,7 +439,6 @@ export function usePlaylistMatches({
             mediaType: tmdbType,
             items,
             title: keyword,
-            originalTitle,
             alternativeTitles,
             releaseYear,
             seasons,
@@ -464,10 +459,12 @@ export function usePlaylistMatches({
           return bestScore < 85 || lowScoreCount > allMatches.length / 2
         }
 
-        // 回退关键词：译名 + 原名（去重）
+        // 回退关键词：译名（去重）
         const fallbackKeywords = [
-          ...new Set([...(alternativeTitles || []), originalTitle].filter((v): v is string => !!v?.trim())),
+          ...new Set((alternativeTitles || []).filter((v): v is string => !!v?.trim())),
         ]
+
+        const isTitleEnglish = isEnglishText(keyword)
 
         if (keyword.length < 2 && fallbackKeywords.length > 0) {
           // 短标题：直接用回退关键词搜索
@@ -476,6 +473,14 @@ export function usePlaylistMatches({
               cmsClient.aggregatedSearch(altKwd, enabledSources, 1, controller.signal).catch(() => {}),
             ),
           )
+        } else if (isTitleEnglish && fallbackKeywords.length > 0) {
+          // 主标题为全英文：并发搜索 title + 所有别名，不等回退
+          await Promise.all([
+            cmsClient.aggregatedSearch(keyword, enabledSources, 1, controller.signal).catch(() => {}),
+            ...fallbackKeywords.map(altKwd =>
+              cmsClient.aggregatedSearch(altKwd, enabledSources, 1, controller.signal).catch(() => {}),
+            ),
+          ])
         } else {
           // 先用 title 搜索
           await cmsClient.aggregatedSearch(keyword, enabledSources, 1, controller.signal)
@@ -495,7 +500,6 @@ export function usePlaylistMatches({
           mediaType: tmdbType,
           items,
           title: keyword,
-          originalTitle,
           alternativeTitles,
           releaseYear,
           seasons,
@@ -556,7 +560,6 @@ export function usePlaylistMatches({
       cmsClient,
       enabledSources,
       getTmdbMatchCacheEntry,
-      originalTitle,
       alternativeTitles,
       pruneTmdbMatchCache,
       releaseDate,

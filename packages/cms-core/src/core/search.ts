@@ -98,7 +98,7 @@ export async function searchVideos(
       pagination,
     }
   } catch (error) {
-    console.error('搜索错误:', error)
+    console.error(`${source.name}:搜索错误:`, error)
     return {
       success: false,
       items: [],

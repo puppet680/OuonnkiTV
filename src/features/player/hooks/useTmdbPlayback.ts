@@ -87,7 +87,6 @@ export function useTmdbPlayback({
     tmdbType,
     tmdbId,
     title: detail?.title || '',
-    originalTitle: detail?.originalTitle || '',
     alternativeTitles,
     releaseDate: detail?.releaseDate || '',
     seasons,

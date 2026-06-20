@@ -24,6 +24,7 @@ import {
   DetailProductionTab,
   DetailSeasonsTab,
   DetailTabNav,
+  type DetailCast,
   type DetailInfoField,
   type DetailTab,
   type TmdbRichDetail,
@@ -160,7 +161,6 @@ export default function TmdbDetailView() {
     tmdbType,
     tmdbId: parsedTmdbId,
     title: detail?.title || '',
-    originalTitle: detail?.originalTitle || '',
     alternativeTitles,
     releaseDate: detail?.releaseDate || '',
     seasons: safeSeasons,
@@ -244,7 +244,18 @@ export default function TmdbDetailView() {
         ? `单集约${richDetail.episode_run_time?.[0] || 0}分钟`
         : ''
 
-  const castList = (richDetail.credits?.cast || [])
+  const castList: DetailCast[] = (() => {
+    if (tmdbType === 'tv' && richDetail.aggregate_credits?.cast) {
+      return richDetail.aggregate_credits.cast.map(c => ({
+        id: c.id,
+        name: c.name,
+        character: (c.roles || []).map(r => r.character).join(' / ') || undefined,
+        order: Number.MAX_SAFE_INTEGER - (c.total_episode_count || 0),
+        profile_path: c.profile_path,
+      }))
+    }
+    return (richDetail.credits?.cast || []) as DetailCast[]
+  })()
     .slice()
     .sort((a, b) => (a.order ?? 999) - (b.order ?? 999))
     .slice(0, 30)

@@ -32,7 +32,6 @@ interface BuildPlaylistMatchesParams {
   mediaType: TmdbMediaType
   items: VideoItem[]
   title: string
-  originalTitle?: string
   alternativeTitles?: string[]
   releaseYear?: string
   seasons: DetailSeason[]
@@ -51,6 +50,12 @@ const FUSE_OPTIONS: IFuseOptions<VideoItem> = {
 
 /** 标题相似度阈值，低于此值的候选项被过滤 */
 const MIN_TITLE_SIMILARITY = 0.28
+
+export const isEnglishText = (s: string): boolean => {
+  const t = s.trim()
+  if (!t) return false
+  return [...t].every(c => c.charCodeAt(0) <= 127) && /[A-Za-z]/.test(t)
+}
 
 const parseChineseNumber = (value: string): number | null => {
   const normalized = value.replace(/\s+/g, '')
@@ -325,8 +330,8 @@ const toSourceMatches = (
     return {
       sourceCode: source.id,
       sourceName: source.name,
-      bestMatch: best && best.score >= MIN_MATCH_SCORE ? best : null,
-      alternatives: best && best.score >= MIN_MATCH_SCORE ? entries.slice(1) : entries,
+      bestMatch: best && best.score > MIN_MATCH_SCORE ? best : null,
+      alternatives: best && best.score > MIN_MATCH_SCORE ? entries.slice(1) : entries,
     }
   })
 
@@ -370,7 +375,6 @@ export function buildPlaylistMatches({
   mediaType,
   items,
   title,
-  originalTitle,
   alternativeTitles,
   releaseYear,
   seasons,
@@ -399,17 +403,7 @@ export function buildPlaylistMatches({
 
   const fuse = new Fuse(items, FUSE_OPTIONS)
 
-  // 同时搜索 title 和 originalTitle，取每个 item 的最佳分数
   const titleResults = searchWithFuse(fuse, title)
-  const originalResults = searchWithFuse(fuse, originalTitle || '')
-
-  // 合并：保留 fuseScore 更低的（分数越低 = 匹配越好）
-  for (const [key, entry] of originalResults) {
-    const existing = titleResults.get(key)
-    if (!existing || entry.fuseScore < existing.fuseScore) {
-      titleResults.set(key, entry)
-    }
-  }
 
   // 译名搜索合并
   for (const altTitle of alternativeTitles || []) {
