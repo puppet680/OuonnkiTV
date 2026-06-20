@@ -81,11 +81,14 @@ export default function TmdbDetailView() {
   const tabListRef = useRef<HTMLDivElement | null>(null)
   const [tabIndicator, setTabIndicator] = useState({ x: 0, width: 0, ready: false })
 
+  const rawGenres = (detail as { genres?: Array<{ id: number; name: string }> } | null)?.genres || []
+  const isAnime = rawGenres.some(g => g.id === 16)
+
   const tabItems: Array<{ key: DetailTab; label: string }> = [
     { key: 'overview', label: '概览' },
     { key: 'playlist', label: '播放列表' },
     { key: 'production', label: '制作与发行' },
-    { key: 'cast', label: '演员' },
+    { key: 'cast', label: isAnime ? '声优' : '演员' },
     ...(mediaType === 'tv' ? [{ key: 'seasons' as const, label: '季信息' }] : []),
   ]
 
@@ -164,6 +167,8 @@ export default function TmdbDetailView() {
     alternativeTitles,
     releaseDate: detail?.releaseDate || '',
     seasons: safeSeasons,
+    originCountry: detail?.originCountry,
+    genres: rawGenres,
   })
 
   const latestTmdbHistory = useMemo(() => {

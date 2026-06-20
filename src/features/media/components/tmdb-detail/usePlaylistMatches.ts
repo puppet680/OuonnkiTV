@@ -19,6 +19,7 @@ import {
   type SourceBestMatch,
 } from './playlistMatcher'
 import type { DetailSeason } from './types'
+import { COUNTRY_CHINESE_NAMES } from '@/shared/constants/countries'
 
 interface UsePlaylistMatchesParams {
   active: boolean
@@ -28,6 +29,8 @@ interface UsePlaylistMatchesParams {
   alternativeTitles?: string[]
   releaseDate?: string
   seasons: DetailSeason[]
+  originCountry?: string[]
+  genres?: Array<{ id: number; name: string }>
 }
 
 export interface PlaylistMatchesProgress {
@@ -114,6 +117,8 @@ export function usePlaylistMatches({
   alternativeTitles,
   releaseDate,
   seasons,
+  originCountry,
+  genres,
 }: UsePlaylistMatchesParams) {
   const cmsClient = useCmsClient()
   const videoAPIs = useApiStore(state => state.videoAPIs)
@@ -193,6 +198,8 @@ export function usePlaylistMatches({
     async (force = false) => {
       const keyword = title.trim()
       const releaseYear = releaseDate ? releaseDate.slice(0, 4) : undefined
+      const area = originCountry?.[0] ? COUNTRY_CHINESE_NAMES[originCountry[0]] : undefined
+      const classParams = genres?.map(g => g.name).filter(Boolean)
       const normalizedKeyword = normalizeCacheText(keyword)
       const sourceSignature = buildSourceSignature(enabledSources)
       const currentKey = [
@@ -470,26 +477,26 @@ export function usePlaylistMatches({
           // 短标题：直接用回退关键词搜索
           await Promise.all(
             fallbackKeywords.map(altKwd =>
-              cmsClient.aggregatedSearch(altKwd, enabledSources, 1, controller.signal).catch(() => {}),
+              cmsClient.aggregatedSearch(altKwd, enabledSources, 1, controller.signal, area, classParams).catch(() => {}),
             ),
           )
         } else if (isTitleEnglish && fallbackKeywords.length > 0) {
           // 主标题为全英文：并发搜索 title + 所有别名，不等回退
           await Promise.all([
-            cmsClient.aggregatedSearch(keyword, enabledSources, 1, controller.signal).catch(() => {}),
+            cmsClient.aggregatedSearch(keyword, enabledSources, 1, controller.signal, area, classParams).catch(() => {}),
             ...fallbackKeywords.map(altKwd =>
-              cmsClient.aggregatedSearch(altKwd, enabledSources, 1, controller.signal).catch(() => {}),
+              cmsClient.aggregatedSearch(altKwd, enabledSources, 1, controller.signal, area, classParams).catch(() => {}),
             ),
           ])
         } else {
           // 先用 title 搜索
-          await cmsClient.aggregatedSearch(keyword, enabledSources, 1, controller.signal)
+          await cmsClient.aggregatedSearch(keyword, enabledSources, 1, controller.signal, area, classParams)
 
           // 评分低则用回退关键词搜索
           if (await needsFallbackSearch()) {
             await Promise.all(
               fallbackKeywords.map(altKwd =>
-                cmsClient.aggregatedSearch(altKwd, enabledSources, 1, controller.signal).catch(() => {}),
+                cmsClient.aggregatedSearch(altKwd, enabledSources, 1, controller.signal, area, classParams).catch(() => {}),
               ),
             )
           }

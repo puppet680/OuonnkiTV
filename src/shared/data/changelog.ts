@@ -19,6 +19,22 @@ const formatDate = (dateStr: string) => {
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: '1.2.2',
+    title: 'TV演员数据修复与匹配优化',
+    date: formatDate('2026-06-20'),
+    features: [
+      '详情页匹配规则优化：主标题为全英文时，并发搜索译名别名，不等回退',
+      '移除 originalTitle 匹配逻辑，统一使用 alternativeTitles 处理译名',
+      '增加tmdb id搜索功能'
+    ],
+    fixes: [
+      '修复 TV 剧集演员数据不完整的问题：改用 aggregate_credits API',
+      'TV 演员多角色展示：跨季不同角色以 " / " 分隔',
+      'TV 演员排序改用 total_episode_count 替代 order，更准确反映出场权重',
+      '修复了历史记录点击视频不匹配'
+    ],
+  },
+  {
     version: '1.2.1',
     title: '搜索匹配与季补全优化',
     date: formatDate('2026-06-03'),
@@ -75,7 +91,7 @@ export const VERSION_UPDATES: VersionUpdate[] = [
     version: '1.0.0',
     title: '初始版本',
     date: formatDate('2026-06-01'),
-    features: ['初始版本'],
+    features: ['基于原版v2.0.4的分支'],
   },
 ]
 

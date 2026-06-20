@@ -94,6 +94,7 @@ interface TmdbState {
 interface TmdbActions {
   // 搜索
   search: (query: string, page?: number) => Promise<void>
+  findById: (id: number) => Promise<void>
 
   // 发现/浏览（无搜索词时使用 Discover API）
   fetchDiscover: (page?: number) => Promise<void>
@@ -289,6 +290,50 @@ export const useTmdbStore = create<TmdbState & TmdbActions>()(
 
             set(state => {
               state.error = (err as Error).message || 'Search failed'
+              state.loading.search = false
+            })
+          }
+        },
+
+        findById: async (id: number) => {
+          const requestId = ++latestSearchRequestId
+          const client = getTmdbClient()
+          const language = getTmdbLanguage()
+          set(state => {
+            state.searchQuery = String(id)
+            state.loading.search = true
+            state.error = null
+          })
+
+          try {
+            const results = await Promise.allSettled([
+              client.movies.details(id, [], language),
+              client.tvShows.details(id, [], language),
+            ])
+
+            const items: TmdbMediaItem[] = []
+            for (const r of results) {
+              if (r.status === 'fulfilled' && r.value) {
+                const raw = r.value as Record<string, unknown>
+                items.push(normalizeToMediaItem(raw, 'title' in raw ? 'movie' : 'tv'))
+              }
+            }
+
+            if (requestId !== latestSearchRequestId) return
+
+            set(state => {
+              state.searchResults = items
+              state.searchPagination = { page: 1, totalPages: 1, totalResults: items.length }
+              state.loading.search = false
+              if (items.length === 0) state.error = '未找到该 ID 对应的内容'
+            })
+
+            get()._updateAvailableYears()
+            get()._applyFilters()
+          } catch (err: unknown) {
+            if (requestId !== latestSearchRequestId) return
+            set(state => {
+              state.error = (err as Error).message || 'ID search failed'
               state.loading.search = false
             })
           }

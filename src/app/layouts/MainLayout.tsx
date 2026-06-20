@@ -4,20 +4,15 @@ import SideBar from '@/shared/components/SideBar'
 import { ScrollArea } from '@/shared/components/ui/scroll-area'
 import { CustomAnimatedOutlet } from '@/shared/components/AnimatedOutlet'
 import BackToTopButton from '@/shared/components/BackToTopButton'
-import { lazy, Suspense, useEffect, useState } from 'react'
-import { useVersionStore } from '@/shared/store/versionStore'
+import { useEffect, useState } from 'react'
 import { useSettingStore } from '@/shared/store/settingStore'
 import { useApiStore } from '@/shared/store/apiStore'
 import { useSubscriptionAutoRefresh } from '@/shared/hooks/useSubscriptionAutoRefresh'
 import { useScrollChromeVisibility } from '@/shared/hooks'
-import { useLocation } from 'react-router'
-
-const UpdateModal = lazy(() => import('@/shared/components/UpdateModal'))
+import { useLocation, useNavigate } from 'react-router'
 
 export default function MainLayout() {
-  const { hasNewVersion, setShowUpdateModal } = useVersionStore()
   const isScrollChromeAnimationEnabled = useSettingStore(s => s.system.isScrollChromeAnimationEnabled)
-  const isUpdateLogEnabled = useSettingStore(s => s.system.isUpdateLogEnabled)
   const { initializeEnvSources } = useApiStore()
   const location = useLocation()
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -27,8 +22,18 @@ export default function MainLayout() {
     resetKey: location.pathname,
   })
 
+  const navigate = useNavigate()
+
   // 订阅源自动刷新
   useSubscriptionAutoRefresh()
+
+  // 首次访问引导检测
+  useEffect(() => {
+    const hasCompletedGuide = localStorage.getItem('ouonnki-tv-guide-completed') === 'true'
+    if (!hasCompletedGuide) {
+      navigate('/guide', { replace: true })
+    }
+  }, [navigate])
 
   // 初始化逻辑 (从 MyRouter 迁移)
   useEffect(() => {
@@ -38,13 +43,6 @@ export default function MainLayout() {
       localStorage.setItem('envSourcesInitialized', 'true')
     }
   }, [initializeEnvSources])
-
-  // 版本更新检查
-  useEffect(() => {
-    if (hasNewVersion() && isUpdateLogEnabled) {
-      setShowUpdateModal(true)
-    }
-  }, [hasNewVersion, setShowUpdateModal, isUpdateLogEnabled])
 
   return (
     <SidebarProvider
@@ -77,9 +75,6 @@ export default function MainLayout() {
                       : pathname
                   }
                 />
-                <Suspense fallback={null}>
-                  <UpdateModal />
-                </Suspense>
               </ScrollArea>
               <BackToTopButton scrollRootSelector="[data-main-scroll-area]" />
             </div>

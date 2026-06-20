@@ -35,6 +35,8 @@ export interface CmsClient {
     sources: VideoSource[],
     page: number,
     signal?: AbortSignal,
+    area?: string,
+    classParams?: string[],
   ): Promise<VideoItem[]>
 
   // 列表（不带搜索关键词，获取推荐/最新内容）
@@ -96,14 +98,14 @@ export function createCmsClient(config?: CmsClientConfig): CmsClient {
   }
 
   // 单源搜索（带事件）
-  const searchWithEvents = async (query: string, source: VideoSource, page: number = 1): Promise<SearchResult> => {
+  const searchWithEvents = async (query: string, source: VideoSource, page: number = 1, area?: string, classParams?: string[]): Promise<SearchResult> => {
     const sourceWithDefaults: VideoSource = {
       ...source,
       timeout: source.timeout ?? defaultTimeout,
       retry: source.retry ?? defaultRetry,
     }
 
-    return searchVideos(query, sourceWithDefaults, searchConfig, page)
+    return searchVideos(query, sourceWithDefaults, searchConfig, page, area, classParams)
   }
 
   // 创建聚合搜索
@@ -155,6 +157,8 @@ export function createCmsClient(config?: CmsClientConfig): CmsClient {
       sources: VideoSource[],
       page: number = 1,
       signal?: AbortSignal,
+      area?: string,
+      classParams?: string[],
     ): Promise<VideoItem[]> {
       const startTime = Date.now()
 
@@ -166,7 +170,7 @@ export function createCmsClient(config?: CmsClientConfig): CmsClient {
       })
 
       try {
-        const results = await aggregatedSearchFn(query, sources, page, signal)
+        const results = await aggregatedSearchFn(query, sources, page, signal, area, classParams)
 
         emitter.emit({
           type: 'search:complete',

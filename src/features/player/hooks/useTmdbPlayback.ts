@@ -90,6 +90,8 @@ export function useTmdbPlayback({
     alternativeTitles,
     releaseDate: detail?.releaseDate || '',
     seasons,
+    originCountry: detail?.originCountry,
+    genres: (detail as { genres?: Array<{ id: number; name: string }> } | null)?.genres,
   })
 
   const seasonSourceMap = useMemo(() => {

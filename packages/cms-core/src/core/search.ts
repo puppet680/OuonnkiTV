@@ -30,6 +30,8 @@ export async function searchVideos(
   source: VideoSource,
   config: SearchConfig,
   page: number = 1,
+  area?: string,
+  classParams?: string[],
 ): Promise<SearchResult> {
   const { requestAdapter, proxyStrategy, apiConfig } = config
 
@@ -50,7 +52,7 @@ export async function searchVideos(
       }
     }
 
-    const apiUrl = buildSearchUrl(source.url, query, page, apiConfig)
+    const apiUrl = buildSearchUrl(source.url, query, page, apiConfig, area, classParams)
     const finalUrl = proxyStrategy.shouldProxy(apiUrl) ? proxyStrategy.applyProxy(apiUrl) : apiUrl
 
     const response = await requestAdapter.fetch(finalUrl, {

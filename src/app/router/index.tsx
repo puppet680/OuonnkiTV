@@ -15,6 +15,7 @@ const SearchHubView = lazy(() => import('@/features/search/views/SearchHubView')
 const FavoritesView = lazy(() => import('@/features/favorites/views/FavoritesView'))
 const HistoryView = lazy(() => import('@/features/history/views/HistoryView'))
 const TmdbDetailView = lazy(() => import('@/features/media/views/TmdbDetailView'))
+const GuideView = lazy(() => import('@/features/guide/views/GuideView'))
 
 // Settings sub-routes
 const SourceSettings = lazy(() => import('@/features/settings/views/SourceSettings'))
@@ -54,7 +55,16 @@ const SuspenseWrapper = ({ children }: { children: React.ReactNode }) => (
 )
 
 const router = createBrowserRouter([
-  // A. 核心布局路由 (带顶部导航)
+  // A. 引导页 (独立布局，无导航栏)
+  {
+    path: '/guide',
+    element: (
+      <SuspenseWrapper>
+        <GuideView />
+      </SuspenseWrapper>
+    ),
+  },
+  // B. 核心布局路由 (带顶部导航)
   {
     path: '/',
     element: <MainLayout />,

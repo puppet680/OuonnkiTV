@@ -7,7 +7,7 @@ export const POPULAR_COUNTRIES_MOBILE = ['CN', 'US', 'JP', 'KR', 'HK', 'TW']
 
 // 国家中文名称映射
 export const COUNTRY_CHINESE_NAMES: Readonly<Record<string, string>> = {
-  CN: '中国大陆',
+  CN: '大陆',
   US: '美国',
   JP: '日本',
   KR: '韩国',

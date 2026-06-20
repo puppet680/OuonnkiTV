@@ -64,16 +64,20 @@ export function SearchTmdbSection({ query }: SearchTmdbSectionProps) {
     }
   }, [filterOptions, query, fetchDiscover])
 
+  const findById = useTmdbStore(s => s.findById)
+
   // 执行搜索 - 检测新查询
   useEffect(() => {
     if (query) {
+      const isNumericId = /^\d{1,10}$/.test(query)
       setIsSearchingNewQuery(true)
       setCurrentPage(1)
-      tmdbSearch(query, 1).then(() => {
+      const promise = isNumericId ? findById(Number(query)) : tmdbSearch(query, 1)
+      promise.then(() => {
         setIsSearchingNewQuery(false)
       })
     }
-  }, [query, tmdbSearch])
+  }, [query, tmdbSearch, findById])
 
   // 判断当前是否有更多
   const pagination = query ? tmdbPagination : discoverPagination

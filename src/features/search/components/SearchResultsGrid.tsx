@@ -93,15 +93,17 @@ export const SearchResultsGrid = memo(function SearchResultsGrid({
 
     return (
       <div className={cn('space-y-6', className)}>
-        {/* 结果统计 - 仅在非加载状态且有 totalResults 时显示 */}
-        {!loading && hasResults && totalResults !== undefined && (
-          <div className="text-muted-foreground text-sm">
-            共找到 <span className="text-primary font-medium">{totalResults}</span> 个结果
-            {results.length !== totalResults && (
-              <>，已显示 <span className="text-primary font-medium">{results.length}</span> 个</>
-            )}
-          </div>
-        )}
+        {/* 结果统计 - 固定占位，只更新数字避免布局抖动 */}
+        <div className="text-muted-foreground h-5 text-sm">
+          {hasResults && totalResults !== undefined ? (
+            <>
+              共找到 <span className="text-primary font-medium">{totalResults}</span> 个结果
+              {results.length < totalResults && (
+                <>，已显示 <span className="text-primary font-medium">{results.length}</span> 个</>
+              )}
+            </>
+          ) : null}
+        </div>
 
         {/* 内容区域 */}
         <div>
