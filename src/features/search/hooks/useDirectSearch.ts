@@ -2,6 +2,7 @@ import { useState, useRef, useCallback, useMemo, useEffect } from 'react'
 import { type VideoItem, type SearchResultEvent, type Pagination, type VideoSource } from '@ouonnki/cms-core'
 import { useApiStore } from '@/shared/store/apiStore'
 import { useCmsClient } from '@/shared/hooks'
+import { filterAdult } from '@/shared/hooks/useCmsCore'
 import { PaginationConfig } from '@/shared/config/video.config'
 import { getSourcesToFetch, aggregateByTitle, type SourcePaginationInfo, type AggregatedVideoItem } from './directSearch.utils'
 
@@ -151,13 +152,14 @@ export function useDirectSearch() {
         }
       }
 
+      const filtered = filterAdult(event.items)
       setDirectResults(prev => {
         // 累积所有源的结果
-        return [...prev, ...event.items]
+        return [...prev, ...filtered]
       })
       // 聚合去重
       setAggregatedResults(prev => {
-        const allItems = [...prev.flatMap(a => a.sources), ...event.items]
+        const allItems = [...prev.flatMap(a => a.sources), ...filtered]
         return aggregateByTitle(allItems)
       })
 
@@ -236,27 +238,30 @@ export function useDirectSearch() {
         }
       })
       .finally(() => {
-        // 强制将所有本次请求的源标记为完成，防止因某些源无响应或错误信息不完整而卡住
-        setCompletedSourcesInCurrentPage(prev => {
-          const newSet = new Set(prev)
-          sourcesToFetchRef.current.forEach(source => {
-            newSet.add(source.id)
+        // 延迟关闭 loading，让 pending 的 search:result 事件先到达
+        setTimeout(() => {
+          // 强制将所有本次请求的源标记为完成
+          setCompletedSourcesInCurrentPage(prev => {
+            const newSet = new Set(prev)
+            sourcesToFetchRef.current.forEach(source => {
+              newSet.add(source.id)
+            })
+            return newSet
           })
-          return newSet
-        })
-        setSearchProgress({
-          completed: totalRequestedSources,
-          total: totalRequestedSources,
-        })
+          setSearchProgress({
+            completed: totalRequestedSources,
+            total: totalRequestedSources,
+          })
 
-        unsubResult()
-        unsubProgress()
-        setDirectLoading(false)
+          unsubResult()
+          unsubProgress()
+          setDirectLoading(false)
 
-        if (timeOutTimer.current) {
-          clearTimeout(timeOutTimer.current)
-          timeOutTimer.current = null
-        }
+          if (timeOutTimer.current) {
+            clearTimeout(timeOutTimer.current)
+            timeOutTimer.current = null
+          }
+        }, 0)
       })
 
     // 移除toast提示

@@ -76,7 +76,8 @@ const FeaturedCarouselItem = memo(function FeaturedCarouselItem({
           className="h-full w-full rounded-lg object-cover object-center md:object-top-right"
           src={getBackdropUrl(item.backdropPath) || undefined}
           alt={item.title}
-          loading="lazy"
+          loading={isActive ? undefined : 'lazy'}
+          fetchPriority={isActive ? 'high' : undefined}
           style={{ contentVisibility: isActive ? 'visible' : 'auto' }}
         />
 
@@ -184,9 +185,39 @@ export const FeaturedCarousel = memo(function FeaturedCarousel({
 }: FeaturedCarouselProps) {
   const [api, setApi] = useState<CarouselApi>()
   const [activeIndex, setActiveIndex] = useState(0)
+  // ponytail: 延迟轮播初始化，首屏先渲染静态图绕过 embla measure() 729ms 强制重排
+  const [carouselReady, setCarouselReady] = useState(false)
+  // 静态首屏文本淡入动画
+  const [textVisible, setTextVisible] = useState(false)
   const miniApiRef = useRef<CarouselApi | null>(null)
   const isMobile = useIsMobile()
   const viewingHistory = useViewingHistoryStore(state => state.viewingHistory)
+
+  useEffect(() => {
+    const idle = 'requestIdleCallback' in window ? requestIdleCallback : (cb: () => void) => setTimeout(cb, 0)
+    const id = idle(() => setCarouselReady(true))
+    return () => {
+      if ('cancelIdleCallback' in window) cancelIdleCallback(id as number)
+      else clearTimeout(id as ReturnType<typeof setTimeout>)
+    }
+  }, [])
+
+  // 触发静态首屏文本淡入（下一帧 kick-off CSS transition）
+  useEffect(() => {
+    if (carouselReady) return
+    const raf = requestAnimationFrame(() => setTextVisible(true))
+    return () => cancelAnimationFrame(raf)
+  }, [carouselReady])
+
+  // 缓存首张巨幕 URL 到 sessionStorage，下次访问 HTML 预加载跳过 React 渲染延迟
+  useEffect(() => {
+    if (items.length > 0) {
+      const url = getBackdropUrl(items[0].backdropPath)
+      if (url) {
+        try { sessionStorage.setItem('lcp_backdrop', url) } catch (_) {}
+      }
+    }
+  }, [items])
 
   const latestTmdbHistoryMap = useMemo(() => {
     const latestHistoryMap = new Map<string, ViewingHistoryItem>()
@@ -285,6 +316,132 @@ export const FeaturedCarousel = memo(function FeaturedCarousel({
 
   if (items.length === 0) {
     return null
+  }
+
+  // 首屏静态渲染：绕过 embla measure() 强制重排，LCP 图片直接上屏
+  // 视觉与 FeaturedCarouselItem 完全一致（含观看记录按钮逻辑），避免切换闪烁
+  if (!carouselReady) {
+    const first = items[0]
+    const playPath = buildTmdbPlayPath(first.mediaType, first.id)
+    const detailPath = buildTmdbDetailPath(first.mediaType, first.id)
+    const latestTmdbHistory = latestTmdbHistoryMap.get(`${first.mediaType}-${first.id}`)
+    const continueWatchingLabel = latestTmdbHistory
+      ? latestTmdbHistory.episodeName || `第${latestTmdbHistory.episodeIndex + 1}集`
+      : ''
+    const continueWatchingProgressLabel = latestTmdbHistory
+      ? latestTmdbHistory.duration > 0
+        ? `已观看 ${Math.round(Math.min(100, Math.max(0, (latestTmdbHistory.playbackPosition / latestTmdbHistory.duration) * 100)))}%`
+        : '已开始观看'
+      : ''
+    const continueWatchingPath = latestTmdbHistory
+      ? latestTmdbHistory.sourceCode && latestTmdbHistory.vodId
+        ? buildHistoryPlayPath(latestTmdbHistory)
+        : buildTmdbPlayPath(first.mediaType, first.id, {
+            episodeIndex: latestTmdbHistory.episodeIndex,
+            seasonNumber: first.mediaType === 'tv' ? latestTmdbHistory.tmdbSeasonNumber ?? undefined : undefined,
+          })
+      : ''
+    const playNowLabel = continueWatchingPath ? '从头播放' : '立即播放'
+
+    return (
+      <div className="relative">
+        <div className="min-w-0 shrink-0 grow-0 basis-full h-fit rounded-lg">
+          <AspectRatio ratio={getAspectRatio()} className="bg-muted overflow-hidden rounded-lg">
+            <img
+              className="h-full w-full rounded-lg object-cover object-center md:object-top-right"
+              src={getBackdropUrl(first.backdropPath) || undefined}
+              alt={first.title}
+              fetchPriority="high"
+              style={{ contentVisibility: 'visible' }}
+            />
+            {/* 移动端/平板遮罩 — 与 FeaturedCarouselItem 完全一致 */}
+            <div className="absolute inset-0 flex min-h-0 flex-col justify-end rounded-lg bg-gradient-to-t from-black/90 via-black/50 via-60% to-transparent px-6 pt-4 pb-6 transition-opacity duration-500 ease-out md:px-8 md:pb-8 lg:hidden">
+              <div className={`mb-3 flex shrink-0 items-end transition-all delay-100 duration-500 ease-out md:mb-4 ${textVisible ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'}`}>
+                {first.logoPath ? (
+                  <img src={getLogoUrl(first.logoPath) || undefined} alt={first.title} className="max-h-12 max-w-[180px] object-contain md:max-h-16 md:max-w-[240px]" />
+                ) : (
+                  <h2 className="text-xl font-bold text-white md:text-2xl">{first.title}</h2>
+                )}
+              </div>
+              <p className={`mb-2 line-clamp-2 min-h-0 shrink text-xs text-white/80 transition-all delay-150 duration-500 ease-out md:mb-4 md:line-clamp-3 md:max-w-md md:text-sm ${textVisible ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'}`}>
+                {first.overview}
+              </p>
+              <div className={`shrink-0 transition-all delay-200 duration-500 ease-out ${textVisible ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'}`}>
+                {isMobile ? (
+                  <div className="flex items-center gap-2">
+                    <Button size="sm" className="h-7 min-w-0 flex-1 gap-1 rounded-full bg-[#E50914] px-2.5 text-xs font-semibold text-white hover:bg-[#ca0812]"
+                      onClick={() => window.location.href = continueWatchingPath || playPath}>
+                      <Play className="size-3.5 fill-current" />
+                      {continueWatchingPath ? '继续观看' : playNowLabel}
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="flex flex-wrap gap-2 md:gap-3">
+                    {continueWatchingPath && (
+                      <NavLink to={continueWatchingPath} className="group relative inline-flex h-8 rounded-full gap-1.5 bg-[#E50914] px-3 font-semibold text-white hover:bg-[#ca0812] md:h-9 md:gap-2 md:px-4 md:text-sm items-center">
+                        <span className="inline-flex items-center gap-1.5 transition-opacity duration-200 group-hover:opacity-0 md:gap-2">
+                          <Play className="size-3.5 fill-current md:size-4" />
+                          继续观看{continueWatchingLabel ? <span className="hidden md:inline">· {continueWatchingLabel}</span> : null}
+                        </span>
+                        {continueWatchingProgressLabel && (
+                          <span className="pointer-events-none absolute inset-0 hidden items-center justify-center text-[11px] font-semibold opacity-0 transition-opacity duration-200 group-hover:opacity-100 md:flex">
+                            {continueWatchingProgressLabel}
+                          </span>
+                        )}
+                      </NavLink>
+                    )}
+                    <NavLink to={playPath} className="inline-flex h-8 rounded-full gap-1.5 bg-white px-3 font-semibold text-black hover:bg-white/90 md:h-9 md:gap-2 md:px-4 md:text-sm items-center">
+                      <Play className="size-3.5 fill-current md:size-4" />
+                      {playNowLabel}
+                    </NavLink>
+                    <NavLink to={detailPath} className="inline-flex h-8 rounded-full gap-1.5 bg-white/30 px-3 font-semibold text-white hover:bg-white/40 md:h-9 md:gap-2 md:px-4 md:text-sm items-center">
+                      <Info className="size-3.5 md:size-4" />
+                      查看详情
+                    </NavLink>
+                  </div>
+                )}
+              </div>
+            </div>
+            {/* 桌面端遮罩 — 与 FeaturedCarouselItem 完全一致 */}
+            <div className="absolute inset-0 hidden flex-col justify-end rounded-lg bg-gradient-to-r from-black/90 via-black/50 via-40% to-transparent px-16 pt-25 pb-16 transition-opacity duration-500 ease-out lg:flex">
+              <div className={`mb-8 flex h-35 items-end transition-all delay-100 duration-500 ease-out ${textVisible ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'}`}>
+                {first.logoPath ? (
+                  <img src={getLogoUrl(first.logoPath) || undefined} alt={first.title} className="max-h-35 max-w-md object-contain xl:max-h-40 xl:max-w-lg" />
+                ) : (
+                  <h2 className="text-2xl font-bold text-white md:text-4xl lg:text-5xl">{first.title}</h2>
+                )}
+              </div>
+              <p className={`mb-5 line-clamp-3 max-w-xl text-[0.7rem] text-white/80 transition-all delay-150 duration-500 ease-out md:max-w-2xl md:text-base ${textVisible ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'}`}>
+                {first.overview}
+              </p>
+              <div className={`flex gap-3 transition-all delay-200 duration-500 ease-out ${textVisible ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'}`}>
+                {continueWatchingPath && (
+                  <NavLink to={continueWatchingPath} className="group relative inline-flex rounded-full gap-2 bg-[#E50914] font-semibold text-white hover:bg-[#ca0812] px-4 py-2 items-center">
+                    <span className="inline-flex items-center gap-2 transition-opacity duration-200 group-hover:opacity-0">
+                      <Play className="size-5 fill-current" />
+                      继续观看{continueWatchingLabel ? <span>· {continueWatchingLabel}</span> : null}
+                    </span>
+                    {continueWatchingProgressLabel && (
+                      <span className="pointer-events-none absolute inset-0 hidden items-center justify-center text-xs font-semibold opacity-0 transition-opacity duration-200 group-hover:opacity-100 xl:flex">
+                        {continueWatchingProgressLabel}
+                      </span>
+                    )}
+                  </NavLink>
+                )}
+                <NavLink to={playPath} className="inline-flex rounded-full gap-2 bg-white font-semibold text-black hover:bg-white/90 px-4 py-2 items-center">
+                  <Play className="size-5 fill-current" />
+                  {playNowLabel}
+                </NavLink>
+                <NavLink to={detailPath} className="inline-flex rounded-full gap-2 bg-white/30 font-semibold text-white hover:bg-white/40 px-4 py-2 items-center">
+                  <Info className="size-5" />
+                  查看详情
+                </NavLink>
+              </div>
+            </div>
+          </AspectRatio>
+        </div>
+      </div>
+    )
   }
 
   return (

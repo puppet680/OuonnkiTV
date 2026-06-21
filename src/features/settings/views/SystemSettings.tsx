@@ -69,6 +69,25 @@ export default function SystemSettings() {
             />
           }
         />
+        <SettingsItem
+          title="成人内容过滤"
+          description={
+            <span>
+              关闭后，TMDB 搜索结果不过滤成人分级，CMS 直连模式不过滤标题/简介中的敏感关键词。
+              <br />
+              <span className="text-muted-foreground/70 text-xs">
+                CMS 关键词通过 <code className="bg-muted px-1 py-0.5 rounded text-[11px]">OKI_CMS_FILTER_KEYWORDS</code> 环境变量配置，逗号分隔。
+              </span>
+            </span>
+          }
+          controlClassName="self-end mt-1"
+          control={
+            <Switch
+              checked={system.isAdultFilterEnabled}
+              onCheckedChange={checked => setSystemSettings({ isAdultFilterEnabled: checked })}
+            />
+          }
+        />
         {!hasEnvToken && (
           <SettingsItem
             title="TMDB API Token"

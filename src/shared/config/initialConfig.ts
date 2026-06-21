@@ -38,6 +38,8 @@ interface SettingsConfig {
     tmdbImageQuality?: 'low' | 'medium' | 'high'
     tmdbRegion?: 'international' | 'mainland'
     varietyNetworks?: string
+    isAdultFilterEnabled?: boolean
+    cmsFilterKeywords?: string
   }
 }
 

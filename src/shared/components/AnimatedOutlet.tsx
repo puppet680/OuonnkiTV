@@ -1,6 +1,5 @@
 import { useLocation, useOutlet } from 'react-router'
 import { AnimatePresence, motion, type Variants } from 'framer-motion'
-import { useRef } from 'react'
 import { pageVariants } from '@/shared/lib/animationVariants'
 
 /**
@@ -13,14 +12,6 @@ export default function AnimatedOutlet() {
   const location = useLocation()
   const outlet = useOutlet()
 
-  // 使用 ref 缓存当前 outlet，确保退出动画时仍能渲染正确的内容
-  const outletRef = useRef(outlet)
-
-  // 当路由变化时更新缓存的 outlet
-  if (outlet) {
-    outletRef.current = outlet
-  }
-
   return (
     <AnimatePresence mode="popLayout" initial={false}>
       <motion.div
@@ -32,7 +23,7 @@ export default function AnimatedOutlet() {
         className="h-full"
         layout="position"
       >
-        {outlet || outletRef.current}
+        {outlet}
       </motion.div>
     </AnimatePresence>
   )
@@ -59,17 +50,11 @@ export function CustomAnimatedOutlet({
 }: CustomAnimatedOutletProps) {
   const location = useLocation()
   const outlet = useOutlet()
-  const outletRef = useRef(outlet)
   const animationKey =
     typeof routeKey === 'function' ? routeKey(location.pathname) : (routeKey ?? location.pathname)
 
-  if (outlet) {
-    outletRef.current = outlet
-  }
-
-  // 如果禁用动画，直接返回 outlet
   if (!enabled) {
-    return <>{outlet || outletRef.current}</>
+    return <>{outlet}</>
   }
 
   return (
@@ -81,10 +66,9 @@ export function CustomAnimatedOutlet({
         animate="animate"
         exit="exit"
         className={className}
-        // popLayout 模式下新内容立即渲染旧内容 position:absolute 脱离流，两项动画可并行
         layout="position"
       >
-        {outlet || outletRef.current}
+        {outlet}
       </motion.div>
     </AnimatePresence>
   )

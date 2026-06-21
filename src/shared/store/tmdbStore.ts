@@ -250,7 +250,7 @@ export const useTmdbStore = create<TmdbState & TmdbActions>()(
               query,
               page,
               language: getTmdbLanguage(),
-              include_adult: false,
+              include_adult: !useSettingStore.getState().system.isAdultFilterEnabled,
             })
 
             const results: TmdbMediaItem[] = res.results
@@ -258,6 +258,16 @@ export const useTmdbStore = create<TmdbState & TmdbActions>()(
               .map(item =>
                 normalizeToMediaItem(item as unknown as Record<string, unknown>, item.media_type),
               )
+              .filter(item => {
+                const { isAdultFilterEnabled, cmsFilterKeywords } = useSettingStore.getState().system
+                if (!isAdultFilterEnabled) return true
+                const keywords = (import.meta.env.OKI_CMS_FILTER_KEYWORDS || cmsFilterKeywords)
+                  .split(',').map((k: string) => k.trim()).filter(Boolean)
+                if (keywords.length === 0) return true
+                const haystack = [item.title, item.originalTitle, item.overview]
+                  .filter(Boolean).join(' ')
+                return !keywords.some((kw: string) => haystack.includes(kw))
+              })
 
             if (requestId !== latestSearchRequestId) {
               return
@@ -354,6 +364,9 @@ export const useTmdbStore = create<TmdbState & TmdbActions>()(
           try {
             // 根据 mediaType 决定调用哪个 discover 接口
             const mediaType = filterOptions.mediaType === 'tv' ? 'tv' : 'movie'
+            const networks = useSettingStore.getState().system.varietyNetworks
+            const networkIds = networks.split('|').filter(Boolean)
+            const hasChineseNetwork = networkIds.includes('1330') || networkIds.includes('2007')
 
             // 构建 discover 请求参数
             const sortByMap: Record<string, string> = {
@@ -402,15 +415,22 @@ export const useTmdbStore = create<TmdbState & TmdbActions>()(
             let totalPages = 0
             let totalResults = 0
 
+            // 中国平台偏好 → 电影加中文筛选
+            const movieParams = { ...discoverParams }
+            if (hasChineseNetwork) {
+              movieParams.with_original_language = 'zh'
+            }
+
             // 如果是 'all' 类型，同时获取电影和剧集
             if (filterOptions.mediaType === 'all' || !filterOptions.mediaType) {
               const [movieRes, tvRes] = await Promise.all([
-                client.discover.movie(discoverParams),
+                client.discover.movie(movieParams),
                 client.discover.tvShow({
                   ...discoverParams,
                   // TV 的年份参数不同
                   first_air_date_year: filterOptions.releaseYear,
                   primary_release_year: undefined,
+                  with_networks: networks,
                 }),
               ])
 
@@ -429,8 +449,8 @@ export const useTmdbStore = create<TmdbState & TmdbActions>()(
               // 单一类型
               const res =
                 mediaType === 'movie'
-                  ? await client.discover.movie(discoverParams)
-                  : await client.discover.tvShow(discoverParams)
+                  ? await client.discover.movie(movieParams)
+                  : await client.discover.tvShow({ ...discoverParams, with_networks: networks })
 
               allResults = res.results.map((i: unknown) =>
                 normalizeToMediaItem(i as Record<string, unknown>, mediaType),
@@ -715,15 +735,15 @@ export const useTmdbStore = create<TmdbState & TmdbActions>()(
             if (hasWestern) {
               movieCalls.push(
                 client.discover.movie({
-                  language: tmdbLang, sort_by: 'popularity.desc',
-                  with_watch_providers: '8|350', watch_region: 'US',
-                  'vote_count.gte': 100,
+                  language: tmdbLang, sort_by: 'vote_average.desc',
+                  with_watch_providers: '8|350',
+                  'vote_count.gte': 200,
                 }),
               )
               animeCalls.push(
                 client.discover.movie({
                   language: tmdbLang, sort_by: 'popularity.desc',
-                  with_genres: '16', with_watch_providers: '8|350', watch_region: 'US',
+                  with_genres: '16', with_watch_providers: '8|350',
                   'vote_count.gte': 30,
                 }),
               )
@@ -731,9 +751,9 @@ export const useTmdbStore = create<TmdbState & TmdbActions>()(
             if (hasChinese) {
               movieCalls.push(
                 client.discover.movie({
-                  language: tmdbLang, sort_by: 'popularity.desc',
+                  language: tmdbLang, sort_by: 'vote_average.desc',
                   with_original_language: 'zh',
-                  'vote_count.gte': 50,
+                  'vote_count.gte': 30,
                 }),
               )
               animeCalls.push(
@@ -769,9 +789,31 @@ export const useTmdbStore = create<TmdbState & TmdbActions>()(
             const animeItems = animeResults.map(normMovie)
             const tvItems = tvRes.results.map(normTv)
             const varietyItems = varietyRes.results.map(normTv)
-            const featured = [...tvItems, ...movieItems]
+            const featured = [...new Map(
+                [...tvItems, ...movieItems, ...animeItems].map(i => [i.id + i.mediaType, i])
+              ).values()]
               .sort((a, b) => b.popularity - a.popularity)
-              .slice(0, 20)
+              .slice(0, 10)
+
+            // 批量拉取 logo，TMDB discover 不返回 logo_path
+            try {
+              const logoResults = await Promise.allSettled(
+                featured.map(async item => {
+                  const res =
+                    item.mediaType === 'movie'
+                      ? await client.movies.images(item.id)
+                      : await client.tvShows.images(item.id)
+                  const logos: { file_path: string }[] = (res as unknown as Record<string, unknown>).logos as { file_path: string }[] ?? []
+                  return { id: item.id, mediaType: item.mediaType, logoPath: logos[0]?.file_path ?? null }
+                }),
+              )
+              for (const r of logoResults) {
+                if (r.status === 'fulfilled' && r.value.logoPath) {
+                  const item = featured.find(i => i.id === r.value.id && i.mediaType === r.value.mediaType)
+                  if (item) item.logoPath = r.value.logoPath
+                }
+              }
+            } catch { /* logo 拉取失败不影响主流程 */ }
 
             set(s => {
               s.regionCache.default = {

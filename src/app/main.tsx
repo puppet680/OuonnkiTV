@@ -1,4 +1,4 @@
-import { StrictMode } from 'react'
+import { StrictMode, lazy, Suspense } from 'react'
 import { createRoot } from 'react-dom/client'
 import '@fontsource/inter/400.css'
 import '@fontsource/inter/500.css'
@@ -10,7 +10,10 @@ import AppRouter from './router'
 import { Toaster } from '@/shared/components/ui/sonner'
 import { TooltipProvider } from '@/shared/components/ui/tooltip'
 
-import { Analytics } from '@vercel/analytics/react'
+// ponytail: analytics 与首屏渲染无关，lazy-load 避免阻塞 INP/LCP
+const Analytics = import.meta.env.OKI_DISABLE_ANALYTICS !== 'true'
+  ? lazy(() => import('@vercel/analytics/react').then(m => ({ default: m.Analytics })))
+  : null
 
 const root = document.getElementById('root')!
 
@@ -19,8 +22,10 @@ const app = (
     <TooltipProvider>
       <AppRouter />
       <Toaster richColors position="top-center" />
-      {import.meta.env.OKI_DISABLE_ANALYTICS !== 'true' && (
-        <Analytics />
+      {Analytics && (
+        <Suspense fallback={null}>
+          <Analytics />
+        </Suspense>
       )}
     </TooltipProvider>
   </ThemeProvider>

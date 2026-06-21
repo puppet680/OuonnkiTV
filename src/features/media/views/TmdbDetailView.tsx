@@ -13,6 +13,7 @@ import type {
   TmdbTvDetail,
 } from '@/shared/types/tmdb'
 import { useFavoritesStore } from '@/features/favorites/store/favoritesStore'
+import { useSettingStore } from '@/shared/store/settingStore'
 import { useViewingHistoryStore } from '@/shared/store/viewingHistoryStore'
 import {
   DetailCastTab,
@@ -37,6 +38,7 @@ import {
   getReleaseYear,
   getCertShort,
   getCertFull,
+  isAdultCert,
   mapBooleanLabel,
   mapCountryCodeToName,
   mapLanguageCodeToName,
@@ -70,6 +72,8 @@ export default function TmdbDetailView() {
   )
   const toggleTmdbFavorite = useFavoritesStore(state => state.toggleTmdbFavorite)
   const viewingHistory = useViewingHistoryStore(state => state.viewingHistory)
+
+  const isAdultFilterEnabled = useSettingStore(state => state.system.isAdultFilterEnabled)
 
   const { detail, loading, error } = useTmdbDetail<TmdbMovieDetail | TmdbTvDetail>(
     isValidRoute ? parsedTmdbId : undefined,
@@ -242,6 +246,27 @@ export default function TmdbDetailView() {
   const heroLogo = pickHeroLogo(richDetail.images?.logos || [])
   const certShort = getCertShort(richDetail.adult, richDetail.release_dates)
   const certFull = getCertFull(richDetail.adult, richDetail.release_dates)
+
+  if (isAdultFilterEnabled && isAdultCert(certShort)) {
+    return (
+      <div className="px-4 md:px-6">
+        <DetailStatePanel
+          mode="error"
+          title="当前内容禁止访问"
+          description={certFull || `分级 ${certShort}`}
+          primaryAction={{
+            label: '返回搜索页',
+            onClick: () => navigate(TMDB_SEARCH_PATH),
+          }}
+          secondaryAction={{
+            label: '回到上一页',
+            onClick: () => navigate(-1),
+          }}
+        />
+      </div>
+    )
+  }
+
   const runtimeLabel =
     tmdbType === 'movie'
       ? formatRuntime(richDetail.runtime || 0)

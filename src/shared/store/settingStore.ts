@@ -46,6 +46,8 @@ interface SystemSettings {
   tmdbImageQuality: 'low' | 'medium' | 'high'
   tmdbRegion: 'international' | 'mainland'
   varietyNetworks: string
+  isAdultFilterEnabled: boolean
+  cmsFilterKeywords: string
 }
 
 interface SettingState {
@@ -123,7 +125,7 @@ export const useSettingStore = create<SettingStore>()(
       })),
       {
         name: 'ouonnki-tv-setting-store',
-        version: 15,
+        version: 16,
         migrate: (persistedState: unknown, version: number) => {
           const state = persistedState as Record<string, unknown>
           if (version < 2 && state.playback) {
@@ -213,6 +215,12 @@ export const useSettingStore = create<SettingStore>()(
           if (version < 15) {
             const system = (state.system ?? {}) as Record<string, unknown>
             system.varietyNetworks ??= DEFAULT_SETTINGS.system.varietyNetworks
+            state.system = system
+          }
+          if (version < 16) {
+            const system = (state.system ?? {}) as Record<string, unknown>
+            system.isAdultFilterEnabled ??= DEFAULT_SETTINGS.system.isAdultFilterEnabled
+            system.cmsFilterKeywords ??= DEFAULT_SETTINGS.system.cmsFilterKeywords
             state.system = system
           }
           return state

@@ -67,7 +67,33 @@ export default function BangumiView() {
       setNewAnime(newItems)
       setSeries(seriesItems)
       setMovies(movieItems)
-      setFeatured(seriesItems.slice(0, 20))
+
+      // 巨幕：番剧去重，热度降序 Top 10，拉 logo
+      const top10 = [...new Map(
+        seriesItems.map(i => [i.id + i.mediaType, i])
+      ).values()]
+        .sort((a, b) => b.popularity - a.popularity)
+        .slice(0, 10)
+
+      try {
+        const logoResults = await Promise.allSettled(
+          top10.map(async item => {
+            const res = item.mediaType === 'movie'
+              ? await client.movies.images(item.id)
+              : await client.tvShows.images(item.id)
+            const logos: { file_path: string }[] = (res as unknown as Record<string, unknown>).logos as { file_path: string }[] ?? []
+            return { id: item.id, mediaType: item.mediaType, logoPath: logos[0]?.file_path ?? null }
+          }),
+        )
+        for (const r of logoResults) {
+          if (r.status === 'fulfilled' && r.value.logoPath) {
+            const item = top10.find(i => i.id === r.value.id && i.mediaType === r.value.mediaType)
+            if (item) item.logoPath = r.value.logoPath
+          }
+        }
+      } catch { /* logo 拉取失败不影响主流程 */ }
+
+      setFeatured(top10)
     } catch (err) {
       console.error('Bangumi fetch failed:', err)
     } finally {
