@@ -19,6 +19,21 @@ const formatDate = (dateStr: string) => {
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: '1.2.3',
+    title: '功能新增加',
+    date: formatDate('2026-06-21'),
+    features: [
+      '新增番剧入口',
+      '新增底部导航栏功能',
+      '新增引导页，首次访问展示功能',
+      '首页影视推荐改为根据用户偏好展示对应平台内容',
+      '新增 TMDB 影视设置（奈飞、爱艺奇、腾讯视频、apptv+）等影视偏好',
+    ],
+    breaking: [
+      '移除原有影视轮播，改为电影、连续剧、综艺、动漫四个分类轮播',
+    ],
+  },
+  {
     version: '1.2.2',
     title: 'TV演员数据修复与匹配优化',
     date: formatDate('2026-06-20'),
@@ -31,7 +46,7 @@ export const VERSION_UPDATES: VersionUpdate[] = [
       '修复 TV 剧集演员数据不完整的问题：改用 aggregate_credits API',
       'TV 演员多角色展示：跨季不同角色以 " / " 分隔',
       'TV 演员排序改用 total_episode_count 替代 order，更准确反映出场权重',
-      '修复了历史记录点击视频不匹配'
+      '修复了历史记录点击视频不匹配的问题'
     ],
   },
   {
