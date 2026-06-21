@@ -1,9 +1,7 @@
 import {
-  useTmdbNowPlaying,
   useTmdbRecommendations,
   useTmdbRegionalDiscover,
 } from '@/shared/hooks/useTmdb'
-import { useSettingStore } from '@/shared/store/settingStore'
 import { useFavoritesStore } from '@/features/favorites/store/favoritesStore'
 import { useViewingHistoryStore } from '@/shared/store'
 import { isTmdbHistoryItem } from '@/shared/lib/viewingHistory'
@@ -20,19 +18,13 @@ import { useMemo, useEffect, useState } from 'react'
  * TmdbHomeContent - TMDB 模式首页内容
  */
 function TmdbHomeContent() {
-  const isMainland = useSettingStore(s => s.system.tmdbRegion) === 'mainland'
-  const { trending, loading: trendingLoading } = useTmdbNowPlaying()
   const favorites = useFavoritesStore(state => state.favorites)
   const viewingHistory = useViewingHistoryStore(state => state.viewingHistory)
   const {
-    popularMovies,
-    topRatedMovies,
-    upcoming,
-    popularTv,
-    topRatedTv,
     tvShows: regionalTvShows,
     movies: regionalMovies,
     animated: regionalAnimated,
+    variety: regionalVariety,
     featured: regionalFeatured,
     loading: regionalLoading,
   } = useTmdbRegionalDiscover()
@@ -75,8 +67,8 @@ function TmdbHomeContent() {
     <div className="flex flex-col gap-6">
       {/* 首页趋势轮播 */}
       <FeaturedCarousel
-        items={isMainland ? regionalFeatured : trending}
-        loading={isMainland ? regionalLoading : trendingLoading.trending}
+        items={regionalFeatured}
+        loading={regionalLoading}
       />
       {/* 继续观看 */}
       <ContinueWatching />
@@ -84,14 +76,10 @@ function TmdbHomeContent() {
       <MediaCarousel title="猜你喜欢" items={recommendations} loading={recommendationsLoading} />
       {/* 延迟渲染下方轮播区，避免阻塞页面入口动画 */}
       {showCarousels && (<>
-        <MediaCarousel title="热门剧集" items={regionalTvShows} loading={regionalLoading} />
-        <MediaCarousel title="热门电影" items={regionalMovies} loading={regionalLoading} />
-        <MediaCarousel title="动画" items={regionalAnimated} loading={regionalLoading} />
-        <MediaCarousel title="最受欢迎" items={popularMovies} loading={regionalLoading} />
-        <MediaCarousel title="口碑最佳" items={topRatedMovies} loading={regionalLoading} />
-        <MediaCarousel title="即将上映" items={upcoming} loading={regionalLoading} />
-        <MediaCarousel title="最受欢迎的剧集" items={popularTv} loading={regionalLoading} />
-        <MediaCarousel title="口碑最佳的剧集" items={topRatedTv} loading={regionalLoading} />
+        <MediaCarousel title="电影" items={regionalMovies} loading={regionalLoading} />
+        <MediaCarousel title="连续剧" items={regionalTvShows} loading={regionalLoading} />
+        <MediaCarousel title="综艺" items={regionalVariety} loading={regionalLoading} />
+        <MediaCarousel title="动漫" items={regionalAnimated} loading={regionalLoading} />
       </>)}
     </div>
   )

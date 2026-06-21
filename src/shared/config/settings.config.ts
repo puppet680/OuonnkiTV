@@ -53,5 +53,6 @@ export const DEFAULT_SETTINGS = {
       | 'medium'
       | 'high',
     tmdbRegion: (envSettings?.system?.tmdbRegion ?? 'mainland') as 'international' | 'mainland',
+    varietyNetworks: envSettings?.system?.varietyNetworks ?? '213|1330|2007|2552',
   },
 }

@@ -125,8 +125,8 @@ export const MediaCarousel = memo(function MediaCarousel({ title, items, loading
       <div className="pt-2">
         <Carousel opts={{ watchDrag: canDrag, slidesToScroll }} setApi={setCarouselApi}>
           <CarouselContent>
-            {items.map(item => (
-              <CarouselItem key={item.id} className="h-fit basis-1/3 md:basis-1/4 lg:basis-1/6">
+            {items.map((item, idx) => (
+              <CarouselItem key={`${item.mediaType}-${item.id}-${idx}`} className="h-fit basis-1/3 md:basis-1/4 lg:basis-1/6">
                 <MediaPosterCard
                   to={buildTmdbDetailPath(item.mediaType, item.id)}
                   posterUrl={getPosterUrl(item.posterPath, 'w342')}

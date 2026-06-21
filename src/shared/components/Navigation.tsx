@@ -3,7 +3,8 @@ import { OkiLogo } from '@/shared/components/icons'
 import { SidebarTrigger } from '@/shared/components/ui/sidebar'
 import { NavLink, useLocation } from 'react-router'
 import { useState } from 'react'
-import { Moon, Sun, Laptop } from 'lucide-react'
+import { Moon, Sun, Laptop, Menu } from 'lucide-react'
+import { useIsMobile } from '@/shared/hooks/use-mobile'
 import { motion, AnimatePresence } from 'framer-motion'
 
 import { Button } from '@/shared/components/ui/button'
@@ -18,6 +19,7 @@ interface NavigationProps {
 
 export default function Navigation({ hidden = false, enableScrollAnimation = false }: NavigationProps) {
   const { mode } = useThemeState()
+  const isMobile = useIsMobile()
   const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false)
   const location = useLocation()
 
@@ -61,7 +63,13 @@ export default function Navigation({ hidden = false, enableScrollAnimation = fal
                 : '',
             )}
           >
-            <SidebarTrigger />
+            {isMobile ? (
+              <NavLink to="/settings" className="flex items-center justify-center size-8">
+                <Menu className="size-5" />
+              </NavLink>
+            ) : (
+              <SidebarTrigger />
+            )}
             <NavLink to="/" className="flex items-center">
               <div className="flex items-end">
                 <div>

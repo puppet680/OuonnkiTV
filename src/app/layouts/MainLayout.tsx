@@ -1,6 +1,7 @@
 import Navigation from '@/shared/components/Navigation'
 import { SidebarProvider, SidebarInset } from '@/shared/components/ui/sidebar'
 import SideBar from '@/shared/components/SideBar'
+import BottomNav from '@/shared/components/BottomNav'
 import { ScrollArea } from '@/shared/components/ui/scroll-area'
 import { CustomAnimatedOutlet } from '@/shared/components/AnimatedOutlet'
 import BackToTopButton from '@/shared/components/BackToTopButton'
@@ -10,9 +11,11 @@ import { useApiStore } from '@/shared/store/apiStore'
 import { useSubscriptionAutoRefresh } from '@/shared/hooks/useSubscriptionAutoRefresh'
 import { useScrollChromeVisibility } from '@/shared/hooks'
 import { useLocation, useNavigate } from 'react-router'
+import { useIsMobile } from '@/shared/hooks/use-mobile'
 
 export default function MainLayout() {
   const isScrollChromeAnimationEnabled = useSettingStore(s => s.system.isScrollChromeAnimationEnabled)
+  const isMobile = useIsMobile()
   const { initializeEnvSources } = useApiStore()
   const location = useLocation()
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -61,7 +64,7 @@ export default function MainLayout() {
       />
       <div className="flex flex-1 overflow-hidden">
         <SideBar
-          hidden={!isChromeVisible}
+          hidden={!isChromeVisible || isMobile}
           enableScrollAnimation={isScrollChromeAnimationEnabled}
         />
         <SidebarInset className="h-full overflow-hidden">
@@ -81,6 +84,7 @@ export default function MainLayout() {
           </div>
         </SidebarInset>
       </div>
+      <BottomNav />
     </SidebarProvider>
   )
 }

@@ -160,20 +160,23 @@ export default function SystemSettings() {
               }
             />
             <SettingsItem
-              title="TMDB 影视偏好"
-              description="根据地区偏好展示对应平台的热门影视内容。欧美对应 Netflix 等，大陆对应爱奇艺、腾讯视频等。"
+              title="影视平台偏好"
+              description="选择首页内容的来源平台，影响剧集、综艺等分类的数据。"
               control={
                 <div className="w-full sm:w-[200px]">
                   <Select
-                    value={system.tmdbRegion}
-                    onValueChange={value => setSystemSettings({ tmdbRegion: value as 'international' | 'mainland' })}
+                    value={system.varietyNetworks}
+                    onValueChange={value => setSystemSettings({ varietyNetworks: value })}
                   >
                     <SelectTrigger className="w-full">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="international">欧美</SelectItem>
-                      <SelectItem value="mainland">大陆</SelectItem>
+                      <SelectItem value="213|1330|2007|2552">全部平台</SelectItem>
+                      <SelectItem value="213">奈飞 (Netflix)</SelectItem>
+                      <SelectItem value="1330">爱奇艺 (iQiyi)</SelectItem>
+                      <SelectItem value="2007">腾讯视频 (Tencent)</SelectItem>
+                      <SelectItem value="2552">Apple TV+</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

@@ -15,9 +15,10 @@ import {
 } from '@/shared/components/ui/sidebar'
 import { NavLink } from 'react-router'
 import { motion } from 'framer-motion'
-import { Home, Search, Star, History, Settings } from 'lucide-react'
+import { Home, Search, Star, History, Settings, Tv } from 'lucide-react'
 import { OkiLogo } from '@/shared/components/icons'
 import { useVersionStore } from '../store'
+import { useTmdbEnabled } from '@/shared/hooks/useTmdbMode'
 import { cn } from '@/shared/lib'
 
 interface SideBarProps {
@@ -35,6 +36,7 @@ export default function SideBar({
 }: SideBarProps) {
   const location = useLocation()
   const { isMobile, setOpenMobile } = useSidebar()
+  const tmdbEnabled = useTmdbEnabled()
 
   // 高亮路径：延迟更新，等页面 enter 动画（300ms）完成后再切换高亮位置
   const [highlightedPath, setHighlightedPath] = useState(location.pathname)
@@ -65,6 +67,11 @@ export default function SideBar({
         title: '主页',
         url: '/',
         icon: Home,
+      },
+      {
+        title: '番剧',
+        url: '/bangumi',
+        icon: Tv,
       },
       {
         title: '搜索中心',
@@ -127,7 +134,7 @@ export default function SideBar({
           <SidebarGroupLabel>主菜单</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu className="gap-2">
-              {items.content.map(item => (
+              {items.content.filter(item => tmdbEnabled || item.url !== '/bangumi').map(item => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild>
                     <NavLink

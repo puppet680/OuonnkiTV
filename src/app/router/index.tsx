@@ -1,6 +1,7 @@
 import { lazy, Suspense } from 'react'
 import { createBrowserRouter, RouterProvider, Navigate } from 'react-router'
 import { OkiLogo } from '@/shared/components/icons'
+import UpdateModal from '@/shared/components/UpdateModal'
 
 // Layouts
 import MainLayout from '@/app/layouts/MainLayout'
@@ -16,6 +17,7 @@ const FavoritesView = lazy(() => import('@/features/favorites/views/FavoritesVie
 const HistoryView = lazy(() => import('@/features/history/views/HistoryView'))
 const TmdbDetailView = lazy(() => import('@/features/media/views/TmdbDetailView'))
 const GuideView = lazy(() => import('@/features/guide/views/GuideView'))
+const BangumiView = lazy(() => import('@/features/bangumi/views/BangumiView'))
 
 // Settings sub-routes
 const SourceSettings = lazy(() => import('@/features/settings/views/SourceSettings'))
@@ -98,6 +100,14 @@ const router = createBrowserRouter([
         element: (
           <SuspenseWrapper>
             <HistoryView />
+          </SuspenseWrapper>
+        ),
+      },
+      {
+        path: 'bangumi',
+        element: (
+          <SuspenseWrapper>
+            <BangumiView />
           </SuspenseWrapper>
         ),
       },
@@ -197,6 +207,7 @@ export default function AppRouter() {
     <Suspense fallback={<LoadingFallback />}>
       <AuthGuard>
         <RouterProvider router={router} />
+        <UpdateModal />
       </AuthGuard>
     </Suspense>
   )
