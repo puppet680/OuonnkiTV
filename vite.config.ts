@@ -52,8 +52,8 @@ export default defineConfig({
         runtimeCaching: [
           // 同源请求（不含静态资源、m3u8、ts）— Network First，离线兜底
           {
-            urlPattern: ({ sameOrigin, url }) =>
-              sameOrigin && !/\.(?:js|css|html|woff2|ico|png|svg|webmanifest|json|m3u8|ts)(?:\?.*)?$/i.test(url.pathname),
+            urlPattern: ({ sameOrigin, url, request }) =>
+              sameOrigin && request.mode !== 'navigate' && !/\.(?:js|css|html|woff2|ico|png|svg|webmanifest|json|m3u8|ts)(?:\?.*)?$/i.test(url.pathname),
             handler: 'NetworkFirst',
             options: {
               cacheName: 'same-origin-api',

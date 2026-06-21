@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { devtools, persist } from 'zustand/middleware'
 import { immer } from 'zustand/middleware/immer'
-import { version as pkgVersion } from '../../../package.json'
+import { LATEST_VERSION } from '@/shared/data/changelog'
 
 interface VersionUpdate {
   version: string
@@ -35,7 +35,7 @@ export const useVersionStore = create<VersionStore>()(
     persist(
       immer<VersionStore>((set, get) => ({
         // 初始状态（updateHistory 通过 loadUpdateHistory 懒加载填充）
-        currentVersion: pkgVersion,
+        currentVersion: LATEST_VERSION,
         lastViewedVersion: '1.0.0',
         showUpdateModal: false,
         updateHistory: [],
