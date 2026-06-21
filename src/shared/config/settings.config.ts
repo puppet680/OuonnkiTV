@@ -55,6 +55,6 @@ export const DEFAULT_SETTINGS = {
     tmdbRegion: (envSettings?.system?.tmdbRegion ?? 'mainland') as 'international' | 'mainland',
     varietyNetworks: envSettings?.system?.varietyNetworks ?? '213|1330|2007|2552',
     isAdultFilterEnabled: envSettings?.system?.isAdultFilterEnabled ?? true,
-    cmsFilterKeywords: envSettings?.system?.cmsFilterKeywords ?? import.meta.env.OKI_CMS_FILTER_KEYWORDS ?? '伦理片,妓院',
+    cmsFilterKeywords: envSettings?.system?.cmsFilterKeywords ?? import.meta.env.OKI_CMS_FILTER_KEYWORDS ?? '',
   },
 }
