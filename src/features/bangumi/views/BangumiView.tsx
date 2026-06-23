@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useLayoutEffect, useRef } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { FeaturedCarousel } from '@/features/home/components/FeaturedCarousel'
 import { MediaCarousel } from '@/features/home/components/MediaCarousel'
@@ -14,36 +14,6 @@ export default function BangumiView() {
   const [featured, setFeatured] = useState<TmdbMediaItem[]>([])
   const [loading, setLoading] = useState(true)
   const [scheduleDay, setScheduleDay] = useState(new Date().getDay() === 0 ? 6 : new Date().getDay() - 1)
-  const tabListRef = useRef<HTMLDivElement | null>(null)
-  const [tabIndicator, setTabIndicator] = useState({ x: 0, width: 0, ready: false })
-
-  const updateTabIndicator = useCallback(() => {
-    const listEl = tabListRef.current
-    if (!listEl) return
-    const activeEl = listEl.querySelector<HTMLButtonElement>(`button[data-tab='${scheduleDay}']`)
-    if (!activeEl) {
-      setTabIndicator(prev => (prev.ready ? { ...prev, ready: false } : prev))
-      return
-    }
-    const listRect = listEl.getBoundingClientRect()
-    const activeRect = activeEl.getBoundingClientRect()
-    setTabIndicator({
-      x: activeRect.left - listRect.left,
-      width: activeRect.width,
-      ready: true,
-    })
-  }, [scheduleDay])
-
-  useLayoutEffect(() => {
-    const frameId = window.requestAnimationFrame(() => updateTabIndicator())
-    return () => window.cancelAnimationFrame(frameId)
-  }, [updateTabIndicator])
-
-  useEffect(() => {
-    const onResize = () => updateTabIndicator()
-    window.addEventListener('resize', onResize)
-    return () => window.removeEventListener('resize', onResize)
-  }, [updateTabIndicator])
 
   const fetchAll = useCallback(async () => {
     setLoading(true)
@@ -152,30 +122,31 @@ export default function BangumiView() {
         <section>
           <div className="flex items-center gap-3 mb-3 flex-wrap">
             <h2 className="text-lg font-semibold shrink-0">周更表</h2>
-            <div ref={tabListRef} className="relative flex gap-1 bg-muted/40 rounded-lg p-1 flex-wrap">
-              {WEEKDAYS.map((day, i) => (
-                <button
-                  key={day}
-                  type="button"
-                  data-tab={i}
-                  onClick={() => setScheduleDay(i)}
-                  className={`relative z-10 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
-                    scheduleDay === i
-                      ? 'text-foreground'
-                      : 'text-muted-foreground hover:text-foreground'
-                  }`}
-                >
-                  {day}
-                </button>
-              ))}
-              {tabIndicator.ready && (
-                <motion.div
-                  className="bg-background shadow-sm pointer-events-none absolute z-0 rounded-md inset-y-1"
-                  initial={false}
-                  animate={{ x: tabIndicator.x, width: tabIndicator.width }}
-                  transition={{ type: 'spring', stiffness: 420, damping: 38, mass: 0.35 }}
-                />
-              )}
+            <div className="relative flex gap-1 bg-muted/40 rounded-lg p-1 overflow-x-auto scrollbar-hide">
+              {WEEKDAYS.map((day, i) => {
+                const active = scheduleDay === i
+                return (
+                  <button
+                    key={day}
+                    type="button"
+                    onClick={() => setScheduleDay(i)}
+                    className={`relative px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                      active
+                        ? 'text-foreground'
+                        : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    {active && (
+                      <motion.div
+                        layoutId="bangumi-tab-indicator"
+                        className="bg-background shadow-sm absolute inset-0 rounded-md"
+                        transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+                      />
+                    )}
+                    <span className="relative z-10">{day}</span>
+                  </button>
+                )
+              })}
             </div>
           </div>
           <AnimatePresence mode="wait" initial={false}>

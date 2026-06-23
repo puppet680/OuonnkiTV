@@ -1,6 +1,7 @@
-import { useState, useCallback } from 'react'
-import { Play, Heart, HeartOff, Maximize, ExternalLink } from 'lucide-react'
+import { useState, useCallback, useEffect } from 'react'
+import { Play, Heart, HeartOff, Maximize, ExternalLink, Copy } from 'lucide-react'
 import { NavLink } from 'react-router'
+import { toast } from 'sonner'
 import { AspectRatio } from '@/shared/components/ui/aspect-ratio'
 import { HoverCard, HoverCardTrigger, HoverCardContent } from '@/shared/components/ui/hover-card'
 import {
@@ -67,10 +68,52 @@ export function MediaPosterCard({
   onViewDetail,
   onCinemaMode,
 }: MediaPosterCardProps) {
+  const [menuOpen, setMenuOpen] = useState(false)
   const [menuKey, setMenuKey] = useState(0)
   const handleMenuOpenChange = useCallback((open: boolean) => {
+    setMenuOpen(open)
     if (open) setMenuKey((v) => v + 1)
   }, [])
+
+  // 3秒后自动关闭上下文菜单
+  useEffect(() => {
+    if (!menuOpen) return
+    const timer = setTimeout(() => {
+      document.body.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }))
+    }, 3000)
+    return () => clearTimeout(timer)
+  }, [menuOpen, menuKey])
+
+  const copyTitle = useCallback(() => {
+    const execCopy = () => {
+      // contentEditable + selectAll — iOS Safari 兼容 execCommand('copy')
+      const el = document.createElement('div')
+      el.contentEditable = 'true'
+      el.textContent = title
+      el.style.cssText =
+        'position:fixed;top:0;left:0;width:1px;height:1px;opacity:0.01;-webkit-user-select:text;'
+      document.body.appendChild(el)
+      el.focus()
+      document.execCommand('selectAll', false)
+      let ok = false
+      try { ok = document.execCommand('copy') } catch { /* noop */ }
+      document.body.removeChild(el)
+      return ok
+    }
+
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(title).then(
+        () => toast.success('已复制标题'),
+        () => {
+          const ok = execCopy()
+          toast[ok ? 'success' : 'error'](ok ? '已复制标题' : '复制失败，请重试')
+        },
+      )
+    } else {
+      const ok = execCopy()
+      toast[ok ? 'success' : 'error'](ok ? '已复制标题' : '复制失败，请重试')
+    }
+  }, [title])
 
   const labelColor = topRightLabelColorScheme || {
     bg: '250, 204, 21',
@@ -81,7 +124,7 @@ export function MediaPosterCard({
     color: `rgb(${labelColor.text})`,
   }
 
-  const hasContextMenu = !!onToggleFavorite || !!onPlayNow || !!onViewDetail || !!onCinemaMode
+  const hasContextMenu = true
 
   const cardBody = (
     <div className="group cursor-pointer">
@@ -202,6 +245,10 @@ export function MediaPosterCard({
           {isFavorited ? '取消收藏' : '加入收藏'}
         </ContextMenuItem>
       )}
+      <ContextMenuItem onClick={copyTitle}>
+        <Copy className="size-4" />
+        复制标题
+      </ContextMenuItem>
     </ContextMenuContent>
   )
 

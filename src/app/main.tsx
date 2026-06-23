@@ -11,6 +11,7 @@ import { Toaster } from '@/shared/components/ui/sonner'
 import { RefreshCw } from 'lucide-react'
 import { TooltipProvider } from '@/shared/components/ui/tooltip'
 import { GlobalContextMenu } from '@/shared/components/GlobalContextMenu'
+import { ThemeColorMeta } from '@/shared/components/theme'
 
 // ponytail: analytics 与首屏渲染无关，lazy-load 避免阻塞 INP/LCP
 const Analytics = import.meta.env.OKI_DISABLE_ANALYTICS !== 'true'
@@ -31,6 +32,7 @@ const builtInContextMenuItems = [
 
 const app = (
   <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
+    <ThemeColorMeta />
     <TooltipProvider>
       <GlobalContextMenu builtInItems={builtInContextMenuItems}>
         <AppRouter />

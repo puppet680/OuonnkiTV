@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router'
 import { AnimatePresence, motion } from 'framer-motion'
+import { ExternalLink, Heart, HeartOff } from 'lucide-react'
 import { useDocumentTitle } from '@/shared/hooks'
 import { useTmdbEnabled } from '@/shared/hooks/useTmdbMode'
 import { useTmdbDetail } from '@/shared/hooks/useTmdb'
@@ -14,6 +15,7 @@ import type {
 } from '@/shared/types/tmdb'
 import { useFavoritesStore } from '@/features/favorites/store/favoritesStore'
 import { useSettingStore } from '@/shared/store/settingStore'
+import { useGlobalContextMenuStore } from '@/shared/store/contextMenuStore'
 import { useViewingHistoryStore } from '@/shared/store/viewingHistoryStore'
 import {
   DetailCastTab,
@@ -201,6 +203,57 @@ export default function TmdbDetailView() {
     return matchedItems.find(item => Boolean(item.sourceCode && item.vodId)) || matchedItems[0]
   }, [isValidRoute, mediaType, parsedTmdbId, viewingHistory])
 
+  // 必须在所有提前 return 之前定义，保持 hooks 顺序一致
+  const mediaSnapshot: TmdbMediaItem = detail
+    ? {
+        id: detail.id,
+        mediaType: tmdbType,
+        title: detail.title,
+        originalTitle: detail.originalTitle,
+        overview: detail.overview,
+        posterPath: detail.posterPath,
+        backdropPath: detail.backdropPath,
+        logoPath: null,
+        releaseDate: detail.releaseDate,
+        voteAverage: detail.voteAverage,
+        voteCount: detail.voteCount,
+        popularity: detail.popularity,
+        genreIds: detail.genreIds,
+        originalLanguage: detail.originalLanguage,
+        originCountry: detail.originCountry,
+      }
+    : (null as unknown as TmdbMediaItem)
+
+  useEffect(() => {
+    const items = []
+
+    const homepage = (detail as TmdbRichDetail | null)?.homepage
+    if (homepage) {
+      items.push({
+        id: 'detail-official-page',
+        label: '官方页面',
+        icon: <ExternalLink className="size-4" />,
+        onClick: () => window.open(homepage, '_blank', 'noopener,noreferrer'),
+      })
+    }
+
+    items.push({
+      id: 'detail-toggle-favorite',
+      label: favorited ? '取消收藏' : '加入收藏',
+      icon: favorited ? <HeartOff className="size-4" /> : <Heart className="size-4" />,
+      variant: favorited ? 'destructive' as const : 'default' as const,
+      onClick: () => detail && toggleTmdbFavorite(mediaSnapshot),
+    })
+
+    const store = useGlobalContextMenuStore.getState()
+    store.unregisterItems('detail-official-page', 'detail-toggle-favorite')
+    const ids = store.registerItems(items)
+
+    return () => {
+      useGlobalContextMenuStore.getState().unregisterItems(...ids)
+    }
+  }, [(detail as TmdbRichDetail | null)?.homepage, favorited])
+
   if (!isValidRoute) {
     return (
       <div className="px-4 md:px-6">
@@ -313,24 +366,6 @@ export default function TmdbDetailView() {
       .map(countryCode => mapCountryCodeToName(countryCode))
       .filter(Boolean)
       .join(' / ') || productionCountries.map(country => country.name).join(' / ')
-
-  const mediaSnapshot: TmdbMediaItem = {
-    id: detail.id,
-    mediaType: tmdbType,
-    title: detail.title,
-    originalTitle: detail.originalTitle,
-    overview: detail.overview,
-    posterPath: detail.posterPath,
-    backdropPath: detail.backdropPath,
-    logoPath: null,
-    releaseDate: detail.releaseDate,
-    voteAverage: detail.voteAverage,
-    voteCount: detail.voteCount,
-    popularity: detail.popularity,
-    genreIds: detail.genreIds,
-    originalLanguage: detail.originalLanguage,
-    originCountry: detail.originCountry,
-  }
 
   const coreInfoFields: DetailInfoField[] = [
     { label: '发布日期', value: detail.releaseDate || '' },

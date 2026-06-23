@@ -7,6 +7,7 @@
 
 // Components
 export { ThemeToggle } from './ThemeToggle'
+export { ThemeColorMeta } from './ThemeColorMeta'
 
 // Hooks
 export { useThemeControl as useTheme, useThemeState } from './hooks/useTheme'

@@ -19,6 +19,7 @@
   --accent: oklch(0.97 0 0);
   --accent-foreground: oklch(0.205 0 0);
   --destructive: oklch(0.577 0.245 27.325);
+  --destructive-foreground: oklch(0.985 0 0);
   --border: oklch(0.922 0 0);
   --input: oklch(0.922 0 0);
   --ring: oklch(0.708 0 0);
@@ -53,6 +54,7 @@
   --accent: oklch(0.371 0 0);
   --accent-foreground: oklch(0.985 0 0);
   --destructive: oklch(0.704 0.191 22.216);
+  --destructive-foreground: oklch(0.985 0 0);
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
   --ring: oklch(0.556 0 0);
@@ -121,6 +123,13 @@
   }
   body {
     @apply bg-background text-foreground;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+  }
+  a,
+  img {
+    -webkit-user-drag: none;
   }
 }
 
@@ -158,17 +167,19 @@
   --theme-transition-duration: 300ms;
 }
 
-/* 全局颜色过渡 (仅在非 View Transition 时生效) */
-@layer base {
-  *,
-  *::before,
-  *::after {
-    transition:
-      color var(--theme-transition-duration) ease,
-      background-color var(--theme-transition-duration) ease,
-      border-color var(--theme-transition-duration) ease,
-      fill var(--theme-transition-duration) ease,
-      stroke var(--theme-transition-duration) ease;
+/* 全局颜色过渡 (仅在非 View Transition 时生效，尊重用户动画偏好) */
+@media (prefers-reduced-motion: no-preference) {
+  @layer base {
+    *,
+    *::before,
+    *::after {
+      transition:
+        color var(--theme-transition-duration) ease,
+        background-color var(--theme-transition-duration) ease,
+        border-color var(--theme-transition-duration) ease,
+        fill var(--theme-transition-duration) ease,
+        stroke var(--theme-transition-duration) ease;
+    }
   }
 }
 
@@ -182,55 +193,57 @@
 
 /* ====== 扩散动画 (切换到暗色模式) ====== */
 /* 新视图在上层，从点击位置向外扩散 */
-[data-theme-transition='expand']::view-transition-new(root) {
-  z-index: 999;
-  animation: theme-expand 400ms ease-out;
-}
-[data-theme-transition='expand']::view-transition-old(root) {
-  z-index: 1;
-}
+@media (prefers-reduced-motion: no-preference) {
+  [data-theme-transition='expand']::view-transition-new(root) {
+    z-index: 999;
+    animation: theme-expand 400ms ease-out;
+  }
+  [data-theme-transition='expand']::view-transition-old(root) {
+    z-index: 1;
+  }
 
-/* ====== 收缩动画 (切换到亮色模式) ====== */
-/* 旧视图在上层，向点击位置收缩消失 */
-[data-theme-transition='contract']::view-transition-old(root) {
-  z-index: 999;
-  animation: theme-contract 400ms ease-in forwards;
-}
-[data-theme-transition='contract']::view-transition-new(root) {
-  z-index: 1;
-  animation: none;
-}
+  /* ====== 收缩动画 (切换到亮色模式) ====== */
+  /* 旧视图在上层，向点击位置收缩消失 */
+  [data-theme-transition='contract']::view-transition-old(root) {
+    z-index: 999;
+    animation: theme-contract 400ms ease-in forwards;
+  }
+  [data-theme-transition='contract']::view-transition-new(root) {
+    z-index: 1;
+    animation: none;
+  }
 
-/* 扩散动画 - 从中心向外 */
-@keyframes theme-expand {
-  from {
-    clip-path: circle(0% at var(--vt-x, 50%) var(--vt-y, 50%));
+  /* 扩散动画 - 从中心向外 */
+  @keyframes theme-expand {
+    from {
+      clip-path: circle(0% at var(--vt-x, 50%) var(--vt-y, 50%));
+    }
+    to {
+      clip-path: circle(150% at var(--vt-x, 50%) var(--vt-y, 50%));
+    }
   }
-  to {
-    clip-path: circle(150% at var(--vt-x, 50%) var(--vt-y, 50%));
-  }
-}
 
-/* 进度条无限循环动画 */
-@keyframes progress-indeterminate {
-  0% {
-    transform: translateX(-100%) scaleX(0.2);
+  /* 进度条无限循环动画 */
+  @keyframes progress-indeterminate {
+    0% {
+      transform: translateX(-100%) scaleX(0.2);
+    }
+    50% {
+      transform: translateX(0%) scaleX(0.4);
+    }
+    100% {
+      transform: translateX(100%) scaleX(0.2);
+    }
   }
-  50% {
-    transform: translateX(0%) scaleX(0.4);
-  }
-  100% {
-    transform: translateX(100%) scaleX(0.2);
-  }
-}
 
-/* 收缩动画 - 从外向中心 */
-@keyframes theme-contract {
-  from {
-    clip-path: circle(150% at var(--vt-x, 50%) var(--vt-y, 50%));
-  }
-  to {
-    clip-path: circle(0% at var(--vt-x, 50%) var(--vt-y, 50%));
+  /* 收缩动画 - 从外向中心 */
+  @keyframes theme-contract {
+    from {
+      clip-path: circle(150% at var(--vt-x, 50%) var(--vt-y, 50%));
+    }
+    to {
+      clip-path: circle(0% at var(--vt-x, 50%) var(--vt-y, 50%));
+    }
   }
 }
 
