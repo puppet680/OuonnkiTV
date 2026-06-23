@@ -1,6 +1,6 @@
 import { Play, Trash2, ExternalLink } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { useState, useCallback, type MouseEvent } from 'react'
+import { useState, useCallback, useEffect, type MouseEvent } from 'react'
 import { NavLink, useNavigate } from 'react-router'
 import { AspectRatio } from '@/shared/components/ui/aspect-ratio'
 import { Checkbox } from '@/shared/components/ui/checkbox'
@@ -68,10 +68,21 @@ export function ViewingHistoryCard({
 }: ViewingHistoryCardProps) {
   const removeViewingHistory = useViewingHistoryStore((s) => s.removeViewingHistory)
   const navigate = useNavigate()
+  const [menuOpen, setMenuOpen] = useState(false)
   const [menuKey, setMenuKey] = useState(0)
   const handleMenuOpenChange = useCallback((open: boolean) => {
+    setMenuOpen(open)
     if (open) setMenuKey((v) => v + 1)
   }, [])
+
+  // 3秒后自动关闭上下文菜单 — Radix 通过 pointerdown 外部检测关闭
+  useEffect(() => {
+    if (!menuOpen) return
+    const timer = setTimeout(() => {
+      document.body.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }))
+    }, 3000)
+    return () => clearTimeout(timer)
+  }, [menuOpen, menuKey])
   const progressValue = getProgressValue(item)
   const progressPercentLabel = `${Math.round(progressValue)}%`
   const progressDetailLabel = `${formatProgressTime(item.playbackPosition)} / ${formatProgressTime(item.duration)}`

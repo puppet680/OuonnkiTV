@@ -25,44 +25,130 @@ interface GlobalContextMenuProps {
 export function GlobalContextMenu({ children, builtInItems }: GlobalContextMenuProps) {
   const dynamicItems = useGlobalContextMenuStore((s) => s.items)
   const [open, setOpen] = useState(false)
+  const [closing, setClosing] = useState(false)
   const [point, setPoint] = useState({ x: 0, y: 0 })
   const menuRef = useRef<HTMLDivElement>(null)
+  const closeTimerRef = useRef<ReturnType<typeof setTimeout>>(null)
+
+  const closeMenu = useCallback(() => {
+    setClosing(true)
+    closeTimerRef.current = setTimeout(() => {
+      setOpen(false)
+      setClosing(false)
+    }, 200)
+  }, [])
+
+  // 清理关闭定时器
+  useEffect(() => {
+    return () => {
+      if (closeTimerRef.current) clearTimeout(closeTimerRef.current)
+    }
+  }, [])
+
+  // 3秒后自动关闭
+  useEffect(() => {
+    if (!open || closing) return
+    const timer = setTimeout(closeMenu, 3000)
+    return () => clearTimeout(timer)
+  }, [open, closing, closeMenu])
 
   useEffect(() => {
+    let longPressTimer: ReturnType<typeof setTimeout> | null = null
+    let longPressPos = { x: 0, y: 0 }
+
+    const showMenu = (target: Element, x: number, y: number) => {
+      if (target.closest('[data-slot="context-menu-trigger"]')) return
+      if (target.closest('[role="menu"]')) return
+      if (document.querySelector('[role="menu"]')) return
+      setPoint({ x, y })
+      setOpen(true)
+    }
+
     const onContextMenu = (e: MouseEvent) => {
       const target = e.target
       if (!(target instanceof Element)) return
 
-      // 如果目标在卡片自有 ContextMenu 内，交给卡片处理
       if (target.closest('[data-slot="context-menu-trigger"]')) return
-      // 如果目标在已打开的上下文菜单上，只阻止浏览器菜单但不弹出全局菜单
       if (target.closest('[role="menu"]')) {
         e.preventDefault()
         return
       }
 
       e.preventDefault()
-      // 存原始坐标，定位逻辑交给 style 用 left/right、top/bottom 动态锚定
-      setPoint({ x: e.clientX, y: e.clientY })
-      setOpen(true)
+      showMenu(target, e.clientX, e.clientY)
+    }
+
+    // iOS touch long-press fallback：Safari 不会在普通元素上触发 contextmenu 事件
+    const onTouchStart = (e: TouchEvent) => {
+      if (e.touches.length !== 1) return
+      const touch = e.touches[0]
+      const touchedEl = e.target
+      longPressPos = { x: touch.clientX, y: touch.clientY }
+      longPressTimer = setTimeout(() => {
+        const target = touchedEl
+        if (!(target instanceof Element)) return
+
+        // 卡片级 ContextMenuTrigger：补发合成 contextmenu 让 Radix 接管
+        if (target.closest('[data-slot="context-menu-trigger"]')) {
+          target.dispatchEvent(
+            new MouseEvent('contextmenu', {
+              bubbles: true,
+              cancelable: true,
+              clientX: longPressPos.x,
+              clientY: longPressPos.y,
+            }),
+          )
+          return
+        }
+
+        showMenu(target, longPressPos.x, longPressPos.y)
+      }, 500)
+    }
+
+    const onTouchMove = (e: TouchEvent) => {
+      if (!longPressTimer) return
+      const touch = e.touches[0]
+      if (touch) {
+        const dx = touch.clientX - longPressPos.x
+        const dy = touch.clientY - longPressPos.y
+        if (Math.abs(dx) > 10 || Math.abs(dy) > 10) {
+          clearTimeout(longPressTimer)
+          longPressTimer = null
+        }
+      }
+    }
+
+    const onTouchEnd = () => {
+      if (longPressTimer) {
+        clearTimeout(longPressTimer)
+        longPressTimer = null
+      }
     }
 
     const onPointerDown = (e: PointerEvent) => {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setOpen(false)
+        closeMenu()
       }
     }
 
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setOpen(false)
+      if (e.key === 'Escape') closeMenu()
     }
 
     document.addEventListener('contextmenu', onContextMenu, true)
+    document.addEventListener('touchstart', onTouchStart, { passive: true })
+    document.addEventListener('touchmove', onTouchMove, { passive: true })
+    document.addEventListener('touchend', onTouchEnd)
+    document.addEventListener('touchcancel', onTouchEnd)
     document.addEventListener('pointerdown', onPointerDown, true)
     document.addEventListener('keydown', onKeyDown, true)
 
     return () => {
       document.removeEventListener('contextmenu', onContextMenu, true)
+      document.removeEventListener('touchstart', onTouchStart)
+      document.removeEventListener('touchmove', onTouchMove)
+      document.removeEventListener('touchend', onTouchEnd)
+      document.removeEventListener('touchcancel', onTouchEnd)
       document.removeEventListener('pointerdown', onPointerDown, true)
       document.removeEventListener('keydown', onKeyDown, true)
     }
@@ -79,7 +165,7 @@ export function GlobalContextMenu({ children, builtInItems }: GlobalContextMenuP
   return (
     <>
       {children}
-      {open && createPortal(
+      {(open || closing) && createPortal(
         <div
           ref={menuRef}
           role="menu"
@@ -87,7 +173,8 @@ export function GlobalContextMenu({ children, builtInItems }: GlobalContextMenuP
             'bg-popover text-popover-foreground fixed z-[9999]',
             'min-w-[8rem] origin-[var(--radix-context-menu-content-transform-origin)]',
             'overflow-x-hidden overflow-y-auto rounded-md border p-1 shadow-md',
-            'animate-in fade-in-0 zoom-in-95',
+            !closing && 'animate-in fade-in-0 zoom-in-95',
+            closing && 'animate-out fade-out-0 zoom-out-95 duration-200',
           )}
           style={{
             ...(point.x > window.innerWidth - 200
