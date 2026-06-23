@@ -5,11 +5,16 @@ import { useTheme } from 'next-themes'
 export function ThemeColorMeta() {
   const { resolvedTheme } = useTheme()
   useEffect(() => {
-    const meta = document.querySelector('meta[name="theme-color"]')
-    if (!meta) return
+    const metas = document.querySelectorAll('meta[name="theme-color"]')
+    if (metas.length === 0) return
     // ponytail: 直接读 CSS 变量 --background，与 main.css 保持单一真相来源
     const bg = getComputedStyle(document.documentElement).getPropertyValue('--background').trim()
-    if (bg) meta.setAttribute('content', bg)
+    if (!bg) return
+    metas.forEach(m => {
+      m.setAttribute('content', bg)
+      // 移除 media 属性，由 JS 接管控制权
+      m.removeAttribute('media')
+    })
   }, [resolvedTheme])
   return null
 }
