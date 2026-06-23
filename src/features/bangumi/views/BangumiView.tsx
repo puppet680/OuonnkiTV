@@ -122,7 +122,7 @@ export default function BangumiView() {
         <section>
           <div className="flex items-center gap-3 mb-3 flex-wrap">
             <h2 className="text-lg font-semibold shrink-0">周更表</h2>
-            <div className="relative flex gap-1 bg-muted/40 rounded-lg p-1 overflow-x-auto">
+            <div className="relative flex gap-1 bg-muted/40 rounded-lg p-1 overflow-x-auto scrollbar-hide">
               {WEEKDAYS.map((day, i) => {
                 const active = scheduleDay === i
                 return (
