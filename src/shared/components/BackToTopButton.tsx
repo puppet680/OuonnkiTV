@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { ChevronUp } from 'lucide-react'
 import { useLocation } from 'react-router'
 import { Button } from '@/shared/components/ui/button'
+import { useIsMobile } from '@/shared/hooks/use-mobile'
 import { cn } from '@/shared/lib'
 
 interface BackToTopButtonProps {
@@ -35,8 +36,11 @@ export default function BackToTopButton({
   className,
 }: BackToTopButtonProps) {
   const location = useLocation()
+  const isMobile = useIsMobile()
   const [scrollTarget, setScrollTarget] = useState<HTMLElement | Window | null>(null)
   const [visible, setVisible] = useState(false)
+  const [navVisible, setNavVisible] = useState(true)
+  const lastScrollY = useRef(0)
 
   useEffect(() => {
     const root = document.querySelector<HTMLElement>(scrollRootSelector)
@@ -48,7 +52,14 @@ export default function BackToTopButton({
     if (!scrollTarget) return
 
     const handleScroll = () => {
-      setVisible(getScrollTop(scrollTarget) > threshold)
+      const y = getScrollTop(scrollTarget)
+      setVisible(y > threshold)
+      if (isMobile) {
+        if (y < 0) return
+        if (y > lastScrollY.current + 8) setNavVisible(false)
+        else if (y < lastScrollY.current - 4) setNavVisible(true)
+        lastScrollY.current = y
+      }
     }
 
     handleScroll()
@@ -74,7 +85,8 @@ export default function BackToTopButton({
   return (
     <div
       className={cn(
-        'pointer-events-none absolute right-4 bottom-6 z-40 md:right-6 md:bottom-8',
+        'pointer-events-none absolute right-4 z-40 transition-[bottom] duration-220 ease-out md:right-6',
+        isMobile ? (navVisible ? 'bottom-20' : 'bottom-6') : 'bottom-6 md:bottom-8',
         className,
       )}
     >
