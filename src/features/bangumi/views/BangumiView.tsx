@@ -1,4 +1,5 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useLayoutEffect, useRef } from 'react'
+import { AnimatePresence, motion } from 'framer-motion'
 import { FeaturedCarousel } from '@/features/home/components/FeaturedCarousel'
 import { MediaCarousel } from '@/features/home/components/MediaCarousel'
 import { getTmdbClient, normalizeToMediaItem } from '@/shared/lib/tmdb'
@@ -13,6 +14,36 @@ export default function BangumiView() {
   const [featured, setFeatured] = useState<TmdbMediaItem[]>([])
   const [loading, setLoading] = useState(true)
   const [scheduleDay, setScheduleDay] = useState(new Date().getDay() === 0 ? 6 : new Date().getDay() - 1)
+  const tabListRef = useRef<HTMLDivElement | null>(null)
+  const [tabIndicator, setTabIndicator] = useState({ x: 0, width: 0, ready: false })
+
+  const updateTabIndicator = useCallback(() => {
+    const listEl = tabListRef.current
+    if (!listEl) return
+    const activeEl = listEl.querySelector<HTMLButtonElement>(`button[data-tab='${scheduleDay}']`)
+    if (!activeEl) {
+      setTabIndicator(prev => (prev.ready ? { ...prev, ready: false } : prev))
+      return
+    }
+    const listRect = listEl.getBoundingClientRect()
+    const activeRect = activeEl.getBoundingClientRect()
+    setTabIndicator({
+      x: activeRect.left - listRect.left,
+      width: activeRect.width,
+      ready: true,
+    })
+  }, [scheduleDay])
+
+  useLayoutEffect(() => {
+    const frameId = window.requestAnimationFrame(() => updateTabIndicator())
+    return () => window.cancelAnimationFrame(frameId)
+  }, [updateTabIndicator])
+
+  useEffect(() => {
+    const onResize = () => updateTabIndicator()
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+  }, [updateTabIndicator])
 
   const fetchAll = useCallback(async () => {
     setLoading(true)
@@ -121,24 +152,43 @@ export default function BangumiView() {
         <section>
           <div className="flex items-center gap-3 mb-3 flex-wrap">
             <h2 className="text-lg font-semibold shrink-0">周更表</h2>
-            <div className="flex gap-1 bg-muted/40 rounded-lg p-1 flex-wrap">
+            <div ref={tabListRef} className="relative flex gap-1 bg-muted/40 rounded-lg p-1 flex-wrap">
               {WEEKDAYS.map((day, i) => (
                 <button
                   key={day}
                   type="button"
+                  data-tab={i}
                   onClick={() => setScheduleDay(i)}
-                  className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                  className={`relative z-10 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
                     scheduleDay === i
-                      ? 'bg-background text-foreground shadow-sm'
+                      ? 'text-foreground'
                       : 'text-muted-foreground hover:text-foreground'
                   }`}
                 >
                   {day}
                 </button>
               ))}
+              {tabIndicator.ready && (
+                <motion.div
+                  className="bg-background shadow-sm pointer-events-none absolute z-0 rounded-md inset-y-1"
+                  initial={false}
+                  animate={{ x: tabIndicator.x, width: tabIndicator.width }}
+                  transition={{ type: 'spring', stiffness: 420, damping: 38, mass: 0.35 }}
+                />
+              )}
             </div>
           </div>
-          <MediaCarousel title="" items={dayItems} loading={loading} />
+          <AnimatePresence mode="wait" initial={false}>
+            <motion.div
+              key={scheduleDay}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -6 }}
+              transition={{ duration: 0.2, ease: 'easeOut' }}
+            >
+              <MediaCarousel title="" items={dayItems} loading={loading} />
+            </motion.div>
+          </AnimatePresence>
         </section>
 
         <MediaCarousel title="新番" items={newAnime} loading={loading} />

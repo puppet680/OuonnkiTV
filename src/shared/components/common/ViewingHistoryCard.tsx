@@ -1,12 +1,20 @@
-import { Play } from 'lucide-react'
+import { Play, Trash2, ExternalLink } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
-import type { MouseEvent } from 'react'
-import { NavLink } from 'react-router'
+import { useState, useCallback, type MouseEvent } from 'react'
+import { NavLink, useNavigate } from 'react-router'
 import { AspectRatio } from '@/shared/components/ui/aspect-ratio'
 import { Checkbox } from '@/shared/components/ui/checkbox'
 import { Progress } from '@/shared/components/ui/progress'
+import {
+  ContextMenu,
+  ContextMenuTrigger,
+  ContextMenuContent,
+  ContextMenuItem,
+} from '@/shared/components/ui/context-menu'
 import { cn } from '@/shared/lib/utils'
 import { buildHistoryPlayPath, isTmdbHistoryItem } from '@/shared/lib/viewingHistory'
+import { buildTmdbDetailPath } from '@/shared/lib/routes'
+import { useViewingHistoryStore } from '@/shared/store'
 import type { ViewingHistoryItem } from '@/shared/types'
 
 interface ViewingHistoryCardProps {
@@ -58,6 +66,12 @@ export function ViewingHistoryCard({
   mobileListLayout = false,
   onToggleSelect,
 }: ViewingHistoryCardProps) {
+  const removeViewingHistory = useViewingHistoryStore((s) => s.removeViewingHistory)
+  const navigate = useNavigate()
+  const [menuKey, setMenuKey] = useState(0)
+  const handleMenuOpenChange = useCallback((open: boolean) => {
+    if (open) setMenuKey((v) => v + 1)
+  }, [])
   const progressValue = getProgressValue(item)
   const progressPercentLabel = `${Math.round(progressValue)}%`
   const progressDetailLabel = `${formatProgressTime(item.playbackPosition)} / ${formatProgressTime(item.duration)}`
@@ -208,7 +222,7 @@ export function ViewingHistoryCard({
     </div>
   )
 
-  return (
+  const cardLink = (
     <NavLink
       to={getPlayPath(item)}
       className={cn('block', className)}
@@ -224,5 +238,40 @@ export function ViewingHistoryCard({
         posterCardContent
       )}
     </NavLink>
+  )
+
+  // ponytail: 选择模式下不包裹 ContextMenu，避免干扰 checkbox
+  if (selectionMode) return cardLink
+
+  return (
+    <ContextMenu onOpenChange={handleMenuOpenChange}>
+      <ContextMenuTrigger
+        asChild
+        onContextMenu={(e: React.MouseEvent) => e.stopPropagation()}
+      >
+        {cardLink}
+      </ContextMenuTrigger>
+      <ContextMenuContent key={menuKey}>
+        <ContextMenuItem onClick={() => navigate(getPlayPath(item))}>
+          <Play className="size-4" />
+          继续观看
+        </ContextMenuItem>
+        {isTmdbHistoryItem(item) && (
+          <ContextMenuItem
+            onClick={() => navigate(buildTmdbDetailPath(item.tmdbMediaType, item.tmdbId))}
+          >
+            <ExternalLink className="size-4" />
+            查看详情
+          </ContextMenuItem>
+        )}
+        <ContextMenuItem
+          variant="destructive"
+          onClick={() => removeViewingHistory(item)}
+        >
+          <Trash2 className="size-4" />
+          删除记录
+        </ContextMenuItem>
+      </ContextMenuContent>
+    </ContextMenu>
   )
 }

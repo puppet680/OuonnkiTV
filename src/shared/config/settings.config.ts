@@ -56,5 +56,6 @@ export const DEFAULT_SETTINGS = {
     varietyNetworks: envSettings?.system?.varietyNetworks ?? '213|1330|2007|2552',
     isAdultFilterEnabled: envSettings?.system?.isAdultFilterEnabled ?? true,
     cmsFilterKeywords: envSettings?.system?.cmsFilterKeywords ?? import.meta.env.OKI_CMS_FILTER_KEYWORDS ?? '',
+    isPwaInstallDismissed: envSettings?.system?.isPwaInstallDismissed ?? false,
   },
 }

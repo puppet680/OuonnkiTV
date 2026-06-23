@@ -118,7 +118,26 @@ export interface DetailEpisodeBrief {
 }
 
 export interface DetailBelongsToCollection {
+  id: number
   name: string
+  poster_path?: string | null
+  backdrop_path?: string | null
+}
+
+export interface DetailCollectionMovie {
+  id: number
+  title: string
+  poster_path?: string | null
+  release_date?: string
+  overview?: string
+}
+
+export interface DetailCollectionFull {
+  name: string
+  overview?: string
+  poster_path?: string | null
+  backdrop_path?: string | null
+  parts: DetailCollectionMovie[]
 }
 
 export interface DetailInfoField {
@@ -126,7 +145,7 @@ export interface DetailInfoField {
   value: string
 }
 
-export type DetailTab = 'overview' | 'playlist' | 'production' | 'cast' | 'seasons'
+export type DetailTab = 'overview' | 'playlist' | 'production' | 'cast' | 'seasons' | 'collection'
 
 export type TmdbRichDetail = (TmdbMovieDetail | TmdbTvDetail) & {
   id: number

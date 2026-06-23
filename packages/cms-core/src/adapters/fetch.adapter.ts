@@ -46,7 +46,7 @@ async function fetchWithTimeout(
     clearTimeout(timeoutId)
 
     if (retry > 0 && (error as Error).name !== 'AbortError') {
-      console.warn(`请求失败，正在重试 (剩余${retry}次):`, error)
+      console.debug(`请求失败，正在重试 (剩余${retry}次):`, error)
       return fetchWithTimeout(url, options, timeout, retry - 1)
     }
 

@@ -1,11 +1,13 @@
 import { MediaPosterCard } from '@/shared/components/common'
 import { Badge } from '@/shared/components/ui/badge'
 import { getPosterUrl } from '@/shared/lib/tmdb'
-import { buildTmdbDetailPath } from '@/shared/lib/routes'
+import { buildTmdbDetailPath, buildTmdbPlayPath } from '@/shared/lib/routes'
 import type { TmdbMediaItem, TmdbMediaType } from '@/shared/types/tmdb'
 import { getReleaseYear } from './helpers'
 import { DetailInfoGrid } from './DetailInfoGrid'
 import type { DetailGenre, DetailInfoField, DetailKeyword } from './types'
+import { useFavoritesStore } from '@/features/favorites/store/favoritesStore'
+import { useNavigate } from 'react-router'
 
 interface DetailOverviewTabProps {
   tmdbType: TmdbMediaType
@@ -28,6 +30,8 @@ export function DetailOverviewTab({
   recommendationItems,
   translationFields,
 }: DetailOverviewTabProps) {
+  const favoritesStore = useFavoritesStore()
+  const navigate = useNavigate()
   return (
     <>
       <section className="space-y-5">
@@ -87,6 +91,11 @@ export function DetailOverviewTab({
                 title={item.title}
                 year={getReleaseYear(item.releaseDate)}
                 rating={item.voteAverage}
+                overview={item.overview}
+                onToggleFavorite={() => favoritesStore.toggleTmdbFavorite(item)}
+                isFavorited={favoritesStore.isTmdbFavorited(item.id, item.mediaType)}
+                onPlayNow={() => navigate(buildTmdbPlayPath(item.mediaType, item.id))}
+                onViewDetail={() => navigate(buildTmdbDetailPath(item.mediaType, item.id))}
               />
             ))}
           </div>

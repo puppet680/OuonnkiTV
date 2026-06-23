@@ -472,9 +472,11 @@ export function usePlaylistMatches({
         ]
 
         const isTitleEnglish = isEnglishText(keyword)
+        let fallbackAttempted = false
 
         if (keyword.length < 2 && fallbackKeywords.length > 0) {
           // 短标题：直接用回退关键词搜索
+          fallbackAttempted = true
           await Promise.all(
             fallbackKeywords.map(altKwd =>
               cmsClient.aggregatedSearch(altKwd, enabledSources, 1, controller.signal, area, classParams).catch(() => {}),
@@ -482,6 +484,7 @@ export function usePlaylistMatches({
           )
         } else if (isTitleEnglish && fallbackKeywords.length > 0) {
           // 主标题为全英文：并发搜索 title + 所有别名，不等回退
+          fallbackAttempted = true
           await Promise.all([
             cmsClient.aggregatedSearch(keyword, enabledSources, 1, controller.signal, area, classParams).catch(() => {}),
             ...fallbackKeywords.map(altKwd =>
@@ -494,6 +497,7 @@ export function usePlaylistMatches({
 
           // 评分低则用回退关键词搜索
           if (await needsFallbackSearch()) {
+            fallbackAttempted = true
             await Promise.all(
               fallbackKeywords.map(altKwd =>
                 cmsClient.aggregatedSearch(altKwd, enabledSources, 1, controller.signal, area, classParams).catch(() => {}),
@@ -511,6 +515,7 @@ export function usePlaylistMatches({
           releaseYear,
           seasons,
           sources: sourceMetaList,
+          strictScore: fallbackAttempted,
         })
 
         setState(prev => ({

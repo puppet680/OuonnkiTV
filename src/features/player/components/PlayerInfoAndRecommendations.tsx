@@ -1,12 +1,15 @@
 import { memo } from 'react'
 import { NavLink } from 'react-router'
-import { Star, CalendarDays, Clapperboard, Tv, Heart } from 'lucide-react'
+import { Star, CalendarDays, Clapperboard, Tv, Heart, Layers } from 'lucide-react'
 import type { TmdbMediaItem, TmdbMediaType } from '@/shared/types/tmdb'
 import { Badge } from '@/shared/components/ui/badge'
 import { Button } from '@/shared/components/ui/button'
 import { MediaPosterCard } from '@/shared/components/common'
 import { getPosterUrl } from '@/shared/lib/tmdb'
-import { buildTmdbDetailPath } from '@/shared/lib/routes'
+import { buildTmdbDetailPath, buildTmdbPlayPath } from '@/shared/lib/routes'
+import { useFavoritesStore } from '@/features/favorites/store/favoritesStore'
+import { DetailCollectionTab } from '@/features/media/components/tmdb-detail'
+import { useNavigate } from 'react-router'
 
 interface PlayerInfoAndRecommendationsProps {
   title: string
@@ -23,6 +26,8 @@ interface PlayerInfoAndRecommendationsProps {
   episodeCount?: number
   detailLink?: string
   showRecommendations?: boolean
+  collectionId?: number
+  currentTmdbId?: number
   favoriteAction?: {
     active: boolean
     onToggle: () => void
@@ -45,9 +50,13 @@ export const PlayerInfoAndRecommendations = memo(function PlayerInfoAndRecommend
   episodeCount,
   detailLink,
   showRecommendations = true,
+  collectionId,
+  currentTmdbId,
   favoriteAction,
   recommendations,
 }: PlayerInfoAndRecommendationsProps) {
+  const favoritesStore = useFavoritesStore()
+  const navigate = useNavigate()
   const infoPoster = posterPath ? getPosterUrl(posterPath, 'w342') : cmsCover || ''
 
   return (
@@ -176,6 +185,16 @@ export const PlayerInfoAndRecommendations = memo(function PlayerInfoAndRecommend
         </div>
       </section>
 
+      {collectionId ? (
+        <section className="space-y-3 rounded-lg border border-border/60 bg-card/45 p-4 md:p-5">
+          <div className="mb-3 flex items-center gap-2">
+            <Layers className="size-4" />
+            <h2 className="text-lg font-semibold">系列作品</h2>
+          </div>
+          <DetailCollectionTab collectionId={collectionId} currentTmdbId={currentTmdbId} />
+        </section>
+      ) : null}
+
       {showRecommendations && (
         <section className="space-y-3 rounded-lg border border-border/60 bg-card/45 p-4 md:p-5">
           <div className="flex items-center justify-between">
@@ -197,6 +216,11 @@ export const PlayerInfoAndRecommendations = memo(function PlayerInfoAndRecommend
                   posterUrl={getPosterUrl(item.posterPath, 'w342')}
                   title={item.title}
                   showTitle
+                  overview={item.overview}
+                  onToggleFavorite={() => favoritesStore.toggleTmdbFavorite(item)}
+                  isFavorited={favoritesStore.isTmdbFavorited(item.id, item.mediaType)}
+                  onPlayNow={() => navigate(buildTmdbPlayPath(item.mediaType, item.id))}
+                  onViewDetail={() => navigate(buildTmdbDetailPath(item.mediaType, item.id))}
                 />
               ))}
             </div>

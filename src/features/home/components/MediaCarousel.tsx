@@ -15,7 +15,9 @@ import { useEffect, useState } from 'react'
 import { useIsMobile } from '@/shared/hooks/use-mobile'
 import { getPosterUrl } from '@/shared/lib/tmdb'
 import type { TmdbMediaItem } from '@/shared/types/tmdb'
-import { buildTmdbDetailPath } from '@/shared/lib/routes'
+import { buildTmdbDetailPath, buildTmdbPlayPath } from '@/shared/lib/routes'
+import { useFavoritesStore } from '@/features/favorites/store/favoritesStore'
+import { useNavigate } from 'react-router'
 
 interface MediaCarouselProps {
   /** 板块标题 */
@@ -68,6 +70,8 @@ function MediaCarouselSkeleton({ title }: { title: string }) {
 export const MediaCarousel = memo(function MediaCarousel({ title, items, loading = false, linkTo }: MediaCarouselProps) {
   const isMobile = useIsMobile()
   const isTablet = !isMobile && typeof window !== 'undefined' && window.innerWidth < 1024
+  const favoritesStore = useFavoritesStore()
+  const navigate = useNavigate()
   // 根据屏幕尺寸计算可见卡片数量
   const visibleCount = isMobile ? 3 : isTablet ? 4 : 6
   // 每次滚动的卡片数量
@@ -133,6 +137,11 @@ export const MediaCarousel = memo(function MediaCarousel({ title, items, loading
                   title={item.title}
                   year={item.releaseDate ? item.releaseDate.split('-')[0] : undefined}
                   rating={item.voteAverage}
+                  overview={item.overview}
+                  onToggleFavorite={() => favoritesStore.toggleTmdbFavorite(item)}
+                  isFavorited={favoritesStore.isTmdbFavorited(item.id, item.mediaType)}
+                  onPlayNow={() => navigate(buildTmdbPlayPath(item.mediaType, item.id))}
+                  onViewDetail={() => navigate(buildTmdbDetailPath(item.mediaType, item.id))}
                 />
               </CarouselItem>
             ))}

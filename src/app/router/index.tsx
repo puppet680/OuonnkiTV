@@ -1,7 +1,9 @@
 import { lazy, Suspense } from 'react'
 import { createBrowserRouter, RouterProvider, Navigate } from 'react-router'
 import { OkiLogo } from '@/shared/components/icons'
+import ErrorBoundary from '@/shared/components/ErrorBoundary'
 import UpdateModal from '@/shared/components/UpdateModal'
+import PwaInstallPrompt from '@/shared/components/PwaInstallPrompt'
 
 // Layouts
 import MainLayout from '@/app/layouts/MainLayout'
@@ -204,11 +206,14 @@ const router = createBrowserRouter([
  */
 export default function AppRouter() {
   return (
-    <Suspense fallback={<LoadingFallback />}>
-      <AuthGuard>
-        <RouterProvider router={router} />
-        <UpdateModal />
-      </AuthGuard>
-    </Suspense>
+    <ErrorBoundary>
+      <Suspense fallback={<LoadingFallback />}>
+        <AuthGuard>
+          <RouterProvider router={router} />
+          <UpdateModal />
+          <PwaInstallPrompt />
+        </AuthGuard>
+      </Suspense>
+    </ErrorBoundary>
   )
 }

@@ -1,6 +1,6 @@
 export {
   createDefaultAdFilter,
-  createPatternFilter,
+  createKeyPathFilter,
   composeFilters,
   type M3u8Filter,
 } from './filter'

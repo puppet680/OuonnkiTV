@@ -25,12 +25,23 @@ export interface PlayerSourceOption {
   sourceName: string
   bestVodId: string
   bestScore: number
+  bestLabel: string
+  alternatives: { vodId: string; label: string; score: number }[]
 }
 
 export interface PlayerSeasonOption {
   seasonNumber: number
   seasonName: string
   matchedSourceCount: number
+}
+
+const LANG_PATTERN = /国语|日语|粤语|普通话|英语|台配|中配|日配|英配|国配|原声|配音|韩语|泰语|越南语|俄语|德语|法语|西语|葡语|意语/g
+
+const extractLangLabel = (item: { vod_name?: string; type_name?: string }): string => {
+  // 只从 vod_name / type_name 中提取语言关键词，没有则返回空
+  const text = `${item.vod_name || ''} ${item.type_name || ''}`
+  const matches = text.match(LANG_PATTERN)
+  return matches ? [...new Set(matches)].slice(0, 2).join('·') : ''
 }
 
 const toSourceOptions = (matches: SourceBestMatch[]): PlayerSourceOption[] => {
@@ -41,6 +52,14 @@ const toSourceOptions = (matches: SourceBestMatch[]): PlayerSourceOption[] => {
       sourceName: match.sourceName,
       bestVodId: match.bestMatch?.item.vod_id || '',
       bestScore: match.bestMatch?.score || 0,
+      bestLabel: extractLangLabel(match.bestMatch!.item),
+      alternatives: match.alternatives
+        .filter(a => a.score >= 80 && a.item.vod_id && extractLangLabel(a.item))
+        .map(a => ({
+          vodId: a.item.vod_id || '',
+          label: extractLangLabel(a.item),
+          score: a.score,
+        })),
     }))
 }
 
@@ -147,6 +166,8 @@ export function useTmdbPlayback({
           sourceName: apiSource.name || querySourceCode,
           bestVodId: queryVodId || '',
           bestScore: 0,
+          bestLabel: apiSource.name || querySourceCode,
+          alternatives: [],
         })
       }
     }

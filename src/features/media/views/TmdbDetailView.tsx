@@ -17,6 +17,7 @@ import { useSettingStore } from '@/shared/store/settingStore'
 import { useViewingHistoryStore } from '@/shared/store/viewingHistoryStore'
 import {
   DetailCastTab,
+  DetailCollectionTab,
   DetailHeroSection,
   DetailLoadingSkeleton,
   DetailOverviewTab,
@@ -94,6 +95,9 @@ export default function TmdbDetailView() {
     { key: 'production', label: '制作与发行' },
     { key: 'cast', label: isAnime ? '声优' : '演员' },
     ...(mediaType === 'tv' ? [{ key: 'seasons' as const, label: '季信息' }] : []),
+    ...(mediaType === 'movie' && (detail as TmdbRichDetail | null)?.belongs_to_collection?.id
+      ? [{ key: 'collection' as const, label: '系列作品' }]
+      : []),
   ]
 
   const updateTabIndicator = useCallback(() => {
@@ -133,6 +137,9 @@ export default function TmdbDetailView() {
 
   useEffect(() => {
     if (mediaType !== 'tv' && activeTab === 'seasons') {
+      setActiveTab('overview')
+    }
+    if (mediaType !== 'movie' && activeTab === 'collection') {
       setActiveTab('overview')
     }
   }, [activeTab, mediaType])
@@ -252,7 +259,7 @@ export default function TmdbDetailView() {
       <div className="px-4 md:px-6">
         <DetailStatePanel
           mode="error"
-          title="当前内容禁止访问"
+          title="访问被拒绝"
           description={certFull || `分级 ${certShort}`}
           primaryAction={{
             label: '返回搜索页',
@@ -473,6 +480,10 @@ export default function TmdbDetailView() {
             {activeTab === 'cast' && <DetailCastTab castList={castList} />}
 
             {activeTab === 'seasons' && <DetailSeasonsTab tmdbType={tmdbType} seasons={seasons} />}
+
+            {activeTab === 'collection' && richDetail.belongs_to_collection?.id && (
+              <DetailCollectionTab collectionId={richDetail.belongs_to_collection.id} currentTmdbId={detail.id} currentLabel="当前查看" />
+            )}
           </motion.div>
         </AnimatePresence>
       </div>

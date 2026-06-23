@@ -10,7 +10,9 @@ import { AspectRatio } from '@/shared/components/ui/aspect-ratio'
 import type { SearchMode } from './SearchModeToggle'
 import { getSourceColorScheme } from '@/shared/lib/source-colors'
 import { getPosterUrl } from '@/shared/lib/tmdb'
-import { buildCmsPlayPath, buildTmdbDetailPath } from '@/shared/lib/routes'
+import { buildCmsPlayPath, buildTmdbDetailPath, buildTmdbPlayPath } from '@/shared/lib/routes'
+import { useFavoritesStore } from '@/features/favorites/store/favoritesStore'
+import { useNavigate } from 'react-router'
 
 interface SearchResultsGridProps {
   /** 搜索模式 */
@@ -82,6 +84,9 @@ export const SearchResultsGrid = memo(function SearchResultsGrid({
   sentinelRef,
   className,
 }: SearchResultsGridProps) {
+  const favoritesStore = useFavoritesStore()
+  const navigate = useNavigate()
+
   // TMDB 模式：显示所有结果
   if (mode === 'tmdb') {
     const results = tmdbResults
@@ -123,6 +128,11 @@ export const SearchResultsGrid = memo(function SearchResultsGrid({
                     title={item.title}
                     year={item.releaseDate ? item.releaseDate.split('-')[0] : undefined}
                     rating={item.voteAverage}
+                    overview={item.overview}
+                    onToggleFavorite={() => favoritesStore.toggleTmdbFavorite(item)}
+                    isFavorited={favoritesStore.isTmdbFavorited(item.id, item.mediaType)}
+                    onPlayNow={() => navigate(buildTmdbPlayPath(item.mediaType, item.id))}
+                    onViewDetail={() => navigate(buildTmdbDetailPath(item.mediaType, item.id))}
                   />
                 </div>
               ))}

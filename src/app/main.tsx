@@ -8,7 +8,9 @@ import '@/app/styles/main.css'
 import { ThemeProvider } from 'next-themes'
 import AppRouter from './router'
 import { Toaster } from '@/shared/components/ui/sonner'
+import { RefreshCw } from 'lucide-react'
 import { TooltipProvider } from '@/shared/components/ui/tooltip'
+import { GlobalContextMenu } from '@/shared/components/GlobalContextMenu'
 
 // ponytail: analytics 与首屏渲染无关，lazy-load 避免阻塞 INP/LCP
 const Analytics = import.meta.env.OKI_DISABLE_ANALYTICS !== 'true'
@@ -17,10 +19,22 @@ const Analytics = import.meta.env.OKI_DISABLE_ANALYTICS !== 'true'
 
 const root = document.getElementById('root')!
 
+// 全局右键菜单内置项
+const builtInContextMenuItems = [
+  {
+    id: 'refresh',
+    label: '刷新页面',
+    icon: <RefreshCw className="size-4" />,
+    onClick: () => { window.location.reload() },
+  },
+]
+
 const app = (
   <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
     <TooltipProvider>
-      <AppRouter />
+      <GlobalContextMenu builtInItems={builtInContextMenuItems}>
+        <AppRouter />
+      </GlobalContextMenu>
       <Toaster richColors position="top-center" />
       {Analytics && (
         <Suspense fallback={null}>

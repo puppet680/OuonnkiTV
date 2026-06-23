@@ -36,6 +36,8 @@ interface BuildPlaylistMatchesParams {
   releaseYear?: string
   seasons: DetailSeason[]
   sources: SourceMeta[]
+  /** 回退搜索已完成，低分源直接过滤（85 替 80） */
+  strictScore?: boolean
 }
 
 const FUSE_OPTIONS: IFuseOptions<VideoItem> = {
@@ -107,7 +109,7 @@ const extractSeasonHints = (item: VideoItem): number[] => {
     const seasonNumber = numeric
       ? Number.parseInt(numeric, 10)
       : cnValue
-        ? parseChineseNumber(cnValue)
+        ? /^\d+$/.test(cnValue) ? Number.parseInt(cnValue, 10) : parseChineseNumber(cnValue)
         : null
 
     if (seasonNumber && Number.isFinite(seasonNumber) && seasonNumber > 0 && seasonNumber < 100) {
@@ -115,6 +117,17 @@ const extractSeasonHints = (item: VideoItem): number[] => {
     }
 
     match = seasonRegex.exec(text)
+  }
+
+  // 末尾裸数字：画江湖之不良人2 → 2（仅无其他季标记时使用）
+  if (hints.size === 0) {
+    const bareNumberRegex = /[一-鿿]\s*0*([0-9]{1,2})(?=\s*$|\s+[^季部篇])/g
+    let bareMatch: RegExpExecArray | null = bareNumberRegex.exec(text)
+    while (bareMatch) {
+      const n = Number.parseInt(bareMatch[1], 10)
+      if (n > 0 && n < 100) hints.add(n)
+      bareMatch = bareNumberRegex.exec(text)
+    }
   }
 
   // 范围季节：第1-3季 / 1-3季合集 / S1-S3
@@ -246,6 +259,15 @@ const scoreItem = (
       extra = Math.max(0, cleanedLen - totalSearchLen)
     }
 
+    // 去除年份后缀（如"剑来 2024"、"剑来 (2024)"），避免被当作标题掺杂扣分
+    const yearTokens = nameOnly.match(/\s*\(?(?:19|20)\d{2}\)?\s*/g)
+    if (yearTokens) {
+      for (const token of yearTokens) {
+        extra -= token.length
+      }
+    }
+    extra = Math.max(0, extra)
+
     // 额外字符占比：extra 占 nameOnly 的比例越大，说明掺杂越严重
     const extraRatio = extra / Math.max(nameOnly.length, 1)
 
@@ -319,10 +341,12 @@ const buildSourceOrder = (sources: SourceMeta[], grouped: Map<string, PlaylistMa
 }
 
 const MIN_MATCH_SCORE = 80
+const MIN_MATCH_SCORE_STRICT = 85
 
 const toSourceMatches = (
   grouped: Map<string, PlaylistMatchItem[]>,
   orderedSources: SourceMeta[],
+  threshold: number,
 ): SourceBestMatch[] => {
   const matches = orderedSources.map(source => {
     const entries = grouped.get(source.id) || []
@@ -330,8 +354,8 @@ const toSourceMatches = (
     return {
       sourceCode: source.id,
       sourceName: source.name,
-      bestMatch: best && best.score > MIN_MATCH_SCORE ? best : null,
-      alternatives: best && best.score > MIN_MATCH_SCORE ? entries.slice(1) : entries,
+      bestMatch: best && best.score > threshold ? best : null,
+      alternatives: best && best.score > threshold ? entries.slice(1) : entries,
     }
   })
 
@@ -379,7 +403,9 @@ export function buildPlaylistMatches({
   releaseYear,
   seasons,
   sources,
+  strictScore,
 }: BuildPlaylistMatchesParams) {
+  const threshold = strictScore ? MIN_MATCH_SCORE_STRICT : MIN_MATCH_SCORE
   if (!title || items.length === 0) {
     const emptyMatches = sources.map(source => ({
       sourceCode: source.id,
@@ -440,7 +466,7 @@ export function buildPlaylistMatches({
   if (mediaType === 'movie') {
     return {
       candidates: deduped,
-      movieSourceMatches: toSourceMatches(grouped, orderedSources),
+      movieSourceMatches: toSourceMatches(grouped, orderedSources, threshold),
       seasonSourceMatches: [] as SeasonSourceMatches[],
     }
   }
@@ -458,7 +484,7 @@ export function buildPlaylistMatches({
 
     return {
       season,
-      sourceMatches: toSourceMatches(seasonGrouped, orderedSources),
+      sourceMatches: toSourceMatches(seasonGrouped, orderedSources, threshold),
     }
   })
 

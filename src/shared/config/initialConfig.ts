@@ -40,6 +40,7 @@ interface SettingsConfig {
     varietyNetworks?: string
     isAdultFilterEnabled?: boolean
     cmsFilterKeywords?: string
+    isPwaInstallDismissed?: boolean
   }
 }
 

@@ -786,7 +786,11 @@ export const useTmdbStore = create<TmdbState & TmdbActions>()(
             const normTv = (i: unknown) => normalizeToMediaItem(i as Record<string, unknown>, 'tv')
 
             const movieItems = movieResults.map(normMovie)
-            const animeItems = animeResults.map(normMovie)
+            // 从动漫列表中排除已出现在电影列表中的条目，避免动画电影跨区重复
+            const movieKeySet = new Set(movieItems.map(i => `${i.mediaType}-${i.id}`))
+            const animeItems = animeResults
+              .map(normMovie)
+              .filter(i => !movieKeySet.has(`${i.mediaType}-${i.id}`))
             const tvItems = tvRes.results.map(normTv)
             const varietyItems = varietyRes.results.map(normTv)
             const featured = [...new Map(
@@ -822,7 +826,7 @@ export const useTmdbStore = create<TmdbState & TmdbActions>()(
                 regionalAnimated: animeItems,
                 regionalVariety: varietyItems,
                 regionalFeatured: featured,
-                regionalNowPlaying: movieItems,
+                regionalNowPlaying: [], // ponytail: 首页未使用，留空避免与 movies 重复
                 regionalPopularMovies: [],
                 regionalTopRatedMovies: [],
                 regionalUpcoming: [],

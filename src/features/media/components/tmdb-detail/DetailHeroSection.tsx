@@ -124,7 +124,9 @@ export function DetailHeroSection({
             ) : (
               <h1 className="text-3xl leading-tight font-bold text-white md:text-5xl">{detail.title}</h1>
             )}
-            {richDetail.tagline && <p className="text-sm italic text-white/80 md:text-base">{richDetail.tagline}</p>}
+            {richDetail.tagline && !/(https?:\/\/|\.(com|net|org|cn|xyz|top|info|cc|tv|live|app)\b)/i.test(richDetail.tagline) && (
+              <p className="text-sm italic text-white/80 md:text-base">{richDetail.tagline}</p>
+            )}
           </div>
 
           <div className="flex items-center gap-1.5 overflow-hidden text-xs md:hidden">

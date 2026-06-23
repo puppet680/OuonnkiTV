@@ -35,6 +35,7 @@ export function ChangelogDialog({ isOpen, onClose, versions }: ChangelogDialogPr
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent
         className="flex h-[80vh] max-h-[90vh] w-full flex-col gap-0 border-border/70 bg-card/70 p-0 backdrop-blur-xl sm:max-w-3xl sm:rounded-xl"
+        onOpenAutoFocus={e => e.preventDefault()}
       >
         <DialogHeader className="shrink-0 border-b px-5 py-4">
           <DialogTitle className="text-base font-semibold">版本日志</DialogTitle>
