@@ -12,7 +12,7 @@ import { FeaturedCarousel } from '../components/FeaturedCarousel'
 import { ContinueWatching } from '../components/ContinueWatching'
 import { MediaCarousel } from '../components/MediaCarousel'
 import { CmsHomeContent } from '../components/CmsHomeContent'
-import { useMemo, useEffect, useState } from 'react'
+import { useMemo } from 'react'
 
 /**
  * TmdbHomeContent - TMDB 模式首页内容
@@ -47,21 +47,14 @@ function TmdbHomeContent() {
       }))
 
     const sourceMap = new Map<string, { id: number; mediaType: TmdbMediaType }>()
-    ;[...favoriteSources, ...historySources].forEach(source => {
-      sourceMap.set(`${source.mediaType}-${source.id}`, source)
-    })
+      ;[...favoriteSources, ...historySources].forEach(source => {
+        sourceMap.set(`${source.mediaType}-${source.id}`, source)
+      })
 
     return Array.from(sourceMap.values())
   }, [favorites, viewingHistory])
   const { recommendations, loading: recommendationsLoading } =
     useTmdbRecommendations(tmdbRecommendationCandidates)
-
-  // 下方轮播列表延迟渲染，避免阻塞页面入口动画（300ms 后渲染）
-  const [showCarousels, setShowCarousels] = useState(false)
-  useEffect(() => {
-    const timer = setTimeout(() => setShowCarousels(true), 300)
-    return () => clearTimeout(timer)
-  }, [])
 
   return (
     <div className="flex flex-col gap-6">
@@ -74,13 +67,11 @@ function TmdbHomeContent() {
       <ContinueWatching />
       {/* 猜你喜欢 */}
       <MediaCarousel title="猜你喜欢" items={recommendations} loading={recommendationsLoading} />
-      {/* 延迟渲染下方轮播区，避免阻塞页面入口动画 */}
-      {showCarousels && (<>
-        <MediaCarousel title="电影" items={regionalMovies} loading={regionalLoading} />
-        <MediaCarousel title="连续剧" items={regionalTvShows} loading={regionalLoading} />
-        <MediaCarousel title="综艺" items={regionalVariety} loading={regionalLoading} />
-        <MediaCarousel title="动漫" items={regionalAnimated} loading={regionalLoading} />
-      </>)}
+      {/* 列表 */}
+      <MediaCarousel title="电影" items={regionalMovies} loading={regionalLoading} />
+      <MediaCarousel title="连续剧" items={regionalTvShows} loading={regionalLoading} />
+      <MediaCarousel title="综艺" items={regionalVariety} loading={regionalLoading} />
+      <MediaCarousel title="动漫" items={regionalAnimated} loading={regionalLoading} />
     </div>
   )
 }

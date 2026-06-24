@@ -5,9 +5,13 @@
     <!-- 禁止移动端缩放：注意会影响无障碍可访问性（视力障碍用户无法放大） -->
     <meta
       name="viewport"
-      content="width=device-width,initial-scale=1.0,maximum-scale=1.0,minimum-scale=1.0,user-scalable=no"
+      content="width=device-width,initial-scale=1.0,maximum-scale=1.0,minimum-scale=1.0,user-scalable=no,viewport-fit=cover"
     />
     <title>I TV</title>
+
+    <!-- PWA: iOS standalone mode + status bar -->
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 
     <!-- Favicon -->
     <link rel="icon" type="image/x-icon" href="/favicon.ico" />

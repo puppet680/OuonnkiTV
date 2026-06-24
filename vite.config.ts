@@ -85,6 +85,9 @@ export default defineConfig({
       manifest: {
         name: 'I TV',
         short_name: 'I TV',
+        description: '现代化视频聚合搜索与播放',
+        start_url: '/',
+        scope: '/',
         theme_color: '#ffffff',
         background_color: '#ffffff',
         display: 'fullscreen',

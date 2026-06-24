@@ -1,4 +1,4 @@
-import { motion } from "motion/react"
+import { motion, useReducedMotion } from "motion/react"
 import {
   ArrowLeft,
   CalendarDays,
@@ -54,6 +54,7 @@ export function DetailHeroSection({
   continueWatchingProgressLabel,
   onToggleFavorite,
 }: DetailHeroSectionProps) {
+  const reducedMotion = useReducedMotion()
   const heroBadgeClass =
     'h-6 gap-1 px-2 text-[10px] leading-none text-white [&_svg]:size-3 md:h-7 md:gap-1.5 md:px-2.5 md:text-xs md:[&_svg]:size-3.5'
   const playNowLabel = onContinueWatching ? '从头播放' : '立即播放'
@@ -103,9 +104,9 @@ export function DetailHeroSection({
       >
         <motion.span
           key={favorited ? 'mobile-favorited' : 'mobile-unfavorited'}
-          initial={{ scale: 0.65, rotate: -14, opacity: 0.6 }}
+          initial={reducedMotion ? false : { scale: 0.65, rotate: -14, opacity: 0.6 }}
           animate={{ scale: 1, rotate: 0, opacity: 1 }}
-          transition={{ type: 'spring', stiffness: 520, damping: 24 }}
+          transition={reducedMotion ? { duration: 0 } : { type: 'spring', stiffness: 520, damping: 24 }}
         >
           <Heart className={`size-4 transition-colors ${favorited ? 'fill-rose-500 text-rose-500' : ''}`} />
         </motion.span>
@@ -251,9 +252,9 @@ export function DetailHeroSection({
             >
               <motion.span
                 key={favorited ? 'favorited' : 'unfavorited'}
-                initial={{ scale: 0.65, rotate: -14, opacity: 0.6 }}
+                initial={reducedMotion ? false : { scale: 0.65, rotate: -14, opacity: 0.6 }}
                 animate={{ scale: 1, rotate: 0, opacity: 1 }}
-                transition={{ type: 'spring', stiffness: 520, damping: 24 }}
+                transition={reducedMotion ? { duration: 0 } : { type: 'spring', stiffness: 520, damping: 24 }}
               >
                 <Heart className={`size-4 transition-colors ${favorited ? 'fill-rose-500 text-rose-500' : ''}`} />
               </motion.span>

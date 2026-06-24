@@ -1,4 +1,4 @@
-import { AnimatePresence, motion } from "motion/react"
+import { AnimatePresence, motion, useReducedMotion } from "motion/react"
 import { Button } from '@/shared/components/ui/button'
 
 interface HistoryHeaderProps {
@@ -43,6 +43,7 @@ export function HistoryHeader({
   onOpenBatchDelete,
   onOpenClearAll,
 }: HistoryHeaderProps) {
+  const reducedMotion = useReducedMotion()
   const actionButtonClass = 'shrink-0 rounded-xl px-2 md:h-8 md:px-3 md:text-sm'
 
   const renderEditingActions = () => (
@@ -110,10 +111,10 @@ export function HistoryHeader({
                 key="editing-actions"
                 custom={actionDirection}
                 variants={ACTION_TRANSITION_VARIANTS}
-                initial="enter"
+                initial={reducedMotion ? false : "enter"}
                 animate="center"
-                exit="exit"
-                transition={{ duration: 0.2, ease: 'easeOut' }}
+                exit={reducedMotion ? undefined : "exit"}
+                transition={reducedMotion ? { duration: 0 } : { duration: 0.2, ease: 'easeOut' }}
                 className="absolute inset-y-0 right-0 flex items-center"
               >
                 {renderEditingActions()}
@@ -123,10 +124,10 @@ export function HistoryHeader({
                 key="default-actions"
                 custom={actionDirection}
                 variants={ACTION_TRANSITION_VARIANTS}
-                initial="enter"
+                initial={reducedMotion ? false : "enter"}
                 animate="center"
-                exit="exit"
-                transition={{ duration: 0.2, ease: 'easeOut' }}
+                exit={reducedMotion ? undefined : "exit"}
+                transition={reducedMotion ? { duration: 0 } : { duration: 0.2, ease: 'easeOut' }}
                 className="absolute inset-y-0 right-0 flex items-center"
               >
                 {renderDefaultActions()}

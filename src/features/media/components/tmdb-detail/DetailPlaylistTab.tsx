@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router'
 import { Check, ChevronDown, ImageOff, List, Play, RefreshCcw } from 'lucide-react'
-import { AnimatePresence, motion } from "motion/react"
+import { AnimatePresence, motion, useReducedMotion } from "motion/react"
 import { Spinner } from '@/shared/components/ui/spinner'
 import { Badge } from '@/shared/components/ui/badge'
 import { Button } from '@/shared/components/ui/button'
@@ -57,14 +57,15 @@ function MotionCollapse({
   open: boolean
   children: React.ReactNode
 }) {
+  const reducedMotion = useReducedMotion()
   return (
     <AnimatePresence initial={false}>
       {open && (
         <motion.div
-          initial={{ height: 0, opacity: 0 }}
-          animate={{ height: 'auto', opacity: 1 }}
-          exit={{ height: 0, opacity: 0 }}
-          transition={{ duration: 0.18, ease: 'easeOut' }}
+          initial={reducedMotion ? false : { height: 0, opacity: 0 }}
+          animate={reducedMotion ? { opacity: 1 } : { height: 'auto', opacity: 1 }}
+          exit={reducedMotion ? undefined : { height: 0, opacity: 0 }}
+          transition={reducedMotion ? { duration: 0 } : { duration: 0.18, ease: 'easeOut' }}
           className="overflow-hidden"
         >
           <div className="pt-3">{children}</div>
@@ -82,6 +83,7 @@ function SlidingText({
   intervalMs?: number
 }) {
   const [index, setIndex] = useState(0)
+  const reducedMotion = useReducedMotion()
 
   const messagesKey = messages.join('\u0001')
 
@@ -98,6 +100,16 @@ function SlidingText({
   }, [intervalMs, messagesKey, messages.length])
 
   const active = messages[index] || messages[0] || '正在准备匹配任务...'
+
+  if (reducedMotion) {
+    return (
+      <div className="relative h-5 min-w-[220px] max-w-[320px] overflow-hidden">
+        <p className="absolute inset-0 flex h-5 items-center">
+          <span className="block w-full truncate">{active}</span>
+        </p>
+      </div>
+    )
+  }
 
   return (
     <div className="relative h-5 min-w-[220px] max-w-[320px] overflow-hidden">
@@ -493,6 +505,7 @@ export function DetailPlaylistTab({
   seasonSourceMatches,
   onRetry,
 }: DetailPlaylistTabProps) {
+  const reducedMotion = useReducedMotion()
   const movieMatchedSources = movieSourceMatches.filter(match => Boolean(match.bestMatch))
   const hasTvMatchedSources = seasonSourceMatches.some(seasonMatch =>
     seasonMatch.sourceMatches.some(sourceMatch => Boolean(sourceMatch.bestMatch)),
@@ -532,10 +545,10 @@ export function DetailPlaylistTab({
             {showPillInActionSlot ? (
               <motion.div
                 key="playlist-progress"
-                initial={{ opacity: 0, y: 6 }}
+                initial={reducedMotion ? false : { opacity: 0, y: 6 }}
                 animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -6 }}
-                transition={{ duration: 0.18, ease: 'easeOut' }}
+                exit={reducedMotion ? undefined : { opacity: 0, y: -6 }}
+                transition={reducedMotion ? { duration: 0 } : { duration: 0.18, ease: 'easeOut' }}
               >
                 <ProgressPill
                   tmdbType={tmdbType}
@@ -550,10 +563,10 @@ export function DetailPlaylistTab({
             ) : (
               <motion.div
                 key="playlist-retry-button"
-                initial={{ opacity: 0, y: 6 }}
+                initial={reducedMotion ? false : { opacity: 0, y: 6 }}
                 animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -6 }}
-                transition={{ duration: 0.18, ease: 'easeOut' }}
+                exit={reducedMotion ? undefined : { opacity: 0, y: -6 }}
+                transition={reducedMotion ? { duration: 0 } : { duration: 0.18, ease: 'easeOut' }}
               >
                 <Button
                   variant="secondary"
@@ -599,16 +612,16 @@ export function DetailPlaylistTab({
       {!error && searched && tmdbType === 'movie' && (
         <div className="space-y-3">
           {movieMatchedSources.length > 0 && (
-            <motion.div layout className="grid gap-3 md:grid-cols-2">
+            <motion.div layout={!reducedMotion || undefined} className="grid gap-3 md:grid-cols-2">
               <AnimatePresence initial={false}>
                 {movieMatchedSources.map(sourceMatch => (
                   <motion.div
                     key={`movie-${sourceMatch.sourceCode}`}
-                    layout
-                    initial={{ opacity: 0, y: 10 }}
+                    layout={!reducedMotion || undefined}
+                    initial={reducedMotion ? false : { opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -10 }}
-                    transition={{ duration: 0.18, ease: 'easeOut' }}
+                    exit={reducedMotion ? undefined : { opacity: 0, y: -10 }}
+                    transition={reducedMotion ? { duration: 0 } : { duration: 0.18, ease: 'easeOut' }}
                   >
                     <SourceMatchBlock
                       tmdbType={tmdbType}

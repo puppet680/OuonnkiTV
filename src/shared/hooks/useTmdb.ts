@@ -244,8 +244,11 @@ export function useTmdbRecommendations(
   const trending = useTmdbStore(s => s.trending)
 
   const fetchRecommendations = useTmdbStore(s => s.fetchRecommendations)
+  // 从 Zustand 读取上次缓存的推荐源（拆成三个独立 selector，避免对象引用变化导致死循环）
+  const cachedSourceId = useTmdbStore(s => s.recommendationSourceId)
+  const cachedSourceMediaType = useTmdbStore(s => s.recommendationSourceMediaType)
+  const cachedHasRecommendations = useTmdbStore(s => s.recommendations.length > 0)
   const attemptedSourceKeysRef = useRef<Set<string>>(new Set())
-  const [selectedSource, setSelectedSource] = useState<RecommendationSource | null>(null)
 
   const sourceCandidates = useMemo<RecommendationSource[]>(() => {
     const sourceMap = new Map<string, RecommendationSource>()
@@ -265,6 +268,19 @@ export function useTmdbRecommendations(
     })
     return Array.from(sourceMap.values())
   }, [preferredSources, trending])
+
+  // 初始化 selectedSource：优先复用 Zustand 缓存的上次选中源，避免随机重抽
+  const [selectedSource, setSelectedSource] = useState<RecommendationSource | null>(() => {
+    if (cachedHasRecommendations && cachedSourceId && cachedSourceMediaType) {
+      const cached = { id: cachedSourceId, mediaType: cachedSourceMediaType as 'movie' | 'tv' }
+      return sourceCandidates.some(
+        c => c.id === cached.id && c.mediaType === cached.mediaType,
+      )
+        ? cached
+        : null
+    }
+    return null
+  })
 
   useEffect(() => {
     attemptedSourceKeysRef.current = new Set()

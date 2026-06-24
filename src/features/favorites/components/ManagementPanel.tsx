@@ -1,5 +1,5 @@
 import { Edit3, CheckSquare, Square, Trash2, X, XCircle } from 'lucide-react'
-import { motion, AnimatePresence, type Variants } from "motion/react"
+import { motion, AnimatePresence, useReducedMotion, type Variants } from "motion/react"
 import { Button } from '@/shared/components/ui/button'
 import {
   AlertDialog,
@@ -120,6 +120,7 @@ export function ManagementPanel({
   onDeleteSelected,
 }: ManagementPanelProps) {
   const isMobile = useIsMobile()
+  const reducedMotion = useReducedMotion()
 
   return (
     <div
@@ -146,14 +147,14 @@ export function ManagementPanel({
           <motion.div
             key="expanded-panel"
             variants={isMobile ? mobilePanelVariants : desktopPanelVariants}
-            initial="initial"
-            animate="animate"
-            exit="exit"
+            initial={reducedMotion ? false : "initial"}
+            animate={reducedMotion ? { opacity: 1 } : "animate"}
+            exit={reducedMotion ? undefined : "exit"}
             className="bg-background/95 border-border flex items-center gap-1 overflow-hidden rounded-3xl border px-3 shadow-2xl backdrop-blur-md"
             style={{ height: 48 }}
           >
             {/* 全选/取消 */}
-            <motion.div variants={itemVariants}>
+            <motion.div variants={reducedMotion ? undefined : itemVariants}>
               <Button
                 variant="ghost"
                 size="sm"
@@ -176,14 +177,14 @@ export function ManagementPanel({
 
             {/* 计数 */}
             <motion.span
-              variants={itemVariants}
+              variants={reducedMotion ? undefined : itemVariants}
               className="text-muted-foreground shrink-0 text-sm tabular-nums"
             >
               {selectedCount}/{totalCount}
             </motion.span>
 
             {/* 清空 */}
-            <motion.div variants={itemVariants}>
+            <motion.div variants={reducedMotion ? undefined : itemVariants}>
               <AlertDialog>
                 <AlertDialogTrigger asChild>
                   <Button
@@ -217,12 +218,12 @@ export function ManagementPanel({
 
             {/* 分隔线 */}
             <motion.div
-              variants={itemVariants}
+              variants={reducedMotion ? undefined : itemVariants}
               className="bg-border mx-1 h-4 w-px shrink-0"
             />
 
             {/* 删除选中 */}
-            <motion.div variants={itemVariants}>
+            <motion.div variants={reducedMotion ? undefined : itemVariants}>
               <AlertDialog>
                 <AlertDialogTrigger asChild>
                   <Button
@@ -255,7 +256,7 @@ export function ManagementPanel({
             </motion.div>
 
             {/* 退出按钮 */}
-            <motion.div variants={itemVariants}>
+            <motion.div variants={reducedMotion ? undefined : itemVariants}>
               <Button
                 variant="ghost"
                 size="sm"
@@ -270,9 +271,9 @@ export function ManagementPanel({
           <motion.div
             key="collapsed-button"
             variants={penIconVariants}
-            initial="initial"
-            animate="animate"
-            exit="exit"
+            initial={reducedMotion ? false : "initial"}
+            animate={reducedMotion ? { opacity: 1 } : "animate"}
+            exit={reducedMotion ? undefined : "exit"}
           >
             <Button
               size="lg"

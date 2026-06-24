@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react'
-import { AnimatePresence, motion } from "motion/react"
+import { AnimatePresence, motion, useReducedMotion } from "motion/react"
 import { FeaturedCarousel } from '@/features/home/components/FeaturedCarousel'
 import { MediaCarousel } from '@/features/home/components/MediaCarousel'
 import { getTmdbClient, normalizeToMediaItem } from '@/shared/lib/tmdb'
@@ -9,6 +9,7 @@ const WEEKDAYS = ['周一', '周二', '周三', '周四', '周五', '周六', '�
 
 export default function BangumiView() {
   const [newAnime, setNewAnime] = useState<TmdbMediaItem[]>([])
+  const reducedMotion = useReducedMotion()
   const [series, setSeries] = useState<TmdbMediaItem[]>([])
   const [movies, setMovies] = useState<TmdbMediaItem[]>([])
   const [featured, setFeatured] = useState<TmdbMediaItem[]>([])
@@ -137,11 +138,15 @@ export default function BangumiView() {
                     }`}
                   >
                     {active && (
-                      <motion.div
-                        layoutId="bangumi-tab-indicator"
-                        className="bg-background shadow-sm absolute inset-0 rounded-md"
-                        transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-                      />
+                      reducedMotion ? (
+                        <div className="bg-background shadow-sm absolute inset-0 rounded-md" />
+                      ) : (
+                        <motion.div
+                          layoutId="bangumi-tab-indicator"
+                          className="bg-background shadow-sm absolute inset-0 rounded-md"
+                          transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+                        />
+                      )
                     )}
                     <span className="relative z-10">{day}</span>
                   </button>
@@ -152,10 +157,10 @@ export default function BangumiView() {
           <AnimatePresence mode="wait" initial={false}>
             <motion.div
               key={scheduleDay}
-              initial={{ opacity: 0, y: 10 }}
+              initial={reducedMotion ? false : { opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -6 }}
-              transition={{ duration: 0.2, ease: 'easeOut' }}
+              exit={reducedMotion ? undefined : { opacity: 0, y: -6 }}
+              transition={reducedMotion ? { duration: 0 } : { duration: 0.2, ease: 'easeOut' }}
             >
               <MediaCarousel title="" items={dayItems} loading={loading} />
             </motion.div>

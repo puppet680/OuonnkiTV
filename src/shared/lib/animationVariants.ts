@@ -3,25 +3,27 @@ import { type Variants } from "motion/react"
 /**
  * 页面过渡动画变体配置
  */
+// ponytail: 入场动画要快（数据在 Zustand 缓存中已就绪，慢动画反像"重新加载"）
+// 退场保留流畅感，入场几乎瞬间完成
 export const pageVariants: Variants = {
   initial: {
     opacity: 0,
-    y: 8,
+    y: 4,
   },
   animate: {
     opacity: 1,
     y: 0,
     transition: {
-      duration: 0.3,
-      ease: [0.25, 0.46, 0.45, 0.94], // ease-out-quad
+      duration: 0.1,
+      ease: 'easeOut',
     },
   },
   exit: {
     opacity: 0,
-    y: -8,
+    y: -6,
     transition: {
-      duration: 0.2,
-      ease: [0.55, 0.055, 0.675, 0.19], // ease-in-quad
+      duration: 0.15,
+      ease: 'easeIn',
     },
   },
 }

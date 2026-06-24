@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { motion, AnimatePresence } from "motion/react"
+import { motion, AnimatePresence, useReducedMotion } from "motion/react"
 import { ChevronDown } from 'lucide-react'
 import { cn } from '@/shared/lib'
 import { useIsMobile } from '@/shared/hooks/use-mobile'
@@ -22,6 +22,7 @@ interface VersionTimelineProps {
 
 /** 桌面端：左侧时间轴列表 */
 function DesktopTimeline({ versions, selectedVersion, onSelectVersion }: VersionTimelineProps) {
+  const reducedMotion = useReducedMotion()
   return (
     <div className="relative w-48 shrink-0">
       <div className="bg-border absolute top-0 bottom-0 left-[11px] w-px" />
@@ -39,11 +40,15 @@ function DesktopTimeline({ versions, selectedVersion, onSelectVersion }: Version
               className="relative flex w-full items-start gap-3 rounded-lg px-2 py-2 text-left transition-colors"
             >
               {isSelected && (
-                <motion.span
-                  layoutId="changelog-active"
-                  className="bg-muted/55 absolute inset-0 rounded-lg"
-                  transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-                />
+                reducedMotion ? (
+                  <span className="bg-muted/55 absolute inset-0 rounded-lg" />
+                ) : (
+                  <motion.span
+                    layoutId="changelog-active"
+                    className="bg-muted/55 absolute inset-0 rounded-lg"
+                    transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+                  />
+                )
               )}
 
               <span
@@ -79,6 +84,7 @@ function DesktopTimeline({ versions, selectedVersion, onSelectVersion }: Version
 /** 移动端：手风琴式折叠列表 */
 function MobileAccordion({ versions }: { versions: VersionUpdate[] }) {
   const [expandedVersion, setExpandedVersion] = useState<string>(versions[0]?.version ?? '')
+  const reducedMotion = useReducedMotion()
 
   const toggleExpand = (version: string) => {
     setExpandedVersion(prev => (prev === version ? '' : version))
@@ -126,10 +132,10 @@ function MobileAccordion({ versions }: { versions: VersionUpdate[] }) {
             <AnimatePresence initial={false}>
               {isExpanded && (
                 <motion.div
-                  initial={{ height: 0, opacity: 0 }}
-                  animate={{ height: 'auto', opacity: 1 }}
-                  exit={{ height: 0, opacity: 0 }}
-                  transition={{ duration: 0.25, ease: [0.25, 0.46, 0.45, 0.94] }}
+                  initial={reducedMotion ? false : { height: 0, opacity: 0 }}
+                  animate={reducedMotion ? { opacity: 1 } : { height: 'auto', opacity: 1 }}
+                  exit={reducedMotion ? undefined : { height: 0, opacity: 0 }}
+                  transition={reducedMotion ? { duration: 0 } : { duration: 0.25, ease: [0.25, 0.46, 0.45, 0.94] }}
                   className="overflow-hidden"
                 >
                   <div className="px-1 pt-2 pb-1">

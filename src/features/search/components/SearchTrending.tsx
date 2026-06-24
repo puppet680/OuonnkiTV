@@ -1,5 +1,5 @@
 import { TrendingUp } from 'lucide-react'
-import { motion } from "motion/react"
+import { motion, useReducedMotion } from "motion/react"
 import { type TmdbMediaItem } from '@/shared/types/tmdb'
 import { Skeleton } from '@/shared/components/ui/skeleton'
 
@@ -12,6 +12,7 @@ interface SearchTrendingProps {
 }
 
 export function SearchTrending({ trending, onSearch, className, disabled, isLoading }: SearchTrendingProps) {
+  const reducedMotion = useReducedMotion()
   // 骨架屏状态
   if (isLoading) {
     // 生成随机宽度的骨架屏，让效果更自然（两排填满）
@@ -23,7 +24,7 @@ export function SearchTrending({ trending, onSearch, className, disabled, isLoad
     return (
       <motion.div
         className={`w-full max-w-3xl px-4 sm:px-0 ${className}`}
-        initial={{ opacity: 0, y: 20 }}
+        initial={reducedMotion ? false : { opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
       >
         <div className="flex items-center gap-2 mb-3">
@@ -44,20 +45,20 @@ export function SearchTrending({ trending, onSearch, className, disabled, isLoad
   return (
     <motion.div
       className={`w-full max-w-3xl px-4 sm:px-0 ${className}`}
-      initial={{ opacity: 0, y: 20, height: 0 }}
-      animate={{ 
-        opacity: 1, 
-        y: 0, 
+      initial={reducedMotion ? false : { opacity: 0, y: 20, height: 0 }}
+      animate={reducedMotion ? { opacity: 1 } : {
+        opacity: 1,
+        y: 0,
         height: 'auto',
         transition: {
           duration: 0.3,
-          delay: 0.2 // Wait for TMDB section exit (0.2s delay + 0.3s duration overlapping slightly for smoothness)
+          delay: 0.2
         }
       }}
-      exit={{ 
+      exit={reducedMotion ? undefined : {
         opacity: 0,
         height: 0,
-        transition: { duration: 0.2, delay: 0 } 
+        transition: { duration: 0.2, delay: 0 }
       }}
     >
       <div className="flex items-center gap-2 mb-3">

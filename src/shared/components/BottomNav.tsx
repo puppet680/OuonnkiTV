@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { NavLink, useLocation } from 'react-router'
 import { Home, Search, Star, History, Tv } from 'lucide-react'
-import { motion } from "motion/react"
+import { motion, useReducedMotion } from "motion/react"
 import { useIsMobile } from '@/shared/hooks/use-mobile'
 import { useTmdbEnabled } from '@/shared/hooks/useTmdbMode'
 import { cn } from '@/shared/lib'
@@ -17,6 +17,7 @@ const items = [
 export default function BottomNav() {
   const isMobile = useIsMobile()
   const tmdbEnabled = useTmdbEnabled()
+  const reducedMotion = useReducedMotion()
   const { pathname } = useLocation()
   const [visible, setVisible] = useState(true)
   const lastScrollY = useRef(0)
@@ -52,11 +53,12 @@ export default function BottomNav() {
   return (
     <div
       className={cn(
-        'fixed bottom-0 left-0 right-0 z-50 h-16 w-full px-4 pb-4 safe-area-bottom transition-[opacity,transform] duration-220 ease-out',
+        'fixed bottom-0 left-0 right-0 z-50 w-full px-4 pb-4 transition-[opacity,transform] duration-220 ease-out',
         visible ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0 pointer-events-none',
       )}
     >
-      <nav className="border-border bg-sidebar flex h-full items-center justify-around rounded-lg border px-3 shadow-sm backdrop-blur-md">
+      <div className="pb-safe">
+        <nav className="border-border bg-sidebar flex h-16 items-center justify-around rounded-lg border px-3 shadow-sm backdrop-blur-md">
         {filtered.map(item => {
           const active = item.url === '/' ? pathname === '/' : pathname.startsWith(item.url)
           return (
@@ -69,18 +71,23 @@ export default function BottomNav() {
               )}
             >
               {active && (
-                <motion.div
-                  layoutId="bottomnav-selected"
-                  className="bg-sidebar-primary absolute inset-0 rounded-md"
-                  transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-                />
+                reducedMotion ? (
+                  <div className="bg-sidebar-primary absolute inset-0 rounded-md" />
+                ) : (
+                  <motion.div
+                    layoutId="bottomnav-selected"
+                    className="bg-sidebar-primary absolute inset-0 rounded-md"
+                    transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+                  />
+                )
               )}
               <item.icon className="relative z-10 size-5" />
               {active && <span className="relative z-10 text-[10px] leading-none">{item.title}</span>}
             </NavLink>
           )
         })}
-      </nav>
+        </nav>
+      </div>
     </div>
   )
 }

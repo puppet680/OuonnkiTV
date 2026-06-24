@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { motion } from "motion/react"
+import { motion, useReducedMotion } from "motion/react"
 import { ArrowRight, Lock } from 'lucide-react'
 import { Input } from '@/shared/components/ui/input'
 import { Button } from '@/shared/components/ui/button'
@@ -16,6 +16,7 @@ const easeOutQuad = [0.25, 0.46, 0.45, 0.94] as const
 
 export default function AuthGuard({ children }: AuthGuardProps) {
   const { login, validateSession } = useAuthStore()
+  const reducedMotion = useReducedMotion()
   const [password, setPassword] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null)
@@ -121,9 +122,9 @@ export default function AuthGuard({ children }: AuthGuardProps) {
       >
         {/* 左侧品牌区 — 移动端顶部横栏，桌面端左侧半屏 */}
         <motion.div
-          initial={{ opacity: 0 }}
+          initial={reducedMotion ? false : { opacity: 0 }}
           animate={{ opacity: 1 }}
-          transition={{ duration: 0.6, ease: easeOutQuad }}
+          transition={reducedMotion ? { duration: 0 } : { duration: 0.6, ease: easeOutQuad }}
           className="relative hidden md:flex shrink-0 flex-col items-center justify-center overflow-hidden bg-muted/40 px-8 py-12 md:w-1/2 md:py-0"        >
           {/* 装饰性模糊光晕 */}
           <div className="pointer-events-none absolute -top-20 -left-20 size-72 rounded-full bg-primary/10 blur-3xl" />
@@ -131,9 +132,9 @@ export default function AuthGuard({ children }: AuthGuardProps) {
 
           <div className="relative flex flex-col items-center gap-4">
             <motion.div
-              initial={{ opacity: 0, y: 8, filter: 'blur(4px)' }}
+              initial={reducedMotion ? false : { opacity: 0, y: 8, filter: 'blur(4px)' }}
               animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-              transition={{ duration: 0.5, delay: 0.1, ease: easeOutQuad }}
+              transition={reducedMotion ? { duration: 0 } : { duration: 0.5, delay: 0.1, ease: easeOutQuad }}
               className="flex flex-col items-center gap-3"
             >
               <OkiLogo size={80} />
@@ -141,9 +142,9 @@ export default function AuthGuard({ children }: AuthGuardProps) {
             </motion.div>
 
             <motion.p
-              initial={{ opacity: 0 }}
+              initial={reducedMotion ? false : { opacity: 0 }}
               animate={{ opacity: 1 }}
-              transition={{ duration: 0.5, delay: 0.25, ease: easeOutQuad }}
+              transition={reducedMotion ? { duration: 0 } : { duration: 0.5, delay: 0.25, ease: easeOutQuad }}
               className="max-w-xs text-center text-sm text-muted-foreground"
             >
               你的私人流媒体影院
@@ -156,9 +157,9 @@ export default function AuthGuard({ children }: AuthGuardProps) {
           <div className="w-full max-w-sm space-y-8">
             {/* 信息区域 */}
             <motion.div
-              initial={{ opacity: 0, y: 8, filter: 'blur(4px)' }}
+              initial={reducedMotion ? false : { opacity: 0, y: 8, filter: 'blur(4px)' }}
               animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-              transition={{ duration: 0.5, delay: 0.15, ease: easeOutQuad }}
+              transition={reducedMotion ? { duration: 0 } : { duration: 0.5, delay: 0.15, ease: easeOutQuad }}
               className="space-y-4"
             >
               <div className="flex size-12 items-center justify-center rounded-xl bg-muted/70 ring-1 ring-border/60">
@@ -174,9 +175,9 @@ export default function AuthGuard({ children }: AuthGuardProps) {
 
             {/* 表单区域 */}
             <motion.div
-              initial={{ opacity: 0, y: 8, filter: 'blur(4px)' }}
+              initial={reducedMotion ? false : { opacity: 0, y: 8, filter: 'blur(4px)' }}
               animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-              transition={{ duration: 0.5, delay: 0.25, ease: easeOutQuad }}
+              transition={reducedMotion ? { duration: 0 } : { duration: 0.5, delay: 0.25, ease: easeOutQuad }}
             >
               <form onSubmit={handleSubmit} className="flex items-center gap-2">
                 <Input

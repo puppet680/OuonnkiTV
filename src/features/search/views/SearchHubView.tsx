@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useTransition } from 'react'
 import { useSearchParams } from 'react-router'
-import { motion, AnimatePresence } from "motion/react"
+import { motion, AnimatePresence, useReducedMotion } from "motion/react"
 import { X } from 'lucide-react'
 import { useDocumentTitle, useSearchHistory } from '@/shared/hooks'
 import { useTmdbEnabled } from '@/shared/hooks/useTmdbMode'
@@ -27,6 +27,7 @@ export default function SearchHubView() {
   const query = searchParams.get('q') || ''
   const modeParam = searchParams.get('mode')
   const tmdbEnabled = useTmdbEnabled()
+  const reducedMotion = useReducedMotion()
 
   // 搜索模式状态 - 直接从 URL 获取，作为 Single Source of Truth
   const mode: SearchMode = normalizeSearchMode(modeParam, tmdbEnabled)
@@ -116,20 +117,20 @@ export default function SearchHubView() {
     >
       {/* 搜索区域 */}
       <motion.div
-        layout
+        layout={!reducedMotion || undefined}
         className="flex w-full flex-col items-center gap-4"
-        transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+        transition={reducedMotion ? { duration: 0 } : { type: 'spring', stiffness: 300, damping: 30 }}
       >
         {/* 品牌标识 - 无搜索内容时显示 */}
         <AnimatePresence>
           {!query && (
             <motion.div
-              layout
+              layout={!reducedMotion || undefined}
               className="flex flex-col items-center gap-2"
-              initial={{ opacity: 0, y: -10 }}
+              initial={reducedMotion ? false : { opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              transition={{ duration: 0.2 }}
+              exit={reducedMotion ? undefined : { opacity: 0, y: -10 }}
+              transition={reducedMotion ? { duration: 0 } : { duration: 0.2 }}
             >
               <OkiLogo size={56} />
               <span className="text-muted-foreground text-sm tracking-wide">发现你的下一部好剧</span>
@@ -139,13 +140,13 @@ export default function SearchHubView() {
 
         {/* 模式切换 - 仅 TMDB 可用时显示 */}
         {tmdbEnabled && (
-          <motion.div layout>
+          <motion.div layout={!reducedMotion || undefined}>
             <SearchModeToggle mode={mode} onChange={handleModeChange} />
           </motion.div>
         )}
 
         {/* 搜索框 */}
-        <motion.div layout className="flex w-full justify-center">
+        <motion.div layout={!reducedMotion || undefined} className="flex w-full justify-center">
           <SearchHubInput
             initialQuery={query}
             onSearch={handleSearch}
@@ -158,12 +159,12 @@ export default function SearchHubView() {
         <AnimatePresence mode="popLayout">
           {!tmdbEnabled && !query && searchHistory.length > 0 && (
             <motion.div
-              layout
+              layout={!reducedMotion || undefined}
               className="flex w-full max-w-3xl flex-col gap-2"
-              initial={{ opacity: 0, y: 8 }}
+              initial={reducedMotion ? false : { opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 8 }}
-              transition={{ duration: 0.2 }}
+              exit={reducedMotion ? undefined : { opacity: 0, y: 8 }}
+              transition={reducedMotion ? { duration: 0 } : { duration: 0.2 }}
             >
               <div className="flex items-center justify-between px-1">
                 <span className="text-muted-foreground text-xs">最近搜索</span>

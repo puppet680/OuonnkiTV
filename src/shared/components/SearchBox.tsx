@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef, useCallback } from 'react'
 import { Search, X, ArrowLeft, History, Trash2 } from 'lucide-react'
-import { motion } from "motion/react"
+import { motion, useReducedMotion } from "motion/react"
 
 import { Input } from '@/shared/components/ui/input'
 import { Button } from '@/shared/components/ui/button'
@@ -20,6 +20,7 @@ export default function SearchBox({ onMobileSearchChange }: SearchBoxProps) {
   const { search: searchQuery, searchMovie } = useSearch()
   const { searchHistory, removeSearchHistoryItem } = useSearchHistory()
   const { suggestions, isLoading, fetchSuggestions, clearSuggestions } = useSearchSuggestions()
+  const reducedMotion = useReducedMotion()
 
   const [inputContent, setInputContent] = useState('')
   const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false)
@@ -214,7 +215,7 @@ export default function SearchBox({ onMobileSearchChange }: SearchBoxProps) {
     <>
       {/* 移动端搜索模式下的返回按钮 */}
       <div
-        className={`absolute left-2 transition-all duration-300 ease-out sm:hidden ${
+        className={`absolute left-2 transition-all duration-300 ease-out motion-reduce:transition-none sm:hidden ${
           isMobileSearchOpen
             ? 'translate-x-0 opacity-100'
             : 'pointer-events-none -translate-x-4 opacity-0'
@@ -281,7 +282,7 @@ export default function SearchBox({ onMobileSearchChange }: SearchBoxProps) {
         <Popover open={shouldShowDropdown && isMobileSearchOpen}>
           <PopoverAnchor asChild>
             <div
-              className={`absolute right-4 left-12 transition-all duration-300 ease-out sm:hidden ${
+              className={`absolute right-4 left-12 transition-all duration-300 ease-out motion-reduce:transition-none sm:hidden ${
                 isMobileSearchOpen
                   ? 'scale-100 opacity-100'
                   : 'pointer-events-none scale-95 opacity-0'
@@ -319,13 +320,17 @@ export default function SearchBox({ onMobileSearchChange }: SearchBoxProps) {
                     setIsDropdownOpen(false)
                     closeMobileSearch()
                   }}
-                  layout
+                  layout={!reducedMotion || undefined}
                   aria-label="搜索"
                 >
                   {isMobileSearchOpen && (
-                    <motion.span layoutId="mobile-search-icon">
+                    reducedMotion ? (
                       <Search className="text-primary" size={18} />
-                    </motion.span>
+                    ) : (
+                      <motion.span layoutId="mobile-search-icon">
+                        <Search className="text-primary" size={18} />
+                      </motion.span>
+                    )
                   )}
                 </MotionButton>
               </div>
@@ -348,13 +353,17 @@ export default function SearchBox({ onMobileSearchChange }: SearchBoxProps) {
         variant="ghost"
         className="size-7 sm:hidden"
         onClick={openMobileSearch}
-        layout
+        layout={!reducedMotion || undefined}
         aria-label="打开搜索"
       >
         {!isMobileSearchOpen && (
-          <motion.span layoutId="mobile-search-icon">
+          reducedMotion ? (
             <Search className="text-primary" size={20} />
-          </motion.span>
+          ) : (
+            <motion.span layoutId="mobile-search-icon">
+              <Search className="text-primary" size={20} />
+            </motion.span>
+          )
         )}
       </MotionButton>
 

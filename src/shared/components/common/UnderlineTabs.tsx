@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
-import { motion } from "motion/react"
+import { motion, useReducedMotion } from "motion/react"
 import { cn } from '@/shared/lib'
 
 export interface UnderlineTabOption<TKey extends string = string> {
@@ -44,6 +44,7 @@ export function UnderlineTabs<TKey extends string = string>({
   const scrollRef = useRef<HTMLDivElement | null>(null)
   const listRef = useRef<HTMLDivElement | null>(null)
   const [edgeHint, setEdgeHint] = useState({ left: false, right: false })
+  const reducedMotion = useReducedMotion()
 
   useEffect(() => {
     if (!showEdgeHint) return
@@ -116,15 +117,25 @@ export function UnderlineTabs<TKey extends string = string>({
                   {option.label}
                 </span>
                 {isActive ? (
-                  <motion.span
-                    layoutId={layoutId}
-                    className={cn(
-                      'absolute right-0 bottom-0 left-0 h-0.5 rounded-full bg-primary',
-                      option.indicatorClassName,
-                      indicatorClassName,
-                    )}
-                    transition={{ type: 'spring', stiffness: 420, damping: 38, mass: 0.35 }}
-                  />
+                  reducedMotion ? (
+                    <span
+                      className={cn(
+                        'absolute right-0 bottom-0 left-0 h-0.5 rounded-full bg-primary',
+                        option.indicatorClassName,
+                        indicatorClassName,
+                      )}
+                    />
+                  ) : (
+                    <motion.span
+                      layoutId={layoutId}
+                      className={cn(
+                        'absolute right-0 bottom-0 left-0 h-0.5 rounded-full bg-primary',
+                        option.indicatorClassName,
+                        indicatorClassName,
+                      )}
+                      transition={{ type: 'spring', stiffness: 420, damping: 38, mass: 0.35 }}
+                    />
+                  )
                 ) : null}
               </button>
             )

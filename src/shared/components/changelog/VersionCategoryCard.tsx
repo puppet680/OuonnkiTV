@@ -1,4 +1,4 @@
-import { motion, type Variants } from "motion/react"
+import { motion, useReducedMotion, type Variants } from "motion/react"
 import { Badge } from '@/shared/components/ui/badge'
 import { cn } from '@/shared/lib'
 import { CATEGORY_CONFIG, type CategoryKey } from './constants'
@@ -24,6 +24,7 @@ const itemVariants: Variants = {
 }
 
 export function VersionCategoryCard({ category, items }: VersionCategoryCardProps) {
+  const reducedMotion = useReducedMotion()
   if (items.length === 0) return null
 
   const config = CATEGORY_CONFIG[category]
@@ -48,14 +49,14 @@ export function VersionCategoryCard({ category, items }: VersionCategoryCardProp
 
       <motion.ul
         className="space-y-1.5"
-        variants={listVariants}
-        initial="initial"
-        animate="animate"
+        variants={reducedMotion ? undefined : listVariants}
+        initial={reducedMotion ? false : "initial"}
+        animate={reducedMotion ? { opacity: 1 } : "animate"}
       >
         {items.map((item, index) => (
           <motion.li
             key={index}
-            variants={itemVariants}
+            variants={reducedMotion ? undefined : itemVariants}
             className="flex items-start gap-2 text-sm"
           >
             <span className={cn('mt-1.5 size-1.5 shrink-0 rounded-full', config.dot)} />

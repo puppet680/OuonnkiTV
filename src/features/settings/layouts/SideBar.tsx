@@ -1,5 +1,5 @@
 import { type SettingModuleList } from '@/shared/types'
-import { motion } from "motion/react"
+import { motion, useReducedMotion } from "motion/react"
 import { cn } from '@/shared/lib'
 
 export default function SideBar({
@@ -13,6 +13,7 @@ export default function SideBar({
   onSelect: (id: string) => void
   className?: string
 }) {
+  const reducedMotion = useReducedMotion()
   return (
     <div className={cn(`relative flex h-full w-full flex-col gap-3`, className)}>
       {modules.map(module => (
@@ -24,11 +25,15 @@ export default function SideBar({
           onClick={() => onSelect(module.id)}
         >
           {activeId === module.id && (
-            <motion.div
-              layoutId="sidebar-active-bg"
-              className="absolute inset-0 -z-10 rounded-lg bg-zinc-600/80 shadow-xl/30 shadow-zinc-900 backdrop-blur-xl"
-              transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-            />
+            reducedMotion ? (
+              <div className="absolute inset-0 -z-10 rounded-lg bg-zinc-600/80 shadow-xl/30 shadow-zinc-900 backdrop-blur-xl" />
+            ) : (
+              <motion.div
+                layoutId="sidebar-active-bg"
+                className="absolute inset-0 -z-10 rounded-lg bg-zinc-600/80 shadow-xl/30 shadow-zinc-900 backdrop-blur-xl"
+                transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+              />
+            )
           )}
           <span className="relative z-10">{module.icon}</span>
           <h2 className="relative z-10 font-medium">{module.name}</h2>
