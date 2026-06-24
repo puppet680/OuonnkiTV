@@ -25,41 +25,32 @@ interface GlobalContextMenuProps {
 export function GlobalContextMenu({ children, builtInItems }: GlobalContextMenuProps) {
   const dynamicItems = useGlobalContextMenuStore((s) => s.items)
   const [open, setOpen] = useState(false)
-  const [closing, setClosing] = useState(false)
   const [point, setPoint] = useState({ x: 0, y: 0 })
   const menuRef = useRef<HTMLDivElement>(null)
-  const closeTimerRef = useRef<ReturnType<typeof setTimeout>>(null)
+  const [focused, setFocused] = useState(false)
 
   const closeMenu = useCallback(() => {
-    setClosing(true)
-    closeTimerRef.current = setTimeout(() => {
-      setOpen(false)
-      setClosing(false)
-    }, 200)
+    setOpen(false)
+    setFocused(false)
   }, [])
 
-  // 清理关闭定时器
+  // 不聚焦时 3 秒后自动关闭；聚焦（hover）时取消计时
   useEffect(() => {
-    return () => {
-      if (closeTimerRef.current) clearTimeout(closeTimerRef.current)
-    }
-  }, [])
-
-  // 3秒后自动关闭
-  useEffect(() => {
-    if (!open || closing) return
+    if (!open || focused) return
     const timer = setTimeout(closeMenu, 3000)
     return () => clearTimeout(timer)
-  }, [open, closing, closeMenu])
+  }, [open, focused, closeMenu])
 
   useEffect(() => {
     let longPressTimer: ReturnType<typeof setTimeout> | null = null
     let longPressPos = { x: 0, y: 0 }
 
-    const showMenu = (target: Element, x: number, y: number) => {
-      if (target.closest('[data-slot="context-menu-trigger"]')) return
-      if (target.closest('[role="menu"]')) return
-      if (document.querySelector('[role="menu"]')) return
+    const showMenu = (_target: Element, x: number, y: number) => {
+      // 卡片区域由 Radix ContextMenu 接管，全局菜单不介入
+      if (_target.closest('[data-slot="context-menu-trigger"]')) return
+      if (_target.closest('[role="menu"]')) return
+      // 已打开旧菜单 → 先关再开（React 18 自动批量，同帧 close→open）
+      setOpen(false)
       setPoint({ x, y })
       setOpen(true)
     }
@@ -165,16 +156,16 @@ export function GlobalContextMenu({ children, builtInItems }: GlobalContextMenuP
   return (
     <>
       {children}
-      {(open || closing) && createPortal(
+      {open && createPortal(
         <div
           ref={menuRef}
           role="menu"
+          onMouseEnter={() => setFocused(true)}
+          onMouseLeave={() => setFocused(false)}
           className={cn(
             'bg-popover text-popover-foreground fixed z-[9999]',
-            'min-w-[8rem] origin-[var(--radix-context-menu-content-transform-origin)]',
-            'overflow-x-hidden overflow-y-auto rounded-md border p-1 shadow-md',
-            !closing && 'animate-in fade-in-0 zoom-in-95',
-            closing && 'animate-out fade-out-0 zoom-out-95 duration-200',
+            'min-w-[8rem] overflow-x-hidden overflow-y-auto rounded-md border p-1 shadow-md',
+            'animate-in fade-in-0 zoom-in-95',
           )}
           style={{
             ...(point.x > window.innerWidth - 200

@@ -45,6 +45,8 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       workbox: {
+        // 新 SW 立即激活（不等所有标签页关闭），刷新即生效
+        skipWaiting: true,
         // 预缓存所有静态资源（JS/CSS/HTML/字体/图标）
         globPatterns: ['**/*.{js,css,html,woff2,ico,png,svg,webmanifest}'],
         // HLS 视频分片和播放列表不缓存，避免播放错误

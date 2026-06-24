@@ -4,14 +4,16 @@ import SideBar from '@/shared/components/SideBar'
 import BottomNav from '@/shared/components/BottomNav'
 import { ScrollArea } from '@/shared/components/ui/scroll-area'
 import { CustomAnimatedOutlet } from '@/shared/components/AnimatedOutlet'
+import { KeepAliveTabs } from '@/shared/components/KeepAliveTabs'
 import BackToTopButton from '@/shared/components/BackToTopButton'
-import { useEffect, useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import { useSettingStore } from '@/shared/store/settingStore'
 import { useApiStore } from '@/shared/store/apiStore'
 import { useSubscriptionAutoRefresh } from '@/shared/hooks/useSubscriptionAutoRefresh'
 import { useScrollChromeVisibility } from '@/shared/hooks'
 import { useLocation, useNavigate } from 'react-router'
 import { useIsMobile } from '@/shared/hooks/use-mobile'
+import { OkiLogo } from '@/shared/components/KeepAliveTabs'
 
 export default function MainLayout() {
   const isScrollChromeAnimationEnabled = useSettingStore(s => s.system.isScrollChromeAnimationEnabled)
@@ -26,6 +28,10 @@ export default function MainLayout() {
   })
 
   const navigate = useNavigate()
+  // KeepAliveTabs 覆盖的路径（与 BottomNav 和 KeepAliveTabs.tsx 保持一致）
+  const isKeepAliveRoute = ['/', '/bangumi', '/search', '/favorites', '/history'].some(
+    p => location.pathname === p || location.pathname.startsWith(p + '?') || location.pathname.startsWith(p + '/'),
+  )
 
   // 订阅源自动刷新
   useSubscriptionAutoRefresh()
@@ -71,13 +77,22 @@ export default function MainLayout() {
           <div className="h-full p-2 md:pl-1">
             <div className="border-border bg-sidebar relative h-full rounded-lg border py-2 shadow-sm">
               <ScrollArea data-main-scroll-area className="h-full rounded-lg px-2">
-                <CustomAnimatedOutlet
-                  routeKey={pathname =>
-                    pathname === '/settings' || pathname.startsWith('/settings/')
-                      ? '/settings'
-                      : pathname
-                  }
-                />
+                <Suspense fallback={
+                  <div className="flex h-64 items-center justify-center">
+                    <OkiLogo size={48} />
+                  </div>
+                }>
+                  <KeepAliveTabs />
+                </Suspense>
+                {!isKeepAliveRoute && (
+                  <CustomAnimatedOutlet
+                    routeKey={pathname =>
+                      pathname === '/settings' || pathname.startsWith('/settings/')
+                        ? '/settings'
+                        : pathname
+                    }
+                  />
+                )}
               </ScrollArea>
               <BackToTopButton scrollRootSelector="[data-main-scroll-area]" />
             </div>
