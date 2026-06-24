@@ -2,7 +2,7 @@ import { useTheme } from '@/shared/components/theme'
 import { useRef } from 'react'
 import { Palette, Sun, Moon, Monitor } from 'lucide-react'
 import { Badge } from '@/shared/components/ui/badge'
-import { motion } from 'framer-motion'
+import { motion } from "motion/react"
 import { cn } from '@/shared/lib'
 import { SettingsItem, SettingsSection } from '../common'
 

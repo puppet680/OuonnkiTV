@@ -138,7 +138,7 @@ export default defineConfig({
           if (id.includes('/hls.js/')) return 'hls-vendor'
 
           // UI 与动效
-          if (id.includes('/framer-motion/')) return 'motion-vendor'
+          if (id.includes('/motion/')) return 'motion-vendor'
           if (id.includes('/@radix-ui/')) return 'radix-vendor'
 
           // 搜索与文本匹配（仅在搜索引导页/播放列表匹配时加载）

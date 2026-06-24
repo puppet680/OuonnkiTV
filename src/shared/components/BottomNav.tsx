@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { NavLink, useLocation } from 'react-router'
 import { Home, Search, Star, History, Tv } from 'lucide-react'
-import { motion } from 'framer-motion'
+import { motion } from "motion/react"
 import { useIsMobile } from '@/shared/hooks/use-mobile'
 import { useTmdbEnabled } from '@/shared/hooks/useTmdbMode'
 import { cn } from '@/shared/lib'

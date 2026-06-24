@@ -1,5 +1,5 @@
 import { Edit3, CheckSquare, Square, Trash2, X, XCircle } from 'lucide-react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion, AnimatePresence, type Variants } from "motion/react"
 import { Button } from '@/shared/components/ui/button'
 import {
   AlertDialog,
@@ -49,7 +49,7 @@ const desktopPanelVariants = {
 }
 
 /** 移动端：从底部滑入全宽底栏 */
-const mobilePanelVariants = {
+const mobilePanelVariants: Variants = {
   initial: { opacity: 0, y: 16 },
   animate: {
     opacity: 1,
@@ -73,7 +73,7 @@ const mobilePanelVariants = {
 }
 
 /** 面板内各元素：从右侧滑入/退出 */
-const itemVariants = {
+const itemVariants: Variants = {
   initial: { opacity: 0, x: 20 },
   animate: {
     opacity: 1,
@@ -88,7 +88,7 @@ const itemVariants = {
 }
 
 /** 收缩态笔图标：从左侧滑入 */
-const penIconVariants = {
+const penIconVariants: Variants = {
   initial: { x: -15, opacity: 0, scale: 0.8 },
   animate: {
     x: 0,

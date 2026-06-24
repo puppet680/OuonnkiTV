@@ -14,7 +14,7 @@ import {
   useSidebar,
 } from '@/shared/components/ui/sidebar'
 import { NavLink } from 'react-router'
-import { motion } from 'framer-motion'
+import { motion } from "motion/react"
 import { Home, Search, Star, History, Settings, Tv } from 'lucide-react'
 import { OkiLogo } from '@/shared/components/icons'
 import { useVersionStore } from '../store'

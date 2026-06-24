@@ -3,7 +3,7 @@ import { cn } from '@/shared/lib'
 import { Badge } from '@/shared/components/ui/badge'
 import { Button } from '@/shared/components/ui/button'
 import { ArrowLeft, Compass, FolderCog, ListVideo, Play, Settings2, type LucideIcon } from 'lucide-react'
-import { AnimatePresence, motion } from 'framer-motion'
+import { AnimatePresence, motion } from "motion/react"
 import { CustomAnimatedOutlet } from '@/shared/components/AnimatedOutlet'
 import { animationPresets } from '@/shared/lib/animationVariants'
 import { UnderlineTabs } from '@/shared/components/common/UnderlineTabs'

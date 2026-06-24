@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { AnimatePresence, motion } from 'framer-motion'
+import { AnimatePresence, motion } from "motion/react"
 import { ChevronUp } from 'lucide-react'
 import { useLocation } from 'react-router'
 import { Button } from '@/shared/components/ui/button'

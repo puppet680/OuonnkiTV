@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useTransition } from 'react'
 import { useSearchParams } from 'react-router'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion, AnimatePresence } from "motion/react"
 import { X } from 'lucide-react'
 import { useDocumentTitle, useSearchHistory } from '@/shared/hooks'
 import { useTmdbEnabled } from '@/shared/hooks/useTmdbMode'

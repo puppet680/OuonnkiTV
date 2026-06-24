@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
-import { motion } from 'framer-motion'
+import { motion } from "motion/react"
 import { cn } from '@/shared/lib'
 
 export interface UnderlineTabOption<TKey extends string = string> {

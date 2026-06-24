@@ -1,5 +1,5 @@
 import { type SettingModuleList } from '@/shared/types'
-import { motion } from 'framer-motion'
+import { motion } from "motion/react"
 import { cn } from '@/shared/lib'
 
 export default function SideBar({

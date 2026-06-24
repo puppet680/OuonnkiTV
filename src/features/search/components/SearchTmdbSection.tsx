@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react'
-import { motion } from 'framer-motion'
+import { motion } from "motion/react"
 import { useTmdbSearch, useTmdbGenres, useTmdbDiscover } from '@/shared/hooks/useTmdb'
 import { useTmdbStore } from '@/shared/store/tmdbStore'
 import { CategoryFilterSection } from './CategoryFilterSection'
