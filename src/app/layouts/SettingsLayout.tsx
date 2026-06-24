@@ -3,7 +3,7 @@ import { cn } from '@/shared/lib'
 import { Badge } from '@/shared/components/ui/badge'
 import { Button } from '@/shared/components/ui/button'
 import { ArrowLeft, Compass, FolderCog, ListVideo, Play, Settings2, type LucideIcon } from 'lucide-react'
-import { AnimatePresence, motion } from "motion/react"
+import { AnimatePresence, motion, useReducedMotion } from "motion/react"
 import { CustomAnimatedOutlet } from '@/shared/components/AnimatedOutlet'
 import { animationPresets } from '@/shared/lib/animationVariants'
 import { UnderlineTabs } from '@/shared/components/common/UnderlineTabs'
@@ -80,6 +80,7 @@ const settingsModules: SettingsModule[] = [
 export default function SettingsLayout() {
   const navigate = useNavigate()
   const location = useLocation()
+  const reducedMotion = useReducedMotion()
   const activeModule =
     settingsModules.find(module => location.pathname.startsWith(module.path)) || settingsModules[0]
 
@@ -139,10 +140,10 @@ export default function SettingsLayout() {
           {activeModule?.showGuide !== false ? (
             <motion.section
               key={`guide-${activeModule.id}`}
-              initial={{ opacity: 0, y: 10 }}
+              initial={reducedMotion ? false : { opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
-              transition={{ duration: 0.22, ease: [0.25, 0.1, 0.25, 1] }}
+              exit={reducedMotion ? undefined : { opacity: 0, y: -8 }}
+              transition={reducedMotion ? { duration: 0 } : { duration: 0.22, ease: [0.25, 0.1, 0.25, 1] }}
               className="from-muted/35 to-muted/20 border-border/70 mb-4 rounded-xl border border-dashed bg-gradient-to-r px-3 py-2.5 md:px-4 md:py-3"
             >
               <div className="flex items-start gap-2.5 md:gap-3">

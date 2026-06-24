@@ -20,6 +20,18 @@ const Analytics = import.meta.env.OKI_DISABLE_ANALYTICS !== 'true'
 
 const root = document.getElementById('root')!
 
+// ponytail: 在 React 挂载前捕获 beforeinstallprompt，避免时序竞争导致丢失
+let __deferredPrompt: Event | null = null
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault()
+  __deferredPrompt = e
+})
+// 暴露给 usePwaInstall hook 读取
+;(window as unknown as Record<string, unknown>).__oki_deferredPrompt = {
+  get current() { return __deferredPrompt },
+  clear() { __deferredPrompt = null },
+}
+
 // 全局右键菜单内置项
 const builtInContextMenuItems = [
   {

@@ -5,7 +5,7 @@ import { NavLink, useLocation } from 'react-router'
 import { useState } from 'react'
 import { Moon, Sun, Laptop, Menu } from 'lucide-react'
 import { useIsMobile } from '@/shared/hooks/use-mobile'
-import { motion, AnimatePresence } from "motion/react"
+import { motion, AnimatePresence, useReducedMotion } from "motion/react"
 
 import { Button } from '@/shared/components/ui/button'
 import { ThemeToggle, useThemeState } from './theme'
@@ -25,6 +25,7 @@ export default function Navigation({ hidden = false, enableScrollAnimation = fal
 
   // 在搜索页面隐藏导航栏搜索框
   const isSearchPage = location.pathname === '/search'
+  const reducedMotion = useReducedMotion()
 
   return (
     <div
@@ -47,7 +48,7 @@ export default function Navigation({ hidden = false, enableScrollAnimation = fal
       >
         <Navbar
           className={cn(
-            enableScrollAnimation && 'transition-[backdrop-filter,box-shadow] duration-200',
+            enableScrollAnimation && 'transition-[backdrop-filter,box-shadow] duration-200 motion-reduce:transition-none',
             enableScrollAnimation && hidden && 'backdrop-blur-none shadow-none',
           )}
         >
@@ -56,7 +57,7 @@ export default function Navigation({ hidden = false, enableScrollAnimation = fal
             className={cn(
               '!flex-none',
               enableScrollAnimation
-                ? 'transition-[opacity,transform] duration-220 ease-out'
+                ? 'transition-[opacity,transform] duration-220 ease-out motion-reduce:transition-none'
                 : 'transition-none',
               isMobileSearchOpen
                 ? 'pointer-events-none -translate-x-4 opacity-0 sm:pointer-events-auto sm:translate-x-0 sm:opacity-100'
@@ -84,15 +85,22 @@ export default function Navigation({ hidden = false, enableScrollAnimation = fal
             <div className="flex-1" />
 
             {/* 搜索框组件 - 搜索页面时隐藏 */}
-            <AnimatePresence mode="wait">
+            <AnimatePresence>
               {!isSearchPage && (
                 <motion.div
                   key="navbar-search"
-                  layoutId="main-search-box"
-                  initial={{ opacity: 0, scale: 0.9 }}
+                  initial={reducedMotion ? false : { opacity: 0, scale: 0.9 }}
                   animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.9, transition: { duration: 0.2 } }}
-                  transition={{ type: 'spring', stiffness: 200, damping: 25 }}
+                  exit={
+                    reducedMotion
+                      ? undefined
+                      : { opacity: 0, scale: 0.9, transition: { duration: 0.2 } }
+                  }
+                  transition={
+                    reducedMotion
+                      ? { duration: 0 }
+                      : { type: 'spring', stiffness: 200, damping: 25 }
+                  }
                   className="flex flex-auto items-center"
                 >
                   <SearchBox onMobileSearchChange={setIsMobileSearchOpen} />
@@ -104,7 +112,7 @@ export default function Navigation({ hidden = false, enableScrollAnimation = fal
               className={cn(
                 'flex flex-1 justify-end gap-2 sm:gap-0',
                 enableScrollAnimation
-                  ? 'transition-[opacity,transform] duration-220 ease-out'
+                  ? 'transition-[opacity,transform] duration-220 ease-out motion-reduce:transition-none'
                   : 'transition-none',
                 isMobileSearchOpen
                   ? 'pointer-events-none translate-x-4 opacity-0 sm:pointer-events-auto sm:translate-x-0 sm:opacity-100'

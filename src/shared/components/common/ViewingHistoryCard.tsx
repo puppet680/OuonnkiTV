@@ -1,5 +1,5 @@
 import { Play, Trash2, ExternalLink } from 'lucide-react'
-import { AnimatePresence, motion } from "motion/react"
+import { AnimatePresence, motion, useReducedMotion } from "motion/react"
 import { useState, useCallback, useEffect, type MouseEvent } from 'react'
 import { NavLink, useNavigate } from 'react-router'
 import { AspectRatio } from '@/shared/components/ui/aspect-ratio'
@@ -68,6 +68,7 @@ export function ViewingHistoryCard({
 }: ViewingHistoryCardProps) {
   const removeViewingHistory = useViewingHistoryStore((s) => s.removeViewingHistory)
   const navigate = useNavigate()
+  const reducedMotion = useReducedMotion()
   const [menuOpen, setMenuOpen] = useState(false)
   const [menuKey, setMenuKey] = useState(0)
   const handleMenuOpenChange = useCallback((open: boolean) => {
@@ -110,10 +111,10 @@ export function ViewingHistoryCard({
       {selectionMode && (
         <AnimatePresence>
           <motion.div
-            initial={{ opacity: 0, scale: 0.7, y: -4 }}
+            initial={reducedMotion ? false : { opacity: 0, scale: 0.7, y: -4 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.7, y: -4 }}
-            transition={{ duration: 0.18, ease: 'easeOut' }}
+            exit={reducedMotion ? undefined : { opacity: 0, scale: 0.7, y: -4 }}
+            transition={reducedMotion ? { duration: 0 } : { duration: 0.18, ease: 'easeOut' }}
             className="absolute top-2 right-2 z-20"
           >
             <Checkbox
@@ -185,10 +186,10 @@ export function ViewingHistoryCard({
       {selectionMode && (
         <AnimatePresence>
           <motion.div
-            initial={{ opacity: 0, scale: 0.7, y: -4 }}
+            initial={reducedMotion ? false : { opacity: 0, scale: 0.7, y: -4 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.7, y: -4 }}
-            transition={{ duration: 0.18, ease: 'easeOut' }}
+            exit={reducedMotion ? undefined : { opacity: 0, scale: 0.7, y: -4 }}
+            transition={reducedMotion ? { duration: 0 } : { duration: 0.18, ease: 'easeOut' }}
             className="absolute top-2 right-2 z-20"
           >
             <Checkbox

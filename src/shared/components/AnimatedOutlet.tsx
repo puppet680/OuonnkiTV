@@ -1,5 +1,5 @@
 import { useLocation, useOutlet } from 'react-router'
-import { AnimatePresence, motion, type Variants } from "motion/react"
+import { AnimatePresence, motion, useReducedMotion, type Variants } from "motion/react"
 import { pageVariants } from '@/shared/lib/animationVariants'
 
 /**
@@ -7,10 +7,16 @@ import { pageVariants } from '@/shared/lib/animationVariants'
  *
  * 使用 motion 的 AnimatePresence 实现路由切换时的平滑过渡动画。
  * 动画效果：淡入淡出 + 轻微的垂直位移 + 模糊效果
+ * 尊重 prefers-reduced-motion：减少动画时直接渲染无过渡。
  */
 export default function AnimatedOutlet() {
   const location = useLocation()
   const outlet = useOutlet()
+  const reducedMotion = useReducedMotion()
+
+  if (reducedMotion) {
+    return <>{outlet}</>
+  }
 
   return (
     <AnimatePresence mode="popLayout" initial={false}>
@@ -50,10 +56,11 @@ export function CustomAnimatedOutlet({
 }: CustomAnimatedOutletProps) {
   const location = useLocation()
   const outlet = useOutlet()
+  const reducedMotion = useReducedMotion()
   const animationKey =
     typeof routeKey === 'function' ? routeKey(location.pathname) : (routeKey ?? location.pathname)
 
-  if (!enabled) {
+  if (!enabled || reducedMotion) {
     return <>{outlet}</>
   }
 

@@ -14,7 +14,7 @@ import {
   useSidebar,
 } from '@/shared/components/ui/sidebar'
 import { NavLink } from 'react-router'
-import { motion } from "motion/react"
+import { motion, useReducedMotion } from "motion/react"
 import { Home, Search, Star, History, Settings, Tv } from 'lucide-react'
 import { OkiLogo } from '@/shared/components/icons'
 import { useVersionStore } from '../store'
@@ -37,6 +37,7 @@ export default function SideBar({
   const location = useLocation()
   const { isMobile, setOpenMobile } = useSidebar()
   const tmdbEnabled = useTmdbEnabled()
+  const reducedMotion = useReducedMotion()
 
   // 高亮路径：延迟更新，等页面 enter 动画（300ms）完成后再切换高亮位置
   const [highlightedPath, setHighlightedPath] = useState(location.pathname)
@@ -144,15 +145,19 @@ export default function SideBar({
                       data-mactive={location.pathname === item.url}
                     >
                       {highlightedPath === item.url && (
-                        <motion.div
-                          layoutId="sidebar-selected-item"
-                          className="bg-sidebar-primary absolute top-0 left-0 h-full w-full rounded-md"
-                          transition={{
-                            type: 'spring',
-                            stiffness: 300,
-                            damping: 30,
-                          }}
-                        />
+                        reducedMotion ? (
+                          <div className="bg-sidebar-primary absolute top-0 left-0 h-full w-full rounded-md" />
+                        ) : (
+                          <motion.div
+                            layoutId="sidebar-selected-item"
+                            className="bg-sidebar-primary absolute top-0 left-0 h-full w-full rounded-md"
+                            transition={{
+                              type: 'spring',
+                              stiffness: 300,
+                              damping: 30,
+                            }}
+                          />
+                        )
                       )}
                       <item.icon className="z-1" />
                       <span className="z-1">{item.title}</span>

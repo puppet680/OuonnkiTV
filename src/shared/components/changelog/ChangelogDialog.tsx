@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { motion, AnimatePresence } from "motion/react"
+import { motion, AnimatePresence, useReducedMotion } from "motion/react"
 import {
   Dialog,
   DialogContent,
@@ -30,6 +30,7 @@ interface ChangelogDialogProps {
 export function ChangelogDialog({ isOpen, onClose, versions }: ChangelogDialogProps) {
   const [selectedVersion, setSelectedVersion] = useState<VersionUpdate>(versions[0])
   const isMobile = useIsMobile()
+  const reducedMotion = useReducedMotion()
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -69,9 +70,9 @@ export function ChangelogDialog({ isOpen, onClose, versions }: ChangelogDialogPr
                   <motion.div
                     key={selectedVersion.version}
                     variants={animationPresets.slideX}
-                    initial="initial"
+                    initial={reducedMotion ? false : "initial"}
                     animate="animate"
-                    exit="exit"
+                    exit={reducedMotion ? undefined : "exit"}
                   >
                     <VersionDetail version={selectedVersion} />
                   </motion.div>

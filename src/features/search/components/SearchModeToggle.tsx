@@ -1,4 +1,4 @@
-import { motion } from "motion/react"
+import { motion, useReducedMotion } from "motion/react"
 import { Sparkles, Zap } from 'lucide-react'
 import { cn } from '@/shared/lib/utils'
 
@@ -15,6 +15,7 @@ interface SearchModeToggleProps {
  * 用于在智能检索（TMDB）和直连搜索之间切换
  */
 export function SearchModeToggle({ mode, onChange, className }: SearchModeToggleProps) {
+  const reducedMotion = useReducedMotion()
   const modes: { value: SearchMode; label: string; icon: typeof Sparkles }[] = [
     { value: 'tmdb', label: '智能检索', icon: Sparkles },
     { value: 'direct', label: '直连搜索', icon: Zap },
@@ -42,15 +43,19 @@ export function SearchModeToggle({ mode, onChange, className }: SearchModeToggle
           <Icon className="size-4" />
           <span>{label}</span>
           {mode === value && (
-            <motion.div
-              layoutId="search-mode-indicator"
-              className="bg-background absolute inset-0 -z-10 rounded-full shadow-sm"
-              transition={{
-                type: 'spring',
-                stiffness: 400,
-                damping: 30,
-              }}
-            />
+            reducedMotion ? (
+              <div className="bg-background absolute inset-0 -z-10 rounded-full shadow-sm" />
+            ) : (
+              <motion.div
+                layoutId="search-mode-indicator"
+                className="bg-background absolute inset-0 -z-10 rounded-full shadow-sm"
+                transition={{
+                  type: 'spring',
+                  stiffness: 400,
+                  damping: 30,
+                }}
+              />
+            )
           )}
         </button>
       ))}

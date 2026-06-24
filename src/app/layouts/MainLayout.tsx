@@ -56,7 +56,7 @@ export default function MainLayout() {
           '--sidebar-top': isChromeVisible ? '4rem' : '0rem',
         } as React.CSSProperties
       }
-      className="flex h-dvh flex-col overflow-hidden"
+      className="flex h-dvh flex-col overflow-hidden pt-safe"
     >
       <Navigation
         hidden={!isChromeVisible}

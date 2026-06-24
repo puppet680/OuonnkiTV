@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router'
-import { motion, AnimatePresence } from "motion/react"
+import { motion, AnimatePresence, useReducedMotion } from "motion/react"
 import {
   SatelliteDish,
   Database,
@@ -264,6 +264,7 @@ export default function GuideView() {
   const [currentStep, setCurrentStep] = useState(0)
   const [direction, setDirection] = useState(0)
   const navigate = useNavigate()
+  const reducedMotion = useReducedMotion()
 
   const isLastContentStep = currentStep === STEPS.length - 1
   const isCompletion = currentStep === STEPS.length
@@ -347,10 +348,10 @@ export default function GuideView() {
                 key="completion"
                 custom={direction}
                 variants={slideVariants}
-                initial="enter"
+                initial={reducedMotion ? false : "enter"}
                 animate="center"
-                exit="exit"
-                transition={{ duration: 0.2 }}
+                exit={reducedMotion ? undefined : "exit"}
+                transition={reducedMotion ? { duration: 0 } : { duration: 0.2 }}
               >
                 <CompletionStep />
               </motion.div>
@@ -359,10 +360,10 @@ export default function GuideView() {
                 key={currentStep}
                 custom={direction}
                 variants={slideVariants}
-                initial="enter"
+                initial={reducedMotion ? false : "enter"}
                 animate="center"
-                exit="exit"
-                transition={{ duration: 0.2 }}
+                exit={reducedMotion ? undefined : "exit"}
+                transition={reducedMotion ? { duration: 0 } : { duration: 0.2 }}
               >
                 <SettingsPageShell
                   title={STEPS[currentStep].title}

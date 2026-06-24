@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type RefObject } from 'react'
-import { motion } from "motion/react"
+import { motion, useReducedMotion } from "motion/react"
 import type { DetailTab } from './types'
 
 interface TabIndicator {
@@ -24,6 +24,7 @@ export function DetailTabNav({
   tabIndicator,
 }: DetailTabNavProps) {
   const navScrollRef = useRef<HTMLDivElement | null>(null)
+  const reducedMotion = useReducedMotion()
   const [edgeHint, setEdgeHint] = useState({ left: false, right: false })
 
   useEffect(() => {
@@ -87,7 +88,7 @@ export function DetailTabNav({
               className="bg-primary pointer-events-none absolute bottom-0 left-0 h-0.5 rounded-full"
               initial={false}
               animate={{ x: tabIndicator.x, width: tabIndicator.width }}
-              transition={{ type: 'spring', stiffness: 420, damping: 38, mass: 0.35 }}
+              transition={reducedMotion ? { duration: 0 } : { type: 'spring', stiffness: 420, damping: 38, mass: 0.35 }}
             />
           )}
         </div>

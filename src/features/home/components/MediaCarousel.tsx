@@ -1,4 +1,4 @@
-import { memo } from 'react'
+import { memo, useCallback, useMemo } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { MediaPosterCard } from '@/shared/components/common'
 import {
@@ -74,8 +74,7 @@ export const MediaCarousel = memo(function MediaCarousel({ title, items, loading
   const navigate = useNavigate()
   // 根据屏幕尺寸计算可见卡片数量
   const visibleCount = isMobile ? 3 : isTablet ? 4 : 6
-  // 每次滚动的卡片数量
-  const slidesToScroll = isMobile ? 3 : isTablet ? 4 : 6
+  const slidesToScroll = visibleCount
   const canDrag = items.length > visibleCount
 
   // Carousel API 状态
@@ -101,6 +100,47 @@ export const MediaCarousel = memo(function MediaCarousel({ title, items, loading
       carouselApi.off('reInit', onSelect)
     }
   }, [carouselApi])
+
+  // 稳定回调 — 避免 MediaPosterCard memo 因 inline 箭头函数失效
+  const handleToggleFavorite = useCallback(
+    (item: TmdbMediaItem) => { favoritesStore.toggleTmdbFavorite(item) },
+    [favoritesStore],
+  )
+  const handlePlayNow = useCallback(
+    (item: TmdbMediaItem) => { navigate(buildTmdbPlayPath(item.mediaType, item.id)) },
+    [navigate],
+  )
+  const handleViewDetail = useCallback(
+    (item: TmdbMediaItem) => { navigate(buildTmdbDetailPath(item.mediaType, item.id)) },
+    [navigate],
+  )
+  const isFavorited = useCallback(
+    (item: TmdbMediaItem) => favoritesStore.isTmdbFavorited(item.id, item.mediaType),
+    [favoritesStore],
+  )
+
+  // memo 卡片列表 — 仅在 items/callbacks 变化时重渲染，不受 carousel scroll 影响
+  // 注意：inline 箭头函数仍在 memo 依赖链中，但 useMemo 依赖项均稳定（items 引用不变）
+  const cards = useMemo(
+    () =>
+      items.map((item, idx) => (
+        <CarouselItem key={`${item.mediaType}-${item.id}-${idx}`} className="h-fit basis-1/3 md:basis-1/4 lg:basis-1/6">
+          <MediaPosterCard
+            to={buildTmdbDetailPath(item.mediaType, item.id)}
+            posterUrl={getPosterUrl(item.posterPath, 'w342')}
+            title={item.title}
+            year={item.releaseDate ? item.releaseDate.split('-')[0] : undefined}
+            rating={item.voteAverage}
+            overview={item.overview}
+            onToggleFavorite={() => handleToggleFavorite(item)}
+            isFavorited={isFavorited(item)}
+            onPlayNow={() => handlePlayNow(item)}
+            onViewDetail={() => handleViewDetail(item)}
+          />
+        </CarouselItem>
+      )),
+    [items, handleToggleFavorite, handlePlayNow, handleViewDetail, isFavorited],
+  )
 
   // 加载状态时显示骨架屏
   if (loading) {
@@ -129,22 +169,7 @@ export const MediaCarousel = memo(function MediaCarousel({ title, items, loading
       <div className="pt-2">
         <Carousel opts={{ watchDrag: canDrag, slidesToScroll }} setApi={setCarouselApi}>
           <CarouselContent>
-            {items.map((item, idx) => (
-              <CarouselItem key={`${item.mediaType}-${item.id}-${idx}`} className="h-fit basis-1/3 md:basis-1/4 lg:basis-1/6">
-                <MediaPosterCard
-                  to={buildTmdbDetailPath(item.mediaType, item.id)}
-                  posterUrl={getPosterUrl(item.posterPath, 'w342')}
-                  title={item.title}
-                  year={item.releaseDate ? item.releaseDate.split('-')[0] : undefined}
-                  rating={item.voteAverage}
-                  overview={item.overview}
-                  onToggleFavorite={() => favoritesStore.toggleTmdbFavorite(item)}
-                  isFavorited={favoritesStore.isTmdbFavorited(item.id, item.mediaType)}
-                  onPlayNow={() => navigate(buildTmdbPlayPath(item.mediaType, item.id))}
-                  onViewDetail={() => navigate(buildTmdbDetailPath(item.mediaType, item.id))}
-                />
-              </CarouselItem>
-            ))}
+            {cards}
           </CarouselContent>
           {/* 导航按钮 - 移动端/平板常显，PC 端 hover 显示 */}
           {canDrag && canScrollPrev && (

@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react'
-import { motion } from "motion/react"
+import { motion, useReducedMotion } from "motion/react"
 import { useTmdbSearch, useTmdbGenres, useTmdbDiscover } from '@/shared/hooks/useTmdb'
 import { useTmdbStore } from '@/shared/store/tmdbStore'
 import { CategoryFilterSection } from './CategoryFilterSection'
@@ -39,6 +39,7 @@ export function SearchTmdbSection({ query }: SearchTmdbSectionProps) {
   const countries = useTmdbStore(s => s.availableFilterOptions.countries)
   const years = useTmdbStore(s => s.availableFilterOptions.years)
   const fetchGenresAndCountries = useTmdbStore(s => s.fetchGenresAndCountries)
+  const reducedMotion = useReducedMotion()
 
   // 搜索模式下加载新查询时，需要清空旧结果避免显示旧数据
   const [isSearchingNewQuery, setIsSearchingNewQuery] = useState(false)
@@ -108,10 +109,10 @@ export function SearchTmdbSection({ query }: SearchTmdbSectionProps) {
   return (
     <motion.div
       className="flex flex-col gap-6"
-      initial={{ opacity: 0, y: 20 }}
+      initial={reducedMotion ? false : { opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: 20 }}
-      transition={{ duration: 0.3 }}
+      exit={reducedMotion ? undefined : { opacity: 0, y: 20 }}
+      transition={reducedMotion ? { duration: 0 } : { duration: 0.3 }}
     >
       {/* 分类筛选区域 */}
       <section>

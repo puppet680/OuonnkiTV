@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router'
-import { AnimatePresence, motion } from "motion/react"
+import { AnimatePresence, motion, useReducedMotion } from "motion/react"
 import { ExternalLink, Heart, HeartOff } from 'lucide-react'
 import { useDocumentTitle } from '@/shared/hooks'
 import { useTmdbEnabled } from '@/shared/hooks/useTmdbMode'
@@ -83,6 +83,7 @@ export default function TmdbDetailView() {
     (mediaType || 'movie') as TmdbMediaType,
   )
   const tmdbType = (mediaType || 'movie') as TmdbMediaType
+  const reducedMotion = useReducedMotion()
 
   const [activeTab, setActiveTab] = useState<DetailTab>('overview')
   const tabListRef = useRef<HTMLDivElement | null>(null)
@@ -465,10 +466,10 @@ export default function TmdbDetailView() {
           <motion.div
             key={activeTab}
             className="space-y-8"
-            initial={{ opacity: 0, y: 10 }}
+            initial={reducedMotion ? false : { opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -6 }}
-            transition={{ duration: 0.2, ease: 'easeOut' }}
+            exit={reducedMotion ? undefined : { opacity: 0, y: -6 }}
+            transition={reducedMotion ? { duration: 0 } : { duration: 0.2, ease: 'easeOut' }}
           >
             {activeTab === 'overview' && (
               <DetailOverviewTab

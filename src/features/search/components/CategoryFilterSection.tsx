@@ -1,5 +1,5 @@
 import { useState, memo } from 'react'
-import { motion, AnimatePresence } from "motion/react"
+import { motion, AnimatePresence, useReducedMotion } from "motion/react"
 import { cn } from '@/shared/lib/utils'
 import { Button } from '@/shared/components/ui/button'
 import type { TmdbFilterOptions, TmdbGenre, TmdbCountry } from '@/shared/types/tmdb'
@@ -51,6 +51,7 @@ export const CategoryFilterSection = memo(function CategoryFilterSection({
 }: CategoryFilterSectionProps) {
   // 控制更多筛选的展开/收起状态
   const [isExpanded, setIsExpanded] = useState(false)
+  const reducedMotion = useReducedMotion()
 
   // 如果正在加载，显示骨架屏
   if (isLoading) {
@@ -76,10 +77,10 @@ export const CategoryFilterSection = memo(function CategoryFilterSection({
       <AnimatePresence>
         {isExpanded && (
           <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            transition={{ duration: 0.2 }}
+            initial={reducedMotion ? false : { opacity: 0, height: 0 }}
+            animate={reducedMotion ? { opacity: 1 } : { opacity: 1, height: 'auto' }}
+            exit={reducedMotion ? undefined : { opacity: 0, height: 0 }}
+            transition={reducedMotion ? { duration: 0 } : { duration: 0.2 }}
             className="space-y-3 overflow-hidden"
           >
             {/* 分类筛选 */}

@@ -33,7 +33,10 @@ function isIosSafari(): boolean {
  */
 export function usePwaInstall(): UsePwaInstallReturn {
   const deferredPromptRef = useRef<BeforeInstallPromptEvent | null>(null)
-  const isStandalone = typeof window !== 'undefined' && window.matchMedia('(display-mode: standalone)').matches
+  const isStandalone = typeof window !== 'undefined' && (
+    window.matchMedia('(display-mode: standalone)').matches ||
+    window.matchMedia('(display-mode: fullscreen)').matches
+  )
   const [platform, setPlatform] = useState<UsePwaInstallReturn['platform']>(null)
   const [canInstall, setCanInstall] = useState(false)
   const [isInstalled, setIsInstalled] = useState(() => isStandalone)
@@ -48,7 +51,18 @@ export function usePwaInstall(): UsePwaInstallReturn {
       return () => clearTimeout(timer)
     }
 
-    // Chromium：等待 beforeinstallprompt
+    // Chromium：读取 main.tsx 预捕获的 prompt（解决 React 挂载前事件丢失的时序问题）
+    const okiPrompt = (window as unknown as Record<string, unknown>).__oki_deferredPrompt as
+      | { current: BeforeInstallPromptEvent | null; clear: () => void }
+      | undefined
+    if (okiPrompt?.current) {
+      deferredPromptRef.current = okiPrompt.current
+      okiPrompt.clear()
+      setPlatform('chromium')
+      setCanInstall(true)
+    }
+
+    // 兜底：仍然监听后续可能触发的 beforeinstallprompt
     const onBeforeInstall = (e: Event) => {
       e.preventDefault()
       deferredPromptRef.current = e as BeforeInstallPromptEvent

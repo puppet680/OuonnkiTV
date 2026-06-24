@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, memo } from 'react'
 import { Play, Heart, HeartOff, Maximize, ExternalLink, Copy } from 'lucide-react'
 import { NavLink } from 'react-router'
 import { toast } from 'sonner'
@@ -51,7 +51,7 @@ interface MediaPosterCardProps {
  * 传入 onToggleFavorite / onPlayNow / onViewDetail / onCinemaMode 时自动启用右键菜单。
  * 传入 overview 时 hover 展示简介 HoverCard。
  */
-export function MediaPosterCard({
+export const MediaPosterCard = memo(function MediaPosterCard({
   to,
   posterUrl,
   title,
@@ -124,8 +124,6 @@ export function MediaPosterCard({
     color: `rgb(${labelColor.text})`,
   }
 
-  const hasContextMenu = true
-
   const cardBody = (
     <div className="group cursor-pointer">
       <div className="relative overflow-hidden rounded-lg">
@@ -136,6 +134,7 @@ export function MediaPosterCard({
               src={posterUrl}
               alt={title}
               loading="lazy"
+              decoding="async"
             />
           ) : (
             <div className="bg-muted flex h-full w-full items-center justify-center">
@@ -191,7 +190,7 @@ export function MediaPosterCard({
     <HoverCardContent side="top" className="w-72 p-0 overflow-hidden">
       <div className="flex gap-3 p-3">
         {posterUrl && (
-          <img src={posterUrl} alt={title} className="w-14 shrink-0 rounded object-cover" />
+          <img src={posterUrl} alt={title} className="w-14 shrink-0 rounded object-cover" loading="lazy" />
         )}
         <div className="min-w-0 flex-1">
           <p className="text-sm font-medium truncate">{title}</p>
@@ -205,16 +204,6 @@ export function MediaPosterCard({
       </div>
     </HoverCardContent>
   ) : null
-
-  // 无 ContextMenu，仅 HoverCard（或裸 NavLink）
-  if (!hasContextMenu) {
-    return overview ? (
-      <HoverCard openDelay={1000}>
-        <HoverCardTrigger asChild>{link}</HoverCardTrigger>
-        {hoverContent}
-      </HoverCard>
-    ) : link
-  }
 
   const menuItems = (
     <ContextMenuContent key={menuKey}>
@@ -279,4 +268,4 @@ export function MediaPosterCard({
       {menuItems}
     </ContextMenu>
   )
-}
+})

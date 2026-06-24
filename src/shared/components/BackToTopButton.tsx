@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { AnimatePresence, motion } from "motion/react"
+import { AnimatePresence, motion, useReducedMotion } from "motion/react"
 import { ChevronUp } from 'lucide-react'
 import { useLocation } from 'react-router'
 import { Button } from '@/shared/components/ui/button'
@@ -37,6 +37,7 @@ export default function BackToTopButton({
 }: BackToTopButtonProps) {
   const location = useLocation()
   const isMobile = useIsMobile()
+  const reducedMotion = useReducedMotion()
   const [scrollTarget, setScrollTarget] = useState<HTMLElement | Window | null>(null)
   const [visible, setVisible] = useState(false)
   const [navVisible, setNavVisible] = useState(true)
@@ -93,10 +94,10 @@ export default function BackToTopButton({
       <AnimatePresence>
         {visible && scrollTarget && (
           <motion.div
-            initial={{ opacity: 0, y: 8, scale: 0.92 }}
+            initial={reducedMotion ? false : { opacity: 0, y: 8, scale: 0.92 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 8, scale: 0.92 }}
-            transition={{ duration: 0.2, ease: 'easeOut' }}
+            exit={reducedMotion ? undefined : { opacity: 0, y: 8, scale: 0.92 }}
+            transition={reducedMotion ? { duration: 0 } : { duration: 0.2, ease: 'easeOut' }}
             className="pointer-events-auto"
           >
             <Button
