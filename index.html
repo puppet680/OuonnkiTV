@@ -19,10 +19,8 @@
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
     <link rel="manifest" href="/site.webmanifest" />
 
-    <!-- Theme Color: 与 main.css --background 保持同步 -->
-    <!-- ponytail: 首帧 CSS 未加载，无法读变量，必须在此定义。React 挂载后 getComputedStyle 接管。 -->
-    <meta name="theme-color" media="(prefers-color-scheme: light)" content="oklch(1 0 0)" />
-    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="oklch(0.145 0 0)" />
+    <!-- Theme Color: 首帧兜底值，React 挂载后 ThemeColorMeta 接管实时更新 -->
+    <meta name="theme-color" content="oklch(1 0 0)" />
     <meta name="color-scheme" content="dark light" />
 
     <!-- 防止暗色模式初始闪烁：在首帧渲染前同步设置主题 class -->
