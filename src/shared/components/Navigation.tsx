@@ -5,7 +5,7 @@ import { NavLink, useLocation } from 'react-router'
 import { useState } from 'react'
 import { Moon, Sun, Laptop, Menu } from 'lucide-react'
 import { useIsMobile } from '@/shared/hooks/use-mobile'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion, AnimatePresence } from "motion/react"
 
 import { Button } from '@/shared/components/ui/button'
 import { ThemeToggle, useThemeState } from './theme'

@@ -1,4 +1,4 @@
-import { motion } from 'framer-motion'
+import { motion, type Variants } from "motion/react"
 import { Badge } from '@/shared/components/ui/badge'
 import { cn } from '@/shared/lib'
 import { CATEGORY_CONFIG, type CategoryKey } from './constants'
@@ -14,12 +14,12 @@ const listVariants = {
   },
 }
 
-const itemVariants = {
+const itemVariants: Variants = {
   initial: { opacity: 0, x: -12 },
   animate: {
     opacity: 1,
     x: 0,
-    transition: { duration: 0.25, ease: 'easeOut' },
+    transition: { duration: 0.25, ease: 'easeOut' }, // 此时 ease 会被正确识别
   },
 }
 

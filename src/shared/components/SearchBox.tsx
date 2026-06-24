@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef, useCallback } from 'react'
 import { Search, X, ArrowLeft, History, Trash2 } from 'lucide-react'
-import { motion } from 'framer-motion'
+import { motion } from "motion/react"
 
 import { Input } from '@/shared/components/ui/input'
 import { Button } from '@/shared/components/ui/button'

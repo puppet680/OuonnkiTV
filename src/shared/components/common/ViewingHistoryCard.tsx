@@ -1,5 +1,5 @@
 import { Play, Trash2, ExternalLink } from 'lucide-react'
-import { AnimatePresence, motion } from 'framer-motion'
+import { AnimatePresence, motion } from "motion/react"
 import { useState, useCallback, useEffect, type MouseEvent } from 'react'
 import { NavLink, useNavigate } from 'react-router'
 import { AspectRatio } from '@/shared/components/ui/aspect-ratio'

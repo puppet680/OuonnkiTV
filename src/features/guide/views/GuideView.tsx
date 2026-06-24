@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion, AnimatePresence } from "motion/react"
 import {
   SatelliteDish,
   Database,

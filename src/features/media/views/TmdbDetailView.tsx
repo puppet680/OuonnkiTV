@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router'
-import { AnimatePresence, motion } from 'framer-motion'
+import { AnimatePresence, motion } from "motion/react"
 import { ExternalLink, Heart, HeartOff } from 'lucide-react'
 import { useDocumentTitle } from '@/shared/hooks'
 import { useTmdbEnabled } from '@/shared/hooks/useTmdbMode'

@@ -14,7 +14,7 @@ import { useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { isBrowser } from 'react-device-detect'
 import clsx from 'clsx'
-import { motion } from 'framer-motion'
+import { motion } from "motion/react"
 import type { ViewingHistoryItem } from '@/shared/types'
 import {
   buildHistoryPlayPath,

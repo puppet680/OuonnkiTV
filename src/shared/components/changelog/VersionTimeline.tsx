@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion, AnimatePresence } from "motion/react"
 import { ChevronDown } from 'lucide-react'
 import { cn } from '@/shared/lib'
 import { useIsMobile } from '@/shared/hooks/use-mobile'

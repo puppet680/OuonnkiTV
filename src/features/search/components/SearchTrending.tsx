@@ -1,5 +1,5 @@
 import { TrendingUp } from 'lucide-react'
-import { motion } from 'framer-motion'
+import { motion } from "motion/react"
 import { type TmdbMediaItem } from '@/shared/types/tmdb'
 import { Skeleton } from '@/shared/components/ui/skeleton'
 

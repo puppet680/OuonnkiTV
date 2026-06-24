@@ -1,4 +1,4 @@
-import { type Variants } from 'framer-motion'
+import { type Variants } from "motion/react"
 
 /**
  * 页面过渡动画变体配置

@@ -1,5 +1,5 @@
 import { useState, memo } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion, AnimatePresence } from "motion/react"
 import { cn } from '@/shared/lib/utils'
 import { Button } from '@/shared/components/ui/button'
 import type { TmdbFilterOptions, TmdbGenre, TmdbCountry } from '@/shared/types/tmdb'
