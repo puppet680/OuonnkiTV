@@ -115,10 +115,8 @@ export default function BangumiView() {
   })
 
   return (
-    <div className="min-h-full">
+    <div className="flex flex-col gap-6">
       <FeaturedCarousel items={featured} loading={loading} />
-
-      <div className="flex flex-col gap-6 px-4 pb-8 pt-6">
         {/* 周更表 */}
         <section>
           <div className="flex items-center gap-3 mb-3 flex-wrap">
@@ -165,12 +163,10 @@ export default function BangumiView() {
               <MediaCarousel title="" items={dayItems} loading={loading} />
             </motion.div>
           </AnimatePresence>
-        </section>
-
+        </section>      
         <MediaCarousel title="新番" items={newAnime} loading={loading} />
         <MediaCarousel title="番剧" items={series} loading={loading} />
         <MediaCarousel title="剧场" items={movies} loading={loading} />
-      </div>
     </div>
   )
 }
