@@ -26,6 +26,7 @@ export interface PlayerSourceOption {
   bestVodId: string
   bestScore: number
   bestLabel: string
+  bestQuality: string
   alternatives: { vodId: string; label: string; score: number }[]
 }
 
@@ -36,12 +37,20 @@ export interface PlayerSeasonOption {
 }
 
 const LANG_PATTERN = /国语|日语|粤语|普通话|英语|台配|中配|日配|英配|国配|原声|配音|韩语|泰语|越南语|俄语|德语|法语|西语|葡语|意语/g
+const QUALITY_PATTERN = /4K|2160[Pp]|1080[Pp]|720[Pp]|蓝光|超清|高清|HDR|杜比|Dolby|BD(?!\w)|TC|TS|CAM|DVD|HDTV|WEB-DL|HD|SCR|枪版/g
 
 const extractLangLabel = (item: { vod_name?: string; type_name?: string }): string => {
-  // 只从 vod_name / type_name 中提取语言关键词，没有则返回空
   const text = `${item.vod_name || ''} ${item.type_name || ''}`
   const matches = text.match(LANG_PATTERN)
   return matches ? [...new Set(matches)].slice(0, 2).join('·') : ''
+}
+
+const extractQualityLabel = (item: { vod_name?: string; type_name?: string; vod_remarks?: string }): string => {
+  const text = `${item.vod_name || ''} ${item.type_name || ''} ${item.vod_remarks || ''}`
+  const matches = text.match(QUALITY_PATTERN)
+  if (!matches) return ''
+  const normalized = matches.map(m => m.toUpperCase().replace(/^BD$/i, '蓝光'))
+  return [...new Set(normalized)].slice(0, 2).join(' ')
 }
 
 const toSourceOptions = (matches: SourceBestMatch[]): PlayerSourceOption[] => {
@@ -53,6 +62,7 @@ const toSourceOptions = (matches: SourceBestMatch[]): PlayerSourceOption[] => {
       bestVodId: match.bestMatch?.item.vod_id || '',
       bestScore: match.bestMatch?.score || 0,
       bestLabel: extractLangLabel(match.bestMatch!.item),
+      bestQuality: extractQualityLabel(match.bestMatch!.item),
       alternatives: match.alternatives
         .filter(a => a.score >= 80 && a.item.vod_id && extractLangLabel(a.item))
         .map(a => ({
@@ -166,7 +176,8 @@ export function useTmdbPlayback({
           sourceName: apiSource.name || querySourceCode,
           bestVodId: queryVodId || '',
           bestScore: 0,
-          bestLabel: apiSource.name || querySourceCode,
+          bestLabel: '',
+          bestQuality: '',
           alternatives: [],
         })
       }

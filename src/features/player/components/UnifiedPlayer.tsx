@@ -1289,7 +1289,8 @@ const stallTimerRef = useRef<number | null>(null)
             sourceName: s.sourceName,
             bestVodId: s.vodId,
             bestScore: 0,
-            bestLabel: s.sourceName,
+            bestLabel: '',
+            bestQuality: '',
             alternatives: [],
           }))
       }
@@ -1304,7 +1305,8 @@ const stallTimerRef = useRef<number | null>(null)
         sourceName,
         bestVodId: resolvedVodId,
         bestScore: 0,
-        bestLabel: sourceName,
+        bestLabel: '',
+        bestQuality: '',
         alternatives: [],
       },
     ]
@@ -2041,21 +2043,28 @@ const stallTimerRef = useRef<number | null>(null)
                   )}
                 >
                   <ScrollArea className="max-h-44 sm:max-h-56 xl:h-full xl:max-h-none">
-                    <div className="grid grid-cols-2 gap-2 pr-2 sm:flex sm:flex-wrap">
+                    <div className="grid grid-cols-2 gap-2 pr-2">
                       {sourceOptions.map(option => {
                         const active = option.sourceCode === resolvedSourceCode
+                        const hasMultiLang = option.alternatives.length > 0
                         return (
                           <Button
                             key={option.sourceCode}
                             size="sm"
                             variant={active ? 'default' : 'secondary'}
-                            className="min-w-0 max-w-full justify-between rounded-full sm:w-auto sm:max-w-[240px]"
+                            className="min-w-0 max-w-full justify-start gap-1.5 rounded-full sm:w-auto sm:max-w-[260px]"
                             aria-current={active ? 'true' : undefined}
                             aria-label={`切换到视频源 ${option.sourceName}`}
                             onClick={() => handleSourceChange(option.sourceCode)}
                           >
-                            <span className="truncate">{option.sourceName}</span>
+                            <span className="truncate text-xs font-medium">{option.sourceName}</span>
                             {isTmdbRoute && <span className="shrink-0 text-[11px] opacity-70">{option.bestScore}</span>}
+                            {option.bestQuality && (
+                              <span className="shrink-0 rounded bg-foreground/10 px-1.5 py-0.5 text-[10px] leading-none">{option.bestQuality}</span>
+                            )}
+                            {hasMultiLang && (
+                              <span className="shrink-0 rounded bg-blue-500/10 px-1.5 py-0.5 text-[10px] leading-none text-blue-600 dark:text-blue-400">多语言</span>
+                            )}
                           </Button>
                         )
                       })}

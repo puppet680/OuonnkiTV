@@ -1,6 +1,7 @@
-import { memo } from 'react'
-import { NavLink } from 'react-router'
-import { Star, CalendarDays, Clapperboard, Tv, Heart, Layers } from 'lucide-react'
+import { memo, useState, useRef, useCallback, useEffect, useLayoutEffect } from 'react'
+import { NavLink, useNavigate } from 'react-router'
+import { useReducedMotion, motion } from 'motion/react'
+import { Star, CalendarDays, Clapperboard, Tv, Heart, Layers, MessageCircle, HardDrive } from 'lucide-react'
 import type { TmdbMediaItem, TmdbMediaType } from '@/shared/types/tmdb'
 import { Badge } from '@/shared/components/ui/badge'
 import { Button } from '@/shared/components/ui/button'
@@ -9,7 +10,16 @@ import { getPosterUrl } from '@/shared/lib/tmdb'
 import { buildTmdbDetailPath, buildTmdbPlayPath } from '@/shared/lib/routes'
 import { useFavoritesStore } from '@/features/favorites/store/favoritesStore'
 import { DetailCollectionTab } from '@/features/media/components/tmdb-detail'
-import { useNavigate } from 'react-router'
+import PlayerResourcesTab from './PlayerResourcesTab'
+import PlayerCommentsTab from './PlayerCommentsTab'
+
+type PlayerInfoTab = 'overview' | 'comments' | 'resources'
+
+const TAB_ITEMS: Array<{ key: PlayerInfoTab; label: string; icon: React.ReactNode }> = [
+  { key: 'overview', label: '剧情介绍', icon: <Clapperboard className="size-3.5" /> },
+  { key: 'comments', label: '评论', icon: <MessageCircle className="size-3.5" /> },
+  { key: 'resources', label: '网盘资源', icon: <HardDrive className="size-3.5" /> },
+]
 
 interface PlayerInfoAndRecommendationsProps {
   title: string
@@ -57,7 +67,36 @@ export const PlayerInfoAndRecommendations = memo(function PlayerInfoAndRecommend
 }: PlayerInfoAndRecommendationsProps) {
   const favoritesStore = useFavoritesStore()
   const navigate = useNavigate()
+  const reducedMotion = useReducedMotion()
   const infoPoster = posterPath ? getPosterUrl(posterPath, 'w342') : cmsCover || ''
+
+  const [activeTab, setActiveTab] = useState<PlayerInfoTab>('overview')
+  const tabListRef = useRef<HTMLDivElement | null>(null)
+  const [tabIndicator, setTabIndicator] = useState({ x: 0, width: 0, ready: false })
+
+  const updateTabIndicator = useCallback(() => {
+    const listEl = tabListRef.current
+    if (!listEl) return
+    const activeEl = listEl.querySelector<HTMLButtonElement>(`button[data-tab='${activeTab}']`)
+    if (!activeEl) {
+      setTabIndicator(prev => (prev.ready ? { ...prev, ready: false } : prev))
+      return
+    }
+    const listRect = listEl.getBoundingClientRect()
+    const activeRect = activeEl.getBoundingClientRect()
+    setTabIndicator({ x: activeRect.left - listRect.left, width: activeRect.width, ready: true })
+  }, [activeTab])
+
+  useLayoutEffect(() => {
+    const frameId = window.requestAnimationFrame(() => updateTabIndicator())
+    return () => window.cancelAnimationFrame(frameId)
+  }, [updateTabIndicator])
+
+  useEffect(() => {
+    const onResize = () => updateTabIndicator()
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+  }, [updateTabIndicator])
 
   return (
     <div className="space-y-4">
@@ -168,9 +207,51 @@ export const PlayerInfoAndRecommendations = memo(function PlayerInfoAndRecommend
                 ) : null}
               </div>
 
-              <div className="space-y-1">
-                <h3 className="text-sm font-semibold">剧情介绍</h3>
-                <p className="text-muted-foreground line-clamp-4 text-sm leading-6 md:line-clamp-6">{overview || '暂无剧情介绍'}</p>
+              <div className="mt-1 space-y-3">
+                <div className="relative border-b border-border/50">
+                  <div ref={tabListRef} className="flex items-center gap-4 md:gap-6">
+                    {TAB_ITEMS.map(tab => {
+                      const isActive = activeTab === tab.key
+                      return (
+                        <button
+                          key={tab.key}
+                          type="button"
+                          data-tab={tab.key}
+                          className="relative shrink-0 whitespace-nowrap px-1 py-2.5 text-sm font-medium"
+                          onClick={() => setActiveTab(tab.key)}
+                        >
+                          <span className={`flex items-center gap-1.5 ${isActive ? 'text-foreground' : 'text-muted-foreground'}`}>
+                            {tab.icon}
+                            {tab.label}
+                          </span>
+                        </button>
+                      )
+                    })}
+                    {tabIndicator.ready && (
+                      <motion.div
+                        className="bg-primary pointer-events-none absolute bottom-0 left-0 h-0.5 rounded-full"
+                        initial={false}
+                        animate={{ x: tabIndicator.x, width: tabIndicator.width }}
+                        transition={reducedMotion ? { duration: 0 } : { type: 'spring', stiffness: 420, damping: 38, mass: 0.35 }}
+                      />
+                    )}
+                  </div>
+                </div>
+
+                <div className="min-h-[4rem]">
+                  {activeTab === 'overview' && (
+                    <p className="text-muted-foreground text-sm leading-6">{overview || '暂无剧情介绍'}</p>
+                  )}
+                  {activeTab === 'comments' && (
+                    <PlayerCommentsTab
+                      title={title}
+                      year={releaseDate ? releaseDate.slice(0, 4) : undefined}
+                    />
+                  )}
+                  {activeTab === 'resources' && (
+                    <PlayerResourcesTab keyword={title} />
+                  )}
+                </div>
               </div>
             </div>
           </div>

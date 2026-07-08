@@ -4,6 +4,7 @@ import tailwindcss from '@tailwindcss/vite'
 import { VitePWA } from 'vite-plugin-pwa'
 import path from 'node:path'
 import { proxyMiddleware } from './src/middleware/proxy.dev'
+import panhubDevPlugin from './src/server/panhub/plugin'
 
 // 将入口 CSS link 改为非阻塞预加载，避免渲染阻塞
 function nonBlockingCssPlugin(): Plugin {
@@ -41,6 +42,7 @@ export default defineConfig({
     react(),
     tailwindcss(),
     proxyMiddleware(),
+    panhubDevPlugin(),
     nonBlockingCssPlugin(),
     VitePWA({
       registerType: 'autoUpdate',
@@ -183,5 +185,12 @@ export default defineConfig({
   server: {
     port: 3000,
     strictPort: false,
+    proxy: {
+      '/api/panhub': {
+        target: 'http://localhost:4000',
+        changeOrigin: true,
+        rewrite: path => path.replace(/^\/api\/panhub/, '/api'),
+      },
+    },
   },
 })

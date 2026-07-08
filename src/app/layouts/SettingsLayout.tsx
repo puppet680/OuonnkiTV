@@ -2,7 +2,7 @@ import { useLocation, useNavigate } from 'react-router'
 import { cn } from '@/shared/lib'
 import { Badge } from '@/shared/components/ui/badge'
 import { Button } from '@/shared/components/ui/button'
-import { ArrowLeft, Compass, FolderCog, ListVideo, Play, Settings2, type LucideIcon } from 'lucide-react'
+import { ArrowLeft, Compass, FolderCog, ListVideo, Play, Search, Settings2, type LucideIcon } from 'lucide-react'
 import { AnimatePresence, motion, useReducedMotion } from "motion/react"
 import { CustomAnimatedOutlet } from '@/shared/components/AnimatedOutlet'
 import { animationPresets } from '@/shared/lib/animationVariants'
@@ -58,6 +58,18 @@ const settingsModules: SettingsModule[] = [
     dotClass: 'bg-emerald-500',
     iconClass: 'text-emerald-700 dark:text-emerald-300',
     badgeClass: 'border-emerald-500/28 text-emerald-700 dark:text-emerald-300',
+  },
+  {
+    id: 'panhub',
+    name: '网盘搜索',
+    shortName: '网盘',
+    icon: Search,
+    path: '/settings/panhub',
+    description: '配置 Panhub 网盘资源搜索源，选择启用的插件与并发策略。',
+    badges: ['搜索源', '并发', '超时'],
+    dotClass: 'bg-teal-500',
+    iconClass: 'text-teal-700 dark:text-teal-300',
+    badgeClass: 'border-teal-500/28 text-teal-700 dark:text-teal-300',
   },
   {
     id: 'profile',

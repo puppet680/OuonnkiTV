@@ -44,3 +44,4 @@ parse-report*.cjs
 .lighthouse/
 
 *llms.txt
+AGENT_CONTEXT.md
