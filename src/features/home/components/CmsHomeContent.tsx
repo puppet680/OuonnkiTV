@@ -1,8 +1,10 @@
 import { useApiStore } from '@/shared/store/apiStore'
 import { useCmsVideoList } from '@/shared/hooks/useCmsCore'
-import type { VideoSource } from '@ouonnki/cms-core'
+import type { VideoSource, VideoItem } from '@ouonnki/cms-core'
 import { ContinueWatching } from './ContinueWatching'
-import { CmsMediaCarousel } from './CmsMediaCarousel'
+import { MediaCarousel } from '@/shared/components/media'
+import { MediaPosterCard } from '@/shared/components/common'
+import { buildCmsPlayPath } from '@/shared/lib/routes'
 import { NavLink } from 'react-router'
 import { Settings, Plus } from 'lucide-react'
 import { Button } from '@/shared/components/ui/button'
@@ -15,10 +17,20 @@ function SourceCarousel({ source }: { source: VideoSource }) {
   const { items, loading } = useCmsVideoList(source)
 
   return (
-    <CmsMediaCarousel
+    <MediaCarousel
       title={source.name}
       items={items}
       loading={loading}
+      itemKey={(item: VideoItem, i: number) => `${item.source_code}-${item.vod_id}-${i}`}
+      renderItem={(item: VideoItem) => (
+        <MediaPosterCard
+          to={buildCmsPlayPath(item.source_code || '', String(item.vod_id))}
+          posterUrl={item.vod_pic}
+          title={item.vod_name}
+          year={item.vod_year}
+          topRightLabel={item.vod_remarks || undefined}
+        />
+      )}
     />
   )
 }

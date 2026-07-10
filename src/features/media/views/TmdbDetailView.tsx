@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router'
 import { AnimatePresence, motion, useReducedMotion } from "motion/react"
 import { ExternalLink, Heart, HeartOff } from 'lucide-react'
@@ -14,9 +14,11 @@ import type {
   TmdbTvDetail,
 } from '@/shared/types/tmdb'
 import { useFavoritesStore } from '@/features/favorites/store/favoritesStore'
+import PlayerResourcesTab from '@/features/player/components/PlayerResourcesTab'
 import { useSettingStore } from '@/shared/store/settingStore'
 import { useGlobalContextMenuStore } from '@/shared/store/contextMenuStore'
 import { useViewingHistoryStore } from '@/shared/store/viewingHistoryStore'
+import { UnderlineTabs } from '@/shared/components/common'
 import {
   DetailCastTab,
   DetailCollectionTab,
@@ -27,7 +29,6 @@ import {
   DetailStatePanel,
   DetailProductionTab,
   DetailSeasonsTab,
-  DetailTabNav,
   type DetailCast,
   type DetailInfoField,
   type DetailTab,
@@ -86,8 +87,6 @@ export default function TmdbDetailView() {
   const reducedMotion = useReducedMotion()
 
   const [activeTab, setActiveTab] = useState<DetailTab>('overview')
-  const tabListRef = useRef<HTMLDivElement | null>(null)
-  const [tabIndicator, setTabIndicator] = useState({ x: 0, width: 0, ready: false })
 
   const rawGenres = (detail as { genres?: Array<{ id: number; name: string }> } | null)?.genres || []
   const isAnime = rawGenres.some(g => g.id === 16)
@@ -101,42 +100,10 @@ export default function TmdbDetailView() {
     ...(mediaType === 'movie' && (detail as TmdbRichDetail | null)?.belongs_to_collection?.id
       ? [{ key: 'collection' as const, label: '系列作品' }]
       : []),
+    { key: 'resources', label: '网盘资源' },
   ]
 
-  const updateTabIndicator = useCallback(() => {
-    const listEl = tabListRef.current
-    if (!listEl) return
-
-    const activeEl = listEl.querySelector<HTMLButtonElement>(`button[data-tab='${activeTab}']`)
-    if (!activeEl) {
-      setTabIndicator(prev => (prev.ready ? { ...prev, ready: false } : prev))
-      return
-    }
-
-    const listRect = listEl.getBoundingClientRect()
-    const activeRect = activeEl.getBoundingClientRect()
-
-    setTabIndicator({
-      x: activeRect.left - listRect.left,
-      width: activeRect.width,
-      ready: true,
-    })
-  }, [activeTab])
-
   useDocumentTitle(detail?.title || '媒体详情')
-
-  useLayoutEffect(() => {
-    const frameId = window.requestAnimationFrame(() => {
-      updateTabIndicator()
-    })
-    return () => window.cancelAnimationFrame(frameId)
-  }, [updateTabIndicator, tabItems.length, loading, detail?.id])
-
-  useEffect(() => {
-    const onResize = () => updateTabIndicator()
-    window.addEventListener('resize', onResize)
-    return () => window.removeEventListener('resize', onResize)
-  }, [updateTabIndicator, tabItems.length])
 
   useEffect(() => {
     if (mediaType !== 'tv' && activeTab === 'seasons') {
@@ -257,7 +224,6 @@ export default function TmdbDetailView() {
 
   if (!isValidRoute) {
     return (
-      <div className="px-4 md:px-6">
         <DetailStatePanel
           mode="error"
           tag="路由校验失败"
@@ -272,7 +238,6 @@ export default function TmdbDetailView() {
             onClick: () => navigate(-1),
           }}
         />
-      </div>
     )
   }
 
@@ -282,7 +247,6 @@ export default function TmdbDetailView() {
 
   if (error || !detail) {
     return (
-      <div className="px-4 md:px-6">
         <DetailStatePanel
           mode="error"
           tag="详情加载失败"
@@ -297,7 +261,6 @@ export default function TmdbDetailView() {
             onClick: () => navigate(-1),
           }}
         />
-      </div>
     )
   }
 
@@ -305,12 +268,11 @@ export default function TmdbDetailView() {
 
   const releaseYear = getReleaseYear(detail.releaseDate)
   const heroLogo = pickHeroLogo(richDetail.images?.logos || [])
-  const certShort = getCertShort(richDetail.adult, richDetail.release_dates)
-  const certFull = getCertFull(richDetail.adult, richDetail.release_dates)
+  const certShort = getCertShort(richDetail.adult, richDetail.release_dates, richDetail.content_ratings)
+  const certFull = getCertFull(richDetail.adult, richDetail.release_dates, richDetail.content_ratings)
 
   if (isAdultFilterEnabled && isAdultCert(certShort)) {
     return (
-      <div className="px-4 md:px-6">
         <DetailStatePanel
           mode="error"
           title="访问被拒绝"
@@ -324,7 +286,6 @@ export default function TmdbDetailView() {
             onClick: () => navigate(-1),
           }}
         />
-      </div>
     )
   }
 
@@ -453,12 +414,14 @@ export default function TmdbDetailView() {
         onToggleFavorite={() => toggleTmdbFavorite(mediaSnapshot)}
       />
 
-      <DetailTabNav
-        tabListRef={tabListRef}
-        tabItems={tabItems}
-        activeTab={activeTab}
-        onTabChange={setActiveTab}
-        tabIndicator={tabIndicator}
+      <UnderlineTabs
+        options={tabItems}
+        activeKey={activeTab}
+        onChange={setActiveTab}
+        layoutId="detail-tab-indicator"
+        className="px-2 md:flex md:justify-center md:px-0"
+        tabButtonClassName="py-3 text-sm"
+        listClassName="gap-4 md:gap-6"
       />
 
       <div className="mt-6 px-2 pb-6 md:px-3 md:pb-8">
@@ -522,6 +485,10 @@ export default function TmdbDetailView() {
             )}
           </motion.div>
         </AnimatePresence>
+
+        <div className={activeTab === 'resources' ? '' : 'hidden'}>
+          <PlayerResourcesTab keyword={detail.title} noScroll />
+        </div>
       </div>
     </div>
   )

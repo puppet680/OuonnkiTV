@@ -18,6 +18,7 @@ const SearchHubView = lazy(() => import('@/features/search/views/SearchHubView')
 const FavoritesView = lazy(() => import('@/features/favorites/views/FavoritesView'))
 const HistoryView = lazy(() => import('@/features/history/views/HistoryView'))
 const TmdbDetailView = lazy(() => import('@/features/media/views/TmdbDetailView'))
+const PersonDetailView = lazy(() => import('@/features/person/views/PersonDetailView'))
 const GuideView = lazy(() => import('@/features/guide/views/GuideView'))
 const BangumiView = lazy(() => import('@/features/bangumi/views/BangumiView'))
 
@@ -127,6 +128,14 @@ const router = createBrowserRouter([
         element: (
           <SuspenseWrapper>
             <TmdbDetailView />
+          </SuspenseWrapper>
+        ),
+      },
+      {
+        path: 'person/:personId',
+        element: (
+          <SuspenseWrapper>
+            <PersonDetailView />
           </SuspenseWrapper>
         ),
       },

@@ -15,6 +15,7 @@ import { getBackdropUrl, getPosterUrl } from '@/shared/lib/tmdb'
 import type { TmdbMediaItem, TmdbMediaType } from '@/shared/types/tmdb'
 import { Badge } from '@/shared/components/ui/badge'
 import { Button } from '@/shared/components/ui/button'
+import { ScrollableText } from '@/shared/components/common'
 import { getCertColor } from './helpers'
 import type { DetailImage, TmdbRichDetail } from './types'
 
@@ -216,7 +217,9 @@ export function DetailHeroSection({
             )}
           </div>
 
-          <p className="line-clamp-2 text-sm leading-6 text-white/85 md:line-clamp-4 md:text-base">{detail.overview || '暂无简介'}</p>
+          <ScrollableText maxHeight="max-h-20 md:max-h-28" className="text-sm leading-6 text-white/85 md:text-base">
+            {detail.overview || '暂无简介'}
+          </ScrollableText>
 
           <div className="flex flex-wrap gap-3">
             {onContinueWatching ? (

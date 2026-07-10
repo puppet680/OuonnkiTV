@@ -3,7 +3,8 @@ import type { TmdbMediaItem } from '@/shared/types/tmdb'
 import type { VideoItem } from '@ouonnki/cms-core'
 import { type AggregatedVideoItem, storeCmsSources } from '../hooks/directSearch.utils'
 import { MediaPosterCard } from '@/shared/components/common/MediaPosterCard'
-import { NoResultIcon } from '@/shared/components/icons'
+import { POSTER_GRID } from '@/shared/components/media'
+import { StatePanel } from '@/shared/components/StatePanel'
 import { Skeleton } from '@/shared/components/ui/skeleton'
 import { cn } from '@/shared/lib/utils'
 import { AspectRatio } from '@/shared/components/ui/aspect-ratio'
@@ -55,19 +56,6 @@ function ResultSkeleton() {
   )
 }
 
-/**
- * EmptyState - 空状态组件
- */
-function EmptyState({ mode }: { mode: SearchMode }) {
-  return (
-    <div className="flex flex-col items-center justify-center py-16">
-      <NoResultIcon size={128} className="text-muted-foreground/30" />
-      <p className="text-muted-foreground mt-4 text-sm">
-        {mode === 'tmdb' ? '未找到相关内容，试试其他关键词' : '换个关键词试试吧'}
-      </p>
-    </div>
-  )
-}
 
 /**
  * SearchResultsGrid - 搜索结果网格组件
@@ -113,13 +101,13 @@ export const SearchResultsGrid = memo(function SearchResultsGrid({
         {/* 内容区域 */}
         <div>
           {showSkeleton ? (
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 2xl:grid-cols-8">
+            <div className={POSTER_GRID}>
               {Array.from({ length: SKELETON_COUNT }).map((_, index) => (
                 <ResultSkeleton key={index} />
               ))}
             </div>
           ) : hasResults ? (
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 2xl:grid-cols-8">
+            <div className={POSTER_GRID}>
               {results.map(item => (
                 <div key={`${item.mediaType}-${item.id}`}>
                   <MediaPosterCard
@@ -138,7 +126,7 @@ export const SearchResultsGrid = memo(function SearchResultsGrid({
               ))}
             </div>
           ) : (
-            <EmptyState mode="tmdb" />
+            <StatePanel mode="empty" title="未找到" description="未找到相关内容，试试其他关键词" />
           )}
         </div>
 
@@ -182,13 +170,13 @@ export const SearchResultsGrid = memo(function SearchResultsGrid({
       {/* 内容区域 */}
       <div>
         {loading && !hasResults ? (
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 2xl:grid-cols-8">
+          <div className={POSTER_GRID}>
             {Array.from({ length: SKELETON_COUNT }).map((_, index) => (
               <ResultSkeleton key={index} />
             ))}
           </div>
         ) : hasResults ? (
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 2xl:grid-cols-8">
+          <div className={POSTER_GRID}>
             {results.map((item) => {
               const { bestSource, sourceCount, sources } = item
               if (!bestSource.source_code || !bestSource.vod_id) return null
@@ -225,7 +213,7 @@ export const SearchResultsGrid = memo(function SearchResultsGrid({
             })}
           </div>
         ) : (
-          <EmptyState mode="direct" />
+          <StatePanel mode="empty" title="未找到" description="换个关键词试试吧" />
         )}
       </div>
 

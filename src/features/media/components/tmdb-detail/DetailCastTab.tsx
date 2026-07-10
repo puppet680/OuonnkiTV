@@ -1,4 +1,6 @@
+import { Link } from 'react-router'
 import { getPosterUrl } from '@/shared/lib/tmdb'
+import { buildPersonPath } from '@/shared/lib/routes'
 import type { DetailCast } from './types'
 
 interface DetailCastTabProps {
@@ -12,7 +14,11 @@ export function DetailCastTab({ castList }: DetailCastTabProps) {
       {castList.length > 0 ? (
         <div className="grid grid-cols-3 gap-4 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8">
           {castList.map(cast => (
-            <div key={cast.id} className="flex flex-col items-center gap-1.5 text-center">
+            <Link
+              key={cast.id}
+              to={buildPersonPath(cast.id)}
+              className="flex flex-col items-center gap-1.5 text-center transition-opacity hover:opacity-80"
+            >
               <div className="border-border/40 bg-muted/30 size-20 overflow-hidden rounded-full border md:size-24">
                 {cast.profile_path ? (
                   <img
@@ -29,7 +35,7 @@ export function DetailCastTab({ castList }: DetailCastTabProps) {
                 <p className="line-clamp-1 text-sm font-medium">{cast.name}</p>
                 {cast.character && <p className="text-muted-foreground line-clamp-1 text-xs">{cast.character}</p>}
               </div>
-            </div>
+            </Link>
           ))}
         </div>
       ) : (

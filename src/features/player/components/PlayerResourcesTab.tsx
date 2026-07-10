@@ -41,6 +41,7 @@ function cacheKey(keyword: string, plugins: string[]): string {
 
 interface PlayerResourcesTabProps {
   keyword: string
+  noScroll?: boolean
 }
 
 type SearchStatus = 'idle' | 'loading' | 'done' | 'error'
@@ -55,7 +56,19 @@ function mergeByType(a: PanhubMergedLinks, b: PanhubMergedLinks): PanhubMergedLi
   return out
 }
 
-export default function PlayerResourcesTab({ keyword }: PlayerResourcesTabProps) {
+const formatDate = (d?: string) => {
+  if (!d) return ''
+  const dt = new Date(d)
+  if (isNaN(dt.getTime())) return ''
+  const diff = Date.now() - dt.getTime()
+  const days = Math.floor(diff / 86400000)
+  if (days === 0) return '今天'
+  if (days === 1) return '昨天'
+  if (days < 7) return `${days}天前`
+  return dt.toLocaleDateString('zh-CN')
+}
+
+export default function PlayerResourcesTab({ keyword, noScroll }: PlayerResourcesTabProps) {
   const { apiBase, enabledPlugins, concurrency, pluginTimeoutMs } = usePanhubStore()
   const [status, setStatus] = useState<SearchStatus>('idle')
   const [results, setResults] = useState<PanhubMergedLinks>({})
@@ -86,8 +99,7 @@ export default function PlayerResourcesTab({ keyword }: PlayerResourcesTabProps)
     const cached = cacheGet(key)
     if (cached) {
       setResults(cached)
-      setStatus('done')
-      return
+      // ponytail: still re-search to pick up incomplete plugins, but show cache first
     }
 
     abortRef.current?.abort()
@@ -131,6 +143,8 @@ export default function PlayerResourcesTab({ keyword }: PlayerResourcesTabProps)
           const fresh = json.data?.merged_by_type || {}
           merged = mergeByType(merged, fresh)
           setResults({ ...merged })
+          // pony: save partial results so cross-page navigation doesn't lose progress
+          cacheSet(key, merged)
         } catch (err: unknown) {
           if (err instanceof DOMException && err.name === 'AbortError') return
           hasError = true
@@ -191,17 +205,100 @@ export default function PlayerResourcesTab({ keyword }: PlayerResourcesTabProps)
   const platformTypes = Object.keys(results).filter(t => results[t].length > 0)
   const totalCount = platformTypes.reduce((sum, t) => sum + results[t].length, 0)
 
-  const formatDate = (d?: string) => {
-    if (!d) return ''
-    const dt = new Date(d)
-    if (isNaN(dt.getTime())) return ''
-    const diff = Date.now() - dt.getTime()
-    const days = Math.floor(diff / 86400000)
-    if (days === 0) return '今天'
-    if (days === 1) return '昨天'
-    if (days < 7) return `${days}天前`
-    return dt.toLocaleDateString('zh-CN')
-  }
+  const platformList = (
+    <div className={noScroll ? 'space-y-3' : 'space-y-3 pr-1'}>
+      {platformTypes.map(type => {
+        const info = PLATFORM_INFO[type] || PLATFORM_INFO.others
+        const items = results[type]
+        const collapsed = collapsedSet.has(type)
+        return (
+          <div
+            key={type}
+            className="overflow-hidden rounded-lg border border-border/50 bg-card/35"
+          >
+            <button
+              type="button"
+              className="flex w-full items-center gap-2.5 border-b border-border/40 px-3 py-2.5 text-left hover:bg-muted/20 transition-colors"
+              onClick={() => toggleExpand(type)}
+            >
+              <div
+                className="flex size-7 shrink-0 items-center justify-center rounded-lg"
+                style={{ backgroundColor: `${info.color}22` }}
+              >
+                <img
+                  src={info.icon}
+                  alt={info.name}
+                  className="size-4.5 object-contain"
+                />
+              </div>
+              <span className="text-sm font-semibold">{info.name}</span>
+              <Badge variant="outline" className="ml-auto h-5 rounded-full px-2 text-[11px]">
+                {items.length}
+              </Badge>
+              <ChevronDown
+                className={cn(
+                  'size-4 text-muted-foreground transition-transform',
+                  !collapsed && 'rotate-180',
+                )}
+              />
+            </button>
+
+            {!collapsed && (
+            <ul className="divide-y divide-border/30">
+              {items.map((link, i) => (
+                <li key={`${link.url}-${i}`} className="px-3 py-2.5">
+                  <div className="flex flex-col gap-1.5">
+                    <a
+                      href={link.url}
+                      target="_blank"
+                      rel="noopener noreferrer nofollow"
+                      className="group flex items-start gap-1.5 text-sm font-medium text-primary hover:text-primary/80 transition-colors"
+                    >
+                      <span className="line-clamp-2 flex-1">{link.note || link.url}</span>
+                      <ExternalLink className="size-3.5 shrink-0 mt-0.5 opacity-0 group-hover:opacity-100 transition-opacity" />
+                    </a>
+
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+                        {link.datetime && <span>{formatDate(link.datetime)}</span>}
+                        {link.password && (
+                          <Badge
+                            variant="outline"
+                            className="h-5 rounded-full px-1.5 text-[10px] border-emerald-400/30 bg-emerald-500/8 text-emerald-600 dark:text-emerald-400"
+                          >
+                            提取码: {link.password}
+                          </Badge>
+                        )}
+                      </div>
+
+                      <button
+                        type="button"
+                        className={cn(
+                          'flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-medium transition-colors',
+                          copiedUrl === link.url
+                            ? 'bg-emerald-500/12 text-emerald-600 dark:text-emerald-400'
+                            : 'hover:bg-muted text-muted-foreground hover:text-foreground',
+                        )}
+                        onClick={() => handleCopy(link.url)}
+                      >
+                        {copiedUrl === link.url ? (
+                          <Check className="size-3" />
+                        ) : (
+                          <Copy className="size-3" />
+                        )}
+                        {copiedUrl === link.url ? '已复制' : '复制'}
+                      </button>
+                    </div>
+                  </div>
+                </li>
+              ))}
+            </ul>
+            )}
+          </div>
+        )
+      })}
+    </div>
+  )
 
   return (
     <div className="space-y-3">
@@ -264,100 +361,13 @@ export default function PlayerResourcesTab({ keyword }: PlayerResourcesTabProps)
             </Badge>
           </div>
 
-          <ScrollArea className="max-h-[50vh]">
-            <div className="space-y-3 pr-1">
-              {platformTypes.map(type => {
-                const info = PLATFORM_INFO[type] || PLATFORM_INFO.others
-                const items = results[type]
-                const collapsed = collapsedSet.has(type)
-                return (
-                  <div
-                    key={type}
-                    className="overflow-hidden rounded-lg border border-border/50 bg-card/35"
-                  >
-                    <button
-                      type="button"
-                      className="flex w-full items-center gap-2.5 border-b border-border/40 px-3 py-2.5 text-left hover:bg-muted/20 transition-colors"
-                      onClick={() => toggleExpand(type)}
-                    >
-                      <div
-                        className="flex size-7 shrink-0 items-center justify-center rounded-lg"
-                        style={{ backgroundColor: `${info.color}22` }}
-                      >
-                        <img
-                          src={info.icon}
-                          alt={info.name}
-                          className="size-4.5 object-contain"
-                        />
-                      </div>
-                      <span className="text-sm font-semibold">{info.name}</span>
-                      <Badge variant="outline" className="ml-auto h-5 rounded-full px-2 text-[11px]">
-                        {items.length}
-                      </Badge>
-                      <ChevronDown
-                        className={cn(
-                          'size-4 text-muted-foreground transition-transform',
-                          !collapsed && 'rotate-180',
-                        )}
-                      />
-                    </button>
-
-                    {!collapsed && (
-                    <ul className="divide-y divide-border/30">
-                      {items.map((link, i) => (
-                        <li key={`${link.url}-${i}`} className="px-3 py-2.5">
-                          <div className="flex flex-col gap-1.5">
-                            <a
-                              href={link.url}
-                              target="_blank"
-                              rel="noopener noreferrer nofollow"
-                              className="group flex items-start gap-1.5 text-sm font-medium text-primary hover:text-primary/80 transition-colors"
-                            >
-                              <span className="line-clamp-2 flex-1">{link.note || link.url}</span>
-                              <ExternalLink className="size-3.5 shrink-0 mt-0.5 opacity-0 group-hover:opacity-100 transition-opacity" />
-                            </a>
-
-                            <div className="flex items-center justify-between gap-2">
-                              <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
-                                {link.datetime && <span>{formatDate(link.datetime)}</span>}
-                                {link.password && (
-                                  <Badge
-                                    variant="outline"
-                                    className="h-5 rounded-full px-1.5 text-[10px] border-emerald-400/30 bg-emerald-500/8 text-emerald-600 dark:text-emerald-400"
-                                  >
-                                    提取码: {link.password}
-                                  </Badge>
-                                )}
-                              </div>
-
-                              <button
-                                type="button"
-                                className={cn(
-                                  'flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-medium transition-colors',
-                                  copiedUrl === link.url
-                                    ? 'bg-emerald-500/12 text-emerald-600 dark:text-emerald-400'
-                                    : 'hover:bg-muted text-muted-foreground hover:text-foreground',
-                                )}
-                                onClick={() => handleCopy(link.url)}
-                              >
-                                {copiedUrl === link.url ? (
-                                  <Check className="size-3" />
-                                ) : (
-                                  <Copy className="size-3" />
-                                )}
-                                {copiedUrl === link.url ? '已复制' : '复制'}
-                              </button>
-                            </div>
-                          </div>
-                        </li>
-                      ))}
-                    </ul>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
-          </ScrollArea>
+          {noScroll ? (
+            platformList
+          ) : (
+            <ScrollArea className="max-h-[50vh]">
+              {platformList}
+            </ScrollArea>
+          )}
         </>
       )}
     </div>

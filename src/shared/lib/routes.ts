@@ -41,6 +41,10 @@ export function buildTmdbPlayPath(
   return search ? `${basePath}?${search}` : basePath
 }
 
+export function buildPersonPath(personId: number | string): string {
+  return `/person/${encodeSegment(personId)}`
+}
+
 export function buildCmsPlayPath(
   sourceCode: string,
   vodId: string,

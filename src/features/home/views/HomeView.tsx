@@ -10,7 +10,7 @@ import type { TmdbFavoriteItem } from '@/features/favorites/types/favorites'
 import type { TmdbMediaType } from '@/shared/types/tmdb'
 import { FeaturedCarousel } from '../components/FeaturedCarousel'
 import { ContinueWatching } from '../components/ContinueWatching'
-import { MediaCarousel } from '../components/MediaCarousel'
+import { MediaCarousel } from '@/shared/components/media'
 import { CmsHomeContent } from '../components/CmsHomeContent'
 import { useMemo } from 'react'
 

@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react'
 import { Checkbox } from '@/shared/components/ui/checkbox'
 import { MediaPosterCard } from '@/shared/components/common/MediaPosterCard'
 import { Skeleton } from '@/shared/components/ui/skeleton'
+import { POSTER_GRID } from '@/shared/components/media'
 import {
   ContextMenu,
   ContextMenuContent,
@@ -114,7 +115,7 @@ export function FavoritesGrid({
 
   if (loading) {
     return (
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 2xl:grid-cols-8">
+      <div className={POSTER_GRID}>
         {Array.from({ length: 20 }).map((_, index) => (
           <div key={index} className="overflow-hidden rounded-lg">
             <div className="aspect-[2/3] w-full">
@@ -128,7 +129,7 @@ export function FavoritesGrid({
 
   return (
     <>
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 2xl:grid-cols-8">
+      <div className={POSTER_GRID}>
         {favorites.map(item => {
           const cardProps = favoriteToPosterCard(item)
           const isSelected = selectedIds.has(item.id)

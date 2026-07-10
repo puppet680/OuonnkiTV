@@ -46,6 +46,23 @@ export function UnderlineTabs<TKey extends string = string>({
   const [edgeHint, setEdgeHint] = useState({ left: false, right: false })
   const reducedMotion = useReducedMotion()
 
+  // auto-scroll active tab into view
+  useEffect(() => {
+    const scrollEl = scrollRef.current
+    const listEl = listRef.current
+    if (!scrollEl || !listEl) return
+
+    const activeBtn = listEl.querySelector<HTMLElement>(`button[data-tab="${activeKey}"]`)
+    if (!activeBtn) return
+
+    const scrollRect = scrollEl.getBoundingClientRect()
+    const btnRect = activeBtn.getBoundingClientRect()
+    const target = btnRect.left - scrollRect.left + scrollEl.scrollLeft - scrollRect.width / 2 + btnRect.width / 2
+
+    scrollEl.scrollTo({ left: Math.max(0, target), behavior: 'smooth' })
+  }, [activeKey])
+
+  // edge hints
   useEffect(() => {
     if (!showEdgeHint) return
 
@@ -102,6 +119,7 @@ export function UnderlineTabs<TKey extends string = string>({
               <button
                 key={option.key}
                 type="button"
+                data-tab={option.key}
                 className={cn(
                   'relative shrink-0 px-1 py-1.5 text-xs font-medium whitespace-nowrap md:py-2 md:text-sm',
                   tabButtonClassName,

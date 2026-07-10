@@ -10,7 +10,7 @@ import {
 } from '@/shared/store/subscriptionStore'
 import dayjs from 'dayjs'
 import type { VideoSource } from '@ouonnki/cms-core'
-import HealthStatusIndicator from './HealthStatusIndicator'
+import { HealthBadge } from '@/shared/components/HealthBadge'
 
 interface VideoSourceCardProps {
   source: VideoSource
@@ -31,7 +31,7 @@ export default function VideoSourceCard({ source, onEdit }: VideoSourceCardProps
           )}
           <p className="truncate text-sm font-medium">{source.name}</p>
           <span className="hidden shrink-0 sm:inline-flex">
-            <HealthStatusIndicator sourceId={source.id} />
+            <HealthBadge healthKey={source.id} variant="dot" />
           </span>
         </div>
         <div className="flex shrink-0 items-center gap-1.5">
@@ -81,7 +81,7 @@ function SecondaryInfo({ source, isSub }: { source: VideoSource; isSub: boolean 
       )}
       {/* 移动端测速结果显示在 Badge 右侧 */}
       <span className="shrink-0 sm:hidden">
-        <HealthStatusIndicator sourceId={source.id} />
+        <HealthBadge healthKey={source.id} variant="dot" />
       </span>
       {isSub && subscription && (
         <span className="truncate">来自「{subscription.name}」</span>

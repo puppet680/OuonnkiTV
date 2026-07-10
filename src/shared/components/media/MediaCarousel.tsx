@@ -1,4 +1,5 @@
-import { memo, useCallback, useMemo } from 'react'
+import { memo, useCallback, useMemo, useEffect, useState, type ReactNode } from 'react'
+import { NavLink } from 'react-router'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { MediaPosterCard } from '@/shared/components/common'
 import {
@@ -10,48 +11,27 @@ import {
 import { AspectRatio } from '@/shared/components/ui/aspect-ratio'
 import { Button } from '@/shared/components/ui/button'
 import { Skeleton } from '@/shared/components/ui/skeleton'
-import { NavLink } from 'react-router'
-import { useEffect, useState } from 'react'
 import { useIsMobile } from '@/shared/hooks/use-mobile'
 import { getPosterUrl } from '@/shared/lib/tmdb'
-import type { TmdbMediaItem } from '@/shared/types/tmdb'
 import { buildTmdbDetailPath, buildTmdbPlayPath } from '@/shared/lib/routes'
 import { useFavoritesStore } from '@/features/favorites/store/favoritesStore'
 import { useNavigate } from 'react-router'
+import type { TmdbMediaItem } from '@/shared/types/tmdb'
 
-interface MediaCarouselProps {
-  /** 板块标题 */
-  title: string
-  /** 媒体数据列表 */
-  items: TmdbMediaItem[]
-  /** 加载状态 */
-  loading?: boolean
-  /** 查看全部 */
-  linkTo?: string
-}
+// ---- helpers ----
 
-/**
- * MediaCarouselSkeleton - 骨架屏组件
- */
-function MediaCarouselSkeleton({ title }: { title: string }) {
+function CarouselSkeleton({ title }: { title: string }) {
   const isMobile = useIsMobile()
-  // 根据屏幕尺寸计算骨架数量：移动端3个、平板4个、桌面6个
-  const skeletonCount = isMobile
-    ? 3
-    : typeof window !== 'undefined' && window.innerWidth < 1024
-      ? 4
-      : 6
+  const skeletonCount = isMobile ? 3 : typeof window !== 'undefined' && window.innerWidth < 1024 ? 4 : 6
 
   return (
     <div>
-      {/* 标题 */}
       <div className="px-1">
         <h2 className="text-primary text-xl font-semibold">{title}</h2>
       </div>
-      {/* 卡片骨架 */}
       <div className="flex gap-4 pt-2">
-        {Array.from({ length: skeletonCount }).map((_, index) => (
-          <div key={index} className="flex-1">
+        {Array.from({ length: skeletonCount }).map((_, i) => (
+          <div key={i} className="flex-1">
             <AspectRatio ratio={2 / 3}>
               <Skeleton className="size-full rounded-lg" />
             </AspectRatio>
@@ -63,98 +43,102 @@ function MediaCarouselSkeleton({ title }: { title: string }) {
   )
 }
 
-/**
- * MediaCarousel - 媒体轮播组件
- * 展示电影或剧集列表，支持轮播浏览，使用竖向海报卡片
- */
-export const MediaCarousel = memo(function MediaCarousel({ title, items, loading = false, linkTo }: MediaCarouselProps) {
-  const isMobile = useIsMobile()
-  const isTablet = !isMobile && typeof window !== 'undefined' && window.innerWidth < 1024
+// ---- default TmdbMediaItem renderer ----
+
+function TmdbCard({ item }: { item: TmdbMediaItem }) {
   const favoritesStore = useFavoritesStore()
   const navigate = useNavigate()
-  // 根据屏幕尺寸计算可见卡片数量
+
+  return (
+    <MediaPosterCard
+      to={buildTmdbDetailPath(item.mediaType, item.id)}
+      posterUrl={getPosterUrl(item.posterPath, 'w342')}
+      title={item.title}
+      year={item.releaseDate ? item.releaseDate.split('-')[0] : undefined}
+      rating={item.voteAverage}
+      overview={item.overview}
+      onToggleFavorite={() => favoritesStore.toggleTmdbFavorite(item)}
+      isFavorited={favoritesStore.isTmdbFavorited(item.id, item.mediaType)}
+      onPlayNow={() => navigate(buildTmdbPlayPath(item.mediaType, item.id))}
+      onViewDetail={() => navigate(buildTmdbDetailPath(item.mediaType, item.id))}
+    />
+  )
+}
+
+// ---- main ----
+
+export interface MediaCarouselProps<T = TmdbMediaItem> {
+  title: string
+  items: T[]
+  loading?: boolean
+  linkTo?: string
+  /** 自定义卡片渲染，不传则使用默认 TmdbMediaItem 卡片 */
+  renderItem?: (item: T, index: number) => ReactNode
+  /** item key 提取器，用于 CarouselItem key */
+  itemKey?: (item: T, index: number) => string
+  /** 自定义每页滑动数量，默认根据屏幕宽度自动计算 */
+  slidesToScroll?: number
+}
+
+function MediaCarouselInner<T>({
+  title,
+  items,
+  loading = false,
+  linkTo,
+  renderItem,
+  itemKey,
+  slidesToScroll: slidesToScrollProp,
+}: MediaCarouselProps<T>) {
+  const isMobile = useIsMobile()
+  const isTablet = !isMobile && typeof window !== 'undefined' && window.innerWidth < 1024
   const visibleCount = isMobile ? 3 : isTablet ? 4 : 6
-  const slidesToScroll = visibleCount
+  const slidesToScroll = slidesToScrollProp ?? visibleCount
   const canDrag = items.length > visibleCount
 
-  // Carousel API 状态
   const [carouselApi, setCarouselApi] = useState<CarouselApi>()
   const [canScrollPrev, setCanScrollPrev] = useState(false)
   const [canScrollNext, setCanScrollNext] = useState(false)
 
-  // 监听 Carousel 滚动状态
   useEffect(() => {
     if (!carouselApi) return
-
     const onSelect = () => {
       setCanScrollPrev(carouselApi.canScrollPrev())
       setCanScrollNext(carouselApi.canScrollNext())
     }
-
-    onSelect() // 初始化
+    onSelect()
     carouselApi.on('select', onSelect)
     carouselApi.on('reInit', onSelect)
-
     return () => {
       carouselApi.off('select', onSelect)
       carouselApi.off('reInit', onSelect)
     }
   }, [carouselApi])
 
-  // 稳定回调 — 避免 MediaPosterCard memo 因 inline 箭头函数失效
-  const handleToggleFavorite = useCallback(
-    (item: TmdbMediaItem) => { favoritesStore.toggleTmdbFavorite(item) },
-    [favoritesStore],
+  const defaultRender = useCallback(
+    (item: T) => <TmdbCard item={item as unknown as TmdbMediaItem} />,
+    [],
   )
-  const handlePlayNow = useCallback(
-    (item: TmdbMediaItem) => { navigate(buildTmdbPlayPath(item.mediaType, item.id)) },
-    [navigate],
-  )
-  const handleViewDetail = useCallback(
-    (item: TmdbMediaItem) => { navigate(buildTmdbDetailPath(item.mediaType, item.id)) },
-    [navigate],
-  )
-  const isFavorited = useCallback(
-    (item: TmdbMediaItem) => favoritesStore.isTmdbFavorited(item.id, item.mediaType),
-    [favoritesStore],
-  )
+  const render = (renderItem ?? defaultRender) as (item: T, index: number) => ReactNode
 
-  // memo 卡片列表 — 仅在 items/callbacks 变化时重渲染，不受 carousel scroll 影响
-  // 注意：inline 箭头函数仍在 memo 依赖链中，但 useMemo 依赖项均稳定（items 引用不变）
+  // ponytail: memo cards to avoid re-renders on carousel scroll
   const cards = useMemo(
     () =>
       items.map((item, idx) => (
-        <CarouselItem key={`${item.mediaType}-${item.id}-${idx}`} className="h-fit basis-1/3 md:basis-1/4 lg:basis-1/6">
-          <MediaPosterCard
-            to={buildTmdbDetailPath(item.mediaType, item.id)}
-            posterUrl={getPosterUrl(item.posterPath, 'w342')}
-            title={item.title}
-            year={item.releaseDate ? item.releaseDate.split('-')[0] : undefined}
-            rating={item.voteAverage}
-            overview={item.overview}
-            onToggleFavorite={() => handleToggleFavorite(item)}
-            isFavorited={isFavorited(item)}
-            onPlayNow={() => handlePlayNow(item)}
-            onViewDetail={() => handleViewDetail(item)}
-          />
+        <CarouselItem
+          key={itemKey ? itemKey(item, idx) : `${idx}`}
+          className="h-fit basis-1/3 md:basis-1/4 lg:basis-1/6"
+        >
+          {render(item, idx)}
         </CarouselItem>
       )),
-    [items, handleToggleFavorite, handlePlayNow, handleViewDetail, isFavorited],
+    [items, render, itemKey],
   )
 
-  // 加载状态时显示骨架屏
-  if (loading) {
-    return <MediaCarouselSkeleton title={title} />
-  }
-
-  // 如果没有数据，不渲染任何内容
-  if (items.length === 0) {
-    return null
-  }
+  if (loading) return <CarouselSkeleton title={title} />
+  if (items.length === 0) return null
 
   return (
     <div className="group/carousel">
-      {/* 标题区域 */}
       <div className="px-1">
         {linkTo ? (
           <NavLink className="group/title inline-flex items-center gap-1" to={linkTo}>
@@ -165,13 +149,9 @@ export const MediaCarousel = memo(function MediaCarousel({ title, items, loading
           <h2 className="text-primary text-xl font-semibold">{title}</h2>
         )}
       </div>
-      {/* 滚动区域 */}
       <div className="pt-2">
         <Carousel opts={{ watchDrag: canDrag, slidesToScroll }} setApi={setCarouselApi}>
-          <CarouselContent>
-            {cards}
-          </CarouselContent>
-          {/* 导航按钮 - 移动端/平板常显，PC 端 hover 显示 */}
+          <CarouselContent>{cards}</CarouselContent>
           {canDrag && canScrollPrev && (
             <Button
               variant="outline"
@@ -198,4 +178,7 @@ export const MediaCarousel = memo(function MediaCarousel({ title, items, loading
       </div>
     </div>
   )
-})
+}
+
+// cast memo to preserve generic
+export const MediaCarousel = memo(MediaCarouselInner) as typeof MediaCarouselInner

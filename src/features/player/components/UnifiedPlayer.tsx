@@ -31,6 +31,7 @@ import type { TmdbMediaItem, TmdbMediaType } from '@/shared/types/tmdb'
 import type { ViewingHistoryItem } from '@/shared/types'
 import type { VideoItem } from '@/shared/types/video'
 import { useTmdbRecommendations } from '@/shared/hooks/useTmdb'
+import { getCertShort, isAdultCert } from '@/features/media/components'
 import { toast } from 'sonner'
 import throttle from 'lodash/throttle'
 import {
@@ -174,7 +175,7 @@ export default function UnifiedPlayer() {
   const tmdbEnabled = useTmdbEnabled()
   const { videoAPIs, adFilteringEnabled } = useApiStore()
   const { addViewingHistory, viewingHistory } = useViewingHistoryStore()
-  const { playback } = useSettingStore()
+  const { playback, system: { isAdultFilterEnabled } } = useSettingStore()
 
   const viewingHistoryRef = useRef(viewingHistory)
   const playbackRef = useRef(playback)
@@ -1717,6 +1718,11 @@ const stallTimerRef = useRef<number | null>(null)
 
   const rawOverview = tmdbPlayback.tmdbDetail?.overview || detail?.videoInfo?.desc || ''
   const overview = isCmsRoute ? stripHtmlTags(rawOverview) : rawOverview
+  const certShort = getCertShort(
+    tmdbPlayback.tmdbRichDetail?.adult,
+    tmdbPlayback.tmdbRichDetail?.release_dates,
+    tmdbPlayback.tmdbRichDetail?.content_ratings,
+  )
   const pageTitle = title || '视频播放'
   useDocumentTitle(pageTitle)
 
@@ -1940,6 +1946,20 @@ const stallTimerRef = useRef<number | null>(null)
     return renderErrorState(error || '无法获取播放信息')
   }
 
+  if (isTmdbRoute && isAdultFilterEnabled && isAdultCert(certShort)) {
+    return (
+      <PlayerErrorState
+        title="访问被拒绝"
+        description={certShort ? `分级 ${certShort}` : '成人内容'}
+        tag="内容受限"
+        primaryAction={{
+          label: '返回上一页',
+          onClick: () => navigate(-1),
+        }}
+      />
+    )
+  }
+
   return (
     <div className="space-y-4 md:space-y-5">
       {isTmdbRoute && (
@@ -1953,6 +1973,7 @@ const stallTimerRef = useRef<number | null>(null)
           tmdbMediaType={tmdbMediaType}
           currentEpisodeText={episodes[selectedEpisode] || `第 ${selectedEpisode + 1} 集`}
           totalEpisodeText={`${detail.episodes.length} 集`}
+          adultLevel={certShort}
           onBack={() => navigate(-1)}
         />
       )}

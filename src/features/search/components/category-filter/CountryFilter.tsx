@@ -1,7 +1,5 @@
 import { useState } from 'react'
-import { ChevronRight } from 'lucide-react'
 import type { TmdbCountry, TmdbFilterOptions } from '@/shared/types/tmdb'
-import { cn } from '@/shared/lib/utils'
 import {
   Drawer,
   DrawerContent,
@@ -9,7 +7,7 @@ import {
   DrawerTitle,
   DrawerTrigger,
 } from '@/shared/components/ui/drawer'
-import { FilterChip } from './MediaTypeFilter'
+import { FilterChip, MoreButton, WrapFilterRow } from './MediaTypeFilter'
 import { getCountryChineseName, POPULAR_COUNTRIES_MOBILE, MAJOR_COUNTRIES } from '../../constants'
 
 interface CountryFilterProps {
@@ -161,47 +159,4 @@ export function CountryFilter({
   )
 }
 
-/**
- * WrapFilterRow - 换行显示筛选行
- */
-interface WrapFilterRowProps {
-  label: string
-  children: React.ReactNode
-}
-
-export function WrapFilterRow({ label, children }: WrapFilterRowProps) {
-  return (
-    <div className="flex gap-3">
-      <span className="text-muted-foreground w-12 shrink-0 pt-1.5 text-sm font-medium">
-        {label}
-      </span>
-      <div className="flex flex-1 flex-wrap gap-2">{children}</div>
-    </div>
-  )
-}
-
-interface MoreButtonProps {
-  count: number
-  isSelected?: boolean
-}
-
-/**
- * MoreButton - 更多按钮组件
- */
-function MoreButton({ count, isSelected }: MoreButtonProps) {
-  return (
-    <button
-      type="button"
-      className={cn(
-        'flex shrink-0 items-center gap-1 rounded-full border px-3 py-1.5 text-sm font-medium transition-all',
-        isSelected
-          ? 'border-primary bg-primary text-primary-foreground'
-          : 'border-border bg-background text-muted-foreground hover:border-primary/50 hover:text-primary',
-      )}
-    >
-      <span>更多</span>
-      <span className="text-xs opacity-70">({count})</span>
-      <ChevronRight className="size-3" />
-    </button>
-  )
-}
+// ponytail: MoreButton & WrapFilterRow moved to MediaTypeFilter

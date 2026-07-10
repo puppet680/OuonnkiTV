@@ -25,7 +25,7 @@ import { SettingsSection } from '../common'
 import { ConfirmModal } from '@/shared/components/common/ConfirmModal'
 import { useSubscriptionStore } from '@/shared/store/subscriptionStore'
 import { batchCheckSubscriptions } from '@/shared/lib/health-check'
-import SubscriptionHealthBadge from './SubscriptionHealthBadge'
+import { HealthBadge } from '@/shared/components/HealthBadge'
 import type { VideoSourceSubscription } from '@/shared/types/subscription'
 import { cn } from '@/shared/lib'
 import dayjs from 'dayjs'
@@ -202,7 +202,7 @@ function SubscriptionCard({ subscription }: { subscription: VideoSourceSubscript
                   ? '刷新失败'
                   : '未刷新'}
             </Badge>
-            <SubscriptionHealthBadge subscriptionId={subscription.id} />
+            <HealthBadge healthKey={`subscription:${subscription.id}`} variant="badge" />
           </div>
           <div className="flex items-center gap-1">
             <Button

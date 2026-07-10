@@ -145,7 +145,7 @@ export interface DetailInfoField {
   value: string
 }
 
-export type DetailTab = 'overview' | 'playlist' | 'production' | 'cast' | 'seasons' | 'collection'
+export type DetailTab = 'overview' | 'playlist' | 'production' | 'cast' | 'seasons' | 'collection' | 'resources'
 
 export type TmdbRichDetail = (TmdbMovieDetail | TmdbTvDetail) & {
   id: number
@@ -204,6 +204,12 @@ export type TmdbRichDetail = (TmdbMovieDetail | TmdbTvDetail) & {
         type: number
         note: string
       }>
+    }>
+  }
+  content_ratings?: {
+    results: Array<{
+      iso_3166_1: string
+      rating: string
     }>
   }
 }

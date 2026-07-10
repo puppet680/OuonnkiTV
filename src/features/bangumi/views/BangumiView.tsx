@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { AnimatePresence, motion, useReducedMotion } from "motion/react"
 import { FeaturedCarousel } from '@/features/home/components/FeaturedCarousel'
-import { MediaCarousel } from '@/features/home/components/MediaCarousel'
+import { MediaCarousel } from '@/shared/components/media'
 import { getTmdbClient, normalizeToMediaItem } from '@/shared/lib/tmdb'
 import type { TmdbMediaItem } from '@/shared/types/tmdb'
 

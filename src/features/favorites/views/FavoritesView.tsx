@@ -8,7 +8,7 @@ import { useFavorites } from '../hooks/useFavorites'
 import { usePortalToSidebarInset } from '@/shared/hooks/usePortalToSidebarInset'
 import { useTmdbEnabled } from '@/shared/hooks/useTmdbMode'
 import { FavoriteWatchStatus } from '../types/favorites'
-import { NoResultIcon } from '@/shared/components/icons'
+import { StatePanel } from '@/shared/components/StatePanel'
 import {
   DEFAULT_FAVORITE_SORT_VALUE,
   FAVORITE_SORT_OPTIONS,
@@ -154,18 +154,17 @@ export default function FavoritesView() {
           <FavoritesSortControl value={activeSortValue} onChange={handleSortChange} />
         </div>
         {!hasContent ? (
-          <div className="flex flex-col items-center justify-center py-32">
-            <NoResultIcon size={128} className="text-muted-foreground/30" />
-            <p className="text-muted-foreground mt-4 text-sm">
-              {activeTab === 'all'
-                ? '暂无收藏内容'
-                : activeTab === FavoriteWatchStatus.NOT_WATCHED
-                  ? '暂无未观看的内容'
-                  : activeTab === FavoriteWatchStatus.WATCHING
-                    ? '暂无正在看的内容'
-                    : '暂无已看完的内容'}
-            </p>
-          </div>
+          <StatePanel
+            mode="empty"
+            title="暂无内容"
+            description={activeTab === 'all'
+              ? '暂无收藏内容'
+              : activeTab === FavoriteWatchStatus.NOT_WATCHED
+                ? '暂无未观看的内容'
+                : activeTab === FavoriteWatchStatus.WATCHING
+                  ? '暂无正在看的内容'
+                  : '暂无已看完的内容'}
+          />
         ) : (
           <FavoritesGrid
             favorites={displayFavorites}

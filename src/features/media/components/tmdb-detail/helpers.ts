@@ -60,12 +60,20 @@ const CERT_DESCRIPTIONS: Record<string, string> = {
   '19': '只准 19 岁或以上人士观看',
   '成人': '成人内容',
   '0+': '适合所有年龄观看',
+  // US TV ratings
+  'TV-Y': '适合所有儿童观看',
+  'TV-Y7': '适合 7 岁及以上儿童观看',
+  'TV-G': '适合所有年龄观看',
+  'TV-PG': '建议家长陪同观看',
+  'TV-14': '14 岁以下需家长陪同',
+  'TV-MA': '只准 17 岁或以上人士观看',
 }
 
 /** 分级是否成人：CERT_DESCRIPTIONS 描述含"或以上人士观看"，或成人/NC-17 */
 export const isAdultCert = (cert: string): boolean =>
   cert === '成人' ||
   cert === 'NC-17' ||
+  cert === 'TV-MA' ||
   (CERT_DESCRIPTIONS[cert] || '').includes('或以上人士观看')
 
 export const describeCertification = (cert: string): string => {
@@ -101,6 +109,12 @@ const CERT_COLOR_CLASS: Record<string, string> = {
   PG: 'bg-emerald-500/80 hover:bg-emerald-500',
   G: 'bg-emerald-500/80 hover:bg-emerald-500',
   '0+': 'bg-emerald-500/80 hover:bg-emerald-500',
+  'TV-Y': 'bg-emerald-500/80 hover:bg-emerald-500',
+  'TV-Y7': 'bg-emerald-500/80 hover:bg-emerald-500',
+  'TV-G': 'bg-emerald-500/80 hover:bg-emerald-500',
+  'TV-PG': 'bg-emerald-500/80 hover:bg-emerald-500',
+  'TV-14': 'bg-amber-500/80 hover:bg-amber-500',
+  'TV-MA': 'bg-red-600/80 hover:bg-red-600',
 }
 
 export const getCertColor = (cert: string): string => {
@@ -111,9 +125,10 @@ export const getCertColor = (cert: string): string => {
 export const getCertShort = (
   adult: boolean | undefined,
   releaseDates?: TmdbRichDetail['release_dates'],
+  contentRatings?: TmdbRichDetail['content_ratings'],
 ): string => {
   if (adult) return '成人'
-  const cert = pickCertification(adult, releaseDates)
+  const cert = pickCertification(adult, releaseDates, contentRatings)
   return cert || ''
 }
 
@@ -121,15 +136,17 @@ export const getCertShort = (
 export const getCertFull = (
   adult: boolean | undefined,
   releaseDates?: TmdbRichDetail['release_dates'],
+  contentRatings?: TmdbRichDetail['content_ratings'],
 ): string => {
   if (adult) return '成人 — 成人内容'
-  const cert = pickCertification(adult, releaseDates)
+  const cert = pickCertification(adult, releaseDates, contentRatings)
   return cert ? describeCertification(cert) : ''
 }
 
 const pickCertification = (
   adult: boolean | undefined,
   releaseDates?: TmdbRichDetail['release_dates'],
+  contentRatings?: TmdbRichDetail['content_ratings'],
 ): string | null => {
   if (adult) return '成人'
 
@@ -145,6 +162,20 @@ const pickCertification = (
       if (cert && cert !== 'NR') return cert
     }
   }
+
+  // TV shows use content_ratings.results[].rating instead of release_dates
+  if (contentRatings?.results) {
+    const byCountry = new Map(contentRatings.results.map(c => [c.iso_3166_1, c]))
+    for (const code of CERT_PRIORITY_COUNTRIES) {
+      const cert = byCountry.get(code)?.rating?.trim()
+      if (cert && cert !== 'NR') return cert
+    }
+    for (const entry of contentRatings.results) {
+      const cert = entry.rating?.trim()
+      if (cert && cert !== 'NR') return cert
+    }
+  }
+
   return null
 }
 

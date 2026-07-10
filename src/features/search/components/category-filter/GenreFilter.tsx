@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { ChevronRight } from 'lucide-react'
 import type { TmdbGenre, TmdbFilterOptions } from '@/shared/types/tmdb'
 import {
   Drawer,
@@ -8,8 +7,7 @@ import {
   DrawerTitle,
   DrawerTrigger,
 } from '@/shared/components/ui/drawer'
-import { FilterChip } from './MediaTypeFilter'
-import { WrapFilterRow } from './CountryFilter'
+import { FilterChip, MoreButton, WrapFilterRow } from './MediaTypeFilter'
 
 interface GenreFilterProps {
   /** 电影分类列表 */
@@ -135,27 +133,4 @@ export function GenreFilter({
   )
 }
 
-interface MoreButtonProps {
-  count: number
-  isSelected?: boolean
-}
-
-/**
- * MoreButton - 更多按钮组件
- */
-function MoreButton({ count, isSelected }: MoreButtonProps) {
-  return (
-    <button
-      type="button"
-      className={`flex shrink-0 items-center gap-1 rounded-full border px-3 py-1.5 text-sm font-medium transition-all ${
-        isSelected
-          ? 'border-primary bg-primary text-primary-foreground'
-          : 'border-border bg-background text-muted-foreground hover:border-primary/50 hover:text-primary'
-      }`}
-    >
-      <span>更多</span>
-      <span className="text-xs opacity-70">({count})</span>
-      <ChevronRight className="size-3" />
-    </button>
-  )
-}
+// ponytail: MoreButton moved to MediaTypeFilter

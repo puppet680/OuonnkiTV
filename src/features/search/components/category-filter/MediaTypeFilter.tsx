@@ -1,3 +1,5 @@
+import { type ReactNode } from 'react'
+import { ChevronRight } from 'lucide-react'
 import { cn } from '@/shared/lib/utils'
 import type { TmdbFilterOptions } from '@/shared/types/tmdb'
 import { MEDIA_TYPE_LABELS, MEDIA_TYPE_OPTIONS } from '../../constants'
@@ -63,6 +65,47 @@ export function FilterChip({ label, isSelected, onClick }: FilterChipProps) {
       )}
     >
       {label}
+    </button>
+  )
+}
+
+// ---- shared filter layout helpers ----
+
+interface WrapFilterRowProps {
+  label: string
+  children: ReactNode
+}
+
+export function WrapFilterRow({ label, children }: WrapFilterRowProps) {
+  return (
+    <div className="flex gap-3">
+      <span className="text-muted-foreground w-12 shrink-0 pt-1.5 text-sm font-medium">
+        {label}
+      </span>
+      <div className="flex flex-1 flex-wrap gap-2">{children}</div>
+    </div>
+  )
+}
+
+interface MoreButtonProps {
+  count: number
+  isSelected?: boolean
+}
+
+export function MoreButton({ count, isSelected }: MoreButtonProps) {
+  return (
+    <button
+      type="button"
+      className={cn(
+        'flex shrink-0 items-center gap-1 rounded-full border px-3 py-1.5 text-sm font-medium transition-all',
+        isSelected
+          ? 'border-primary bg-primary text-primary-foreground'
+          : 'border-border bg-background text-muted-foreground hover:border-primary/50 hover:text-primary',
+      )}
+    >
+      <span>更多</span>
+      <span className="text-xs opacity-70">({count})</span>
+      <ChevronRight className="size-3" />
     </button>
   )
 }

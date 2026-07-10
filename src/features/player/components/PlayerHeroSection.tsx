@@ -2,7 +2,9 @@ import { memo } from 'react'
 import { ArrowLeft, Sparkles, Tv, Film } from 'lucide-react'
 import { Badge } from '@/shared/components/ui/badge'
 import { Button } from '@/shared/components/ui/button'
+import { ScrollableText } from '@/shared/components/common'
 import { getBackdropUrl, getPosterUrl } from '@/shared/lib/tmdb'
+import { getCertColor } from '@/features/media/components'
 import type { TmdbMediaType } from '@/shared/types/tmdb'
 
 interface PlayerHeroSectionProps {
@@ -15,6 +17,7 @@ interface PlayerHeroSectionProps {
   tmdbMediaType: TmdbMediaType | null
   currentEpisodeText: string
   totalEpisodeText: string
+  adultLevel?: string
   onBack: () => void
 }
 
@@ -28,6 +31,7 @@ export const PlayerHeroSection = memo(function PlayerHeroSection({
   tmdbMediaType,
   currentEpisodeText,
   totalEpisodeText,
+  adultLevel,
   onBack,
 }: PlayerHeroSectionProps) {
   const mediaTypeText = tmdbMediaType === 'tv' ? '剧集' : tmdbMediaType === 'movie' ? '电影' : null
@@ -75,15 +79,20 @@ export const PlayerHeroSection = memo(function PlayerHeroSection({
                 <Sparkles className="size-3.5" />
                 {sourceName}
               </Badge>
+              {adultLevel && (
+                <Badge className={`h-5 shrink-0 rounded-full px-2 text-[10px] text-white sm:h-6 sm:px-2.5 sm:text-[11px] md:h-7 md:px-3 md:text-xs ${getCertColor(adultLevel)}`}>
+                  {adultLevel}
+                </Badge>
+              )}
             </div>
 
             <div className="space-y-1.5 sm:space-y-2 md:space-y-2.5">
               <h1 className="line-clamp-2 text-xl leading-tight font-semibold tracking-tight text-white sm:text-2xl md:text-3xl lg:text-4xl">
                 {title}
               </h1>
-              <p className="line-clamp-2 text-xs leading-5 text-white/80 sm:line-clamp-3 sm:text-sm sm:leading-6 md:line-clamp-4 md:text-[15px]">
+              <ScrollableText maxHeight="max-h-16 sm:max-h-[4.5rem] md:max-h-24" className="text-xs leading-5 text-white/80 sm:text-sm sm:leading-6 md:text-[15px]">
                 {overview || '暂无剧情简介'}
-              </p>
+              </ScrollableText>
             </div>
 
             <div className="flex flex-wrap items-center gap-1.5 text-[11px] sm:gap-2 sm:text-xs md:text-sm">
