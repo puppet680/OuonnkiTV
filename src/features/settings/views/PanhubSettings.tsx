@@ -12,7 +12,9 @@ import { toast } from 'sonner'
 const DOUBAN_PROXY_OPTIONS: Array<{ value: DoubanProxyType; label: string; thanks?: { text: string; url: string } }> = [
   { value: 'direct', label: '直连（服务器直接请求豆瓣）' },
   { value: 'cors-proxy-zwei', label: 'Cors Proxy By Zwei', thanks: { text: 'Thanks to @Zwei', url: 'https://github.com/bestzwei' } },
+  { value: 'cmliussss-cdn-tencent', label: '豆瓣 CDN By CMLiussss（腾讯云）', thanks: { text: 'Thanks to @CMLiussss', url: 'https://github.com/cmliu' } },
   { value: 'cmliussss-cdn-ali', label: '豆瓣 CDN By CMLiussss（阿里云）', thanks: { text: 'Thanks to @CMLiussss', url: 'https://github.com/cmliu' } },
+  { value: 'cmliussss-unified', label: '豆瓣 CDN By CMLiussss（统一域名）', thanks: { text: 'Thanks to @CMLiussss', url: 'https://github.com/cmliu' } },
   { value: 'custom', label: '自定义代理' },
 ]
 
