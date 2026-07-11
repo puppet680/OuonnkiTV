@@ -512,7 +512,7 @@ export class SearchService {
   private async runWithConcurrency<T>(
     tasks: Array<() => Promise<T>>,
     limit: number,
-    signal?: AbortSignal
+    _signal?: AbortSignal
   ): Promise<T[]> {
     const limitFn = pLimit(limit);
     const limitedTasks = tasks.map((task) => limitFn(task));

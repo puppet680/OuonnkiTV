@@ -1,10 +1,6 @@
 import { BaseAsyncPlugin } from "./manager";
 import type { SearchResult } from "../types/models";
 import { fetchWithRetry } from "../utils/fetch";
-import { createLogger } from "../utils/logger";
-
-const logger = createLogger("pansearch");
-
 // 轻量版：直接请求 pansearch 的 _next data 接口
 
 type Item = { id: number; content: string; pan: string; time?: string };

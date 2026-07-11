@@ -40,12 +40,8 @@ export class HunhepanPlugin extends BaseAsyncPlugin {
 
   override async search(
     keyword: string,
-    ext?: Record<string, any>
+    _ext?: Record<string, any>
   ): Promise<SearchResult[]> {
-    const timeout = Math.max(
-      3000,
-      Number((ext as any)?.__plugin_timeout_ms) || 10000
-    );
     const allItems: HunhepanItem[] = [];
     const apis = [HUNHEPAN_API, QKPANSO_API, KUAKE_API];
     const tasks = apis.map((api) => this.searchApi(api, keyword));

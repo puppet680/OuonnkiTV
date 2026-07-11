@@ -33,7 +33,7 @@ import type { VideoItem } from '@/shared/types/video'
 import { useTmdbRecommendations } from '@/shared/hooks/useTmdb'
 import { getCertShort, isAdultCert } from '@/features/media/components'
 import { toast } from 'sonner'
-import throttle from 'lodash/throttle'
+import { throttle } from 'lodash-es'
 import {
   CmsEpisodePanel,
   PlayerEpisodePanel,

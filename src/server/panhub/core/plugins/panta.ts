@@ -3,10 +3,6 @@ import type { SearchResult } from "../types/models";
 import { load } from "cheerio";
 import { fetchWithRetry } from "../utils/fetch";
 import pLimit from "p-limit";
-import { createLogger } from "../utils/logger";
-
-const logger = createLogger("panta");
-
 const SEARCH_URL = (kw: string) =>
   `https://www.91panta.cn/search?keyword=${encodeURIComponent(kw)}`;
 

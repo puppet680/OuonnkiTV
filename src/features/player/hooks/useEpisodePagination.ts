@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import throttle from 'lodash/throttle'
+import { throttle } from 'lodash-es'
 
 const parseRangeValue = (value: string) => {
   const [startText, endText] = value.split('-')

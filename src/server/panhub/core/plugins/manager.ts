@@ -1,4 +1,4 @@
-import type { SearchRequest, SearchResult } from "../types/models";
+import type { SearchResult } from "../types/models";
 
 export interface AsyncSearchPlugin {
   name(): string;

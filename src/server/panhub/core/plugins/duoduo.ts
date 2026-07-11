@@ -3,10 +3,6 @@ import type { SearchResult } from "../types/models";
 import { load } from "cheerio";
 import { fetchWithRetry } from "../utils/fetch";
 import pLimit from "p-limit";
-import { createLogger } from "../utils/logger";
-
-const logger = createLogger("duoduo");
-
 const BASE = "https://tv.yydsys.top";
 const SEARCH = (kw: string) =>
   `${BASE}/index.php/vod/search/wd/${encodeURIComponent(kw)}.html`;

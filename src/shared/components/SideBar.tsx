@@ -15,7 +15,7 @@ import {
 } from '@/shared/components/ui/sidebar'
 import { NavLink } from 'react-router'
 import { motion, useReducedMotion } from "motion/react"
-import { Home, Search, Star, History, Settings, Tv } from 'lucide-react'
+import { Home, Star, History, Settings, Tv } from 'lucide-react'
 import { OkiLogo } from '@/shared/components/icons'
 import { useVersionStore } from '../store'
 import { useTmdbEnabled } from '@/shared/hooks/useTmdbMode'

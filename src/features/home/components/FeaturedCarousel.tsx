@@ -3,7 +3,7 @@ import { Play, Info } from 'lucide-react'
 import Autoplay from 'embla-carousel-autoplay'
 import { NavLink } from 'react-router'
 
-import { getBackdropUrl, getLogoUrl, getPosterUrl } from '@/shared/lib/tmdb'
+import { getBackdropUrl, getLogoUrl } from '@/shared/lib/tmdb'
 import { buildTmdbDetailPath, buildTmdbPlayPath } from '@/shared/lib/routes'
 import { buildHistoryPlayPath, isTmdbHistoryItem } from '@/shared/lib/viewingHistory'
 import { Button } from '@/shared/components/ui/button'

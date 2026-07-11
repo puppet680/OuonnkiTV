@@ -67,10 +67,21 @@ function serverApiPlugin(): Plugin {
 
         try {
           await new Promise<void>((resolve, reject) => {
-            listener(req, res, (err?: unknown) => {
-              if (err) reject(err)
-              else resolve()
-            })
+            const onFinish = () => {
+              cleanup()
+              resolve()
+            }
+            const onError = (err: Error) => {
+              cleanup()
+              reject(err)
+            }
+            const cleanup = () => {
+              res.removeListener('finish', onFinish)
+              res.removeListener('error', onError)
+            }
+            res.on('finish', onFinish)
+            res.on('error', onError)
+            listener(req, res)
           })
         } catch {
           if (!res.headersSent) {

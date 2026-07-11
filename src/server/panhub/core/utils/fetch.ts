@@ -60,9 +60,9 @@ export async function fetchWithRetry<T = any>(
     baseDelay = 1000,
     exponentialBackoff = true,
     timeout = 8000,
-    logWarnings = true,
     signal,
   } = retryOptions;
+  void retryOptions.logWarnings;
 
   const fetcher: $Fetch = ofetch.create({
     timeout,

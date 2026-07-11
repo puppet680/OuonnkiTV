@@ -1,4 +1,5 @@
-import { load } from "cheerio";
+import { load, type CheerioAPI } from "cheerio";
+import type { AnyNode } from "domhandler";
 import { ofetch } from "ofetch";
 import type { SearchResult } from "../types/models";
 import { matchesSearchKeyword } from "../utils/searchKeyword";
@@ -82,7 +83,7 @@ export async function fetchTgChannelPosts(
 }
 
 export function parseChannelPage(
-  $: cheerio.CheerioAPI,
+  $: CheerioAPI,
   channel: string,
   keyword: string,
   limit: number,
@@ -121,7 +122,7 @@ export function parseChannelPage(
     return "";
   };
 
-  $(".tgme_widget_message_wrap").each((i, el) => {
+  $(".tgme_widget_message_wrap").each((i: number, el: AnyNode) => {
     if (results.length >= limit) return false;
     const root = $(el);
     const text = root.find(".tgme_widget_message_text").text().trim();
@@ -188,7 +189,7 @@ export function parseChannelPage(
     const urlsFromText = text.match(urlPattern) || [];
     for (const u of urlsFromText) addUrl(u);
 
-    root.find(".tgme_widget_message_text a[href]").each((_, a) => {
+    root.find(".tgme_widget_message_text a[href]").each((_: number, a: AnyNode) => {
       const href = $(a).attr("href");
       if (href) addUrl(href);
     });
