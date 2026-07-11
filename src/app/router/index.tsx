@@ -31,6 +31,7 @@ const PersonalConfigSettings = lazy(
 )
 const AboutSettings = lazy(() => import('@/features/settings/views/AboutSettings'))
 const PanhubSettings = lazy(() => import('@/features/settings/views/PanhubSettings'))
+const AdFilterSettings = lazy(() => import('@/features/settings/views/AdFilterSettings'))
 
 // Player views
 const UnifiedPlayer = lazy(() => import('@/features/player/components/UnifiedPlayer'))
@@ -209,6 +210,14 @@ const router = createBrowserRouter([
             element: (
               <SuspenseWrapper>
                 <PanhubSettings />
+              </SuspenseWrapper>
+            ),
+          },
+          {
+            path: 'adfilter',
+            element: (
+              <SuspenseWrapper>
+                <AdFilterSettings />
               </SuspenseWrapper>
             ),
           },

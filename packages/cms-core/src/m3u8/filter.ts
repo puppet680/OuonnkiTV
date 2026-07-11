@@ -19,6 +19,7 @@ const AD_SEGMENT_KEYWORDS = [
 
 /**
  * 创建默认广告过滤器
+ * - SCTE-35 标准广告标记检测（#EXT-X-CUE-OUT / #EXT-X-CUE-IN）
  * - 移除 #EXT-X-DISCONTINUITY 标记（广告段边界）
  * - 移除 URL 路径包含广告关键词的 EXTINF 段
  */
@@ -28,24 +29,39 @@ export function createDefaultAdFilter(): M3u8Filter {
 
     const lines = content.split('\n')
     const result: string[] = []
+    let inAdBlock = false
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i]
 
-      // 跳过 #EXT-X-DISCONTINUITY
-      if (line.includes('#EXT-X-DISCONTINUITY')) {
+      // SCTE-35 广告开始标记
+      if (
+        line.includes('#EXT-X-CUE-OUT') ||
+        line.includes('#EXT-X-SCTE35') ||
+        line.includes('#EXT-OATCLS-SCTE35') ||
+        (line.includes('#EXT-X-DATERANGE') && line.includes('SCTE35'))
+      ) {
+        inAdBlock = true
         continue
       }
+
+      // SCTE-35 广告结束标记
+      if (line.includes('#EXT-X-CUE-IN')) {
+        inAdBlock = false
+        continue
+      }
+
+      // 跳过广告区块内容
+      if (inAdBlock) continue
+
+      // 跳过 #EXT-X-DISCONTINUITY
+      if (line.includes('#EXT-X-DISCONTINUITY')) continue
 
       // EXTINF 行：检查下一行 URL 是否包含广告关键词
       if (line.includes('#EXTINF:') && i + 1 < lines.length) {
         const nextLine = lines[i + 1]
-        const isAd = AD_SEGMENT_KEYWORDS.some((kw) =>
-          nextLine.toLowerCase().includes(kw.toLowerCase()),
-        )
-        if (isAd) {
-          // console.warn(`❌ 广告段已过滤: ${nextLine.trim()}`)
-          i += 1 // 跳过 EXTINF 和 URL 两行（循环自增再跳一行）
+        if (AD_SEGMENT_KEYWORDS.some(kw => nextLine.toLowerCase().includes(kw.toLowerCase()))) {
+          i += 1
           continue
         }
       }
@@ -58,62 +74,10 @@ export function createDefaultAdFilter(): M3u8Filter {
 }
 
 /**
- * 功能加：创建基于密钥路径一致性的过滤器（过滤掉与解密密钥目录不一致的广告段）
- * - 自动扫描 #EXT-X-KEY 的 URI 属性作为绝对正片白名单
- * - 如果文件未加密或找不到密钥，则不启用过滤逻辑直接返回
+ * 空操作过滤器 — 管线占位，透传不做任何处理
  */
-export function createKeyPathFilter(): M3u8Filter {
-  return (content: string): string => {
-    if (!content) return ''
-
-    const lines = content.split('\n')
-    const result: string[] = []
-    let keyBasePrefix: string | null = null
-
-    // 预扫描：精准定位正片的密钥目录路径
-    for (const line of lines) {
-      if (line.includes('#EXT-X-KEY') && line.includes('URI=')) {
-        const match = line.match(/URI=["']([^"']+)["']/)
-        if (match && match[1]) {
-          const keyPath = match[1].trim()
-          const lastSlashIndex = keyPath.lastIndexOf('/')
-          if (lastSlashIndex !== -1) {
-            keyBasePrefix = keyPath.substring(0, lastSlashIndex + 1)
-            // console.log(`🔑 成功锁定正片密钥白名单路径: ${keyBasePrefix}`)
-            break
-          }
-        }
-      }
-    }
-
-    // 如果 M3U8 文件本身完全没有加密（没有解密密钥标签），则跳过路径对齐直接返回原内容
-    if (!keyBasePrefix) {
-      return content
-    }
-
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i]
-
-      // 如果是分片信息行
-      if (line.includes('#EXTINF:') && i + 1 < lines.length) {
-        const nextLine = lines[i + 1].trim()
-
-        // 排除空行或其它干扰标签
-        if (nextLine && !nextLine.startsWith('#')) {
-          // 检查当前分片 URL 是否属于密钥所在的合法目录
-          if (!nextLine.startsWith(keyBasePrefix)) {
-            // console.warn(`❌ [密钥路径不符] 成功拦截无解密需求的广告段: ${nextLine}`)
-            i += 1 // 跳过当前的 EXTINF 和下一行的 URL
-            continue
-          }
-        }
-      }
-
-      result.push(line)
-    }
-
-    return result.join('\n')
-  }
+export function createNoopFilter(): M3u8Filter {
+  return (content: string): string => content
 }
 
 /**
@@ -123,5 +87,34 @@ export function createKeyPathFilter(): M3u8Filter {
 export function composeFilters(...filters: M3u8Filter[]): M3u8Filter {
   return (content: string): string => {
     return filters.reduce((acc, filter) => filter(acc), content)
+  }
+}
+
+/**
+ * 创建用户自定义脚本过滤器
+ * 脚本格式：function filterAdsFromM3U8(type, m3u8Content) { ... return filteredContent; }
+ *
+ * @param code - 用户编写的 JS 代码字符串
+ * @param sourceKey - 当前播放源标识（可选，传给脚本的 type 参数）
+ */
+export function createCustomScriptFilter(code: string, sourceKey?: string): M3u8Filter | null {
+  if (!code || !code.trim()) return null
+
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-implied-eval
+    const fn = new Function(`"use strict"; ${code}; return typeof filterAdsFromM3U8 === 'function' ? filterAdsFromM3U8 : null;`)()
+    if (typeof fn !== 'function') return null
+
+    const key = sourceKey || ''
+    return (content: string): string => {
+      try {
+        const result = fn(key, content)
+        return typeof result === 'string' ? result : content
+      } catch {
+        return content // 脚本执行失败，降级为原内容
+      }
+    }
+  } catch {
+    return null // 脚本编译失败
   }
 }

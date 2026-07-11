@@ -1,7 +1,8 @@
 export {
   createDefaultAdFilter,
-  createKeyPathFilter,
+  createNoopFilter,
   composeFilters,
+  createCustomScriptFilter,
   type M3u8Filter,
 } from './filter'
 

@@ -2,7 +2,7 @@ import { useLocation, useNavigate } from 'react-router'
 import { cn } from '@/shared/lib'
 import { Badge } from '@/shared/components/ui/badge'
 import { Button } from '@/shared/components/ui/button'
-import { ArrowLeft, Compass, FolderCog, ListVideo, Play, Search, Settings2, type LucideIcon } from 'lucide-react'
+import { ArrowLeft, Code2, Compass, FolderCog, ListVideo, Play, Search, Settings2, type LucideIcon } from 'lucide-react'
 import { AnimatePresence, motion, useReducedMotion } from "motion/react"
 import { CustomAnimatedOutlet } from '@/shared/components/AnimatedOutlet'
 import { animationPresets } from '@/shared/lib/animationVariants'
@@ -70,6 +70,18 @@ const settingsModules: SettingsModule[] = [
     dotClass: 'bg-teal-500',
     iconClass: 'text-teal-700 dark:text-teal-300',
     badgeClass: 'border-teal-500/28 text-teal-700 dark:text-teal-300',
+  },
+  {
+    id: 'adfilter',
+    name: '自定义去广告',
+    shortName: '去广告',
+    icon: Code2,
+    path: '/settings/adfilter',
+    description: '编写 JavaScript 过滤器精准拦截广告片段，支持根据不同播放源定制过滤规则。',
+    badges: ['JS 脚本', '沙箱执行', '自动降级'],
+    dotClass: 'bg-emerald-500',
+    iconClass: 'text-emerald-700 dark:text-emerald-300',
+    badgeClass: 'border-emerald-500/28 text-emerald-700 dark:text-emerald-300',
   },
   {
     id: 'profile',

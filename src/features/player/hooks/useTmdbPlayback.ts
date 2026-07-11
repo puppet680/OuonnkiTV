@@ -10,6 +10,7 @@ import {
   type TmdbRichDetail,
   usePlaylistMatches,
 } from '@/features/media/components'
+import { extractQualityTags } from '../lib/resolution-labels'
 
 interface TmdbPlaybackParams {
   enabled: boolean
@@ -37,7 +38,6 @@ export interface PlayerSeasonOption {
 }
 
 const LANG_PATTERN = /国语|日语|粤语|普通话|英语|台配|中配|日配|英配|国配|原声|配音|韩语|泰语|越南语|俄语|德语|法语|西语|葡语|意语/g
-const QUALITY_PATTERN = /4K|2160[Pp]|1080[Pp]|720[Pp]|蓝光|超清|高清|HDR|杜比|Dolby|BD(?!\w)|TC|TS|CAM|DVD|HDTV|WEB-DL|HD|SCR|枪版/g
 
 const extractLangLabel = (item: { vod_name?: string; type_name?: string }): string => {
   const text = `${item.vod_name || ''} ${item.type_name || ''}`
@@ -46,11 +46,7 @@ const extractLangLabel = (item: { vod_name?: string; type_name?: string }): stri
 }
 
 const extractQualityLabel = (item: { vod_name?: string; type_name?: string; vod_remarks?: string }): string => {
-  const text = `${item.vod_name || ''} ${item.type_name || ''} ${item.vod_remarks || ''}`
-  const matches = text.match(QUALITY_PATTERN)
-  if (!matches) return ''
-  const normalized = matches.map(m => m.toUpperCase().replace(/^BD$/i, '蓝光'))
-  return [...new Set(normalized)].slice(0, 2).join(' ')
+  return extractQualityTags(item.vod_name, item.type_name, item.vod_remarks)
 }
 
 const toSourceOptions = (matches: SourceBestMatch[]): PlayerSourceOption[] => {

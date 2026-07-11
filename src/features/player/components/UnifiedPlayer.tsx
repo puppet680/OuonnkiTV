@@ -6,13 +6,15 @@ import type Hls from 'hls.js'
 import type { HlsConfig } from 'hls.js'
 import { ChevronDown, Camera, PictureInPicture2, Maximize, ExternalLink, Globe, Heart, HeartOff } from 'lucide-react'
 import { type DetailResult, type VideoItem as CmsVideoItem } from '@ouonnki/cms-core'
-import { createM3u8Processor, createKeyPathFilter, createHlsLoaderClass } from '@ouonnki/cms-core/m3u8'
+import { createM3u8Processor, createNoopFilter, createCustomScriptFilter, createHlsLoaderClass } from '@ouonnki/cms-core/m3u8'
+import { getCustomAdFilterCode } from '@/features/player/lib/custom-ad-filter'
 import { Button } from '@/shared/components/ui/button'
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/shared/components/ui/collapsible'
+
 import { ScrollArea } from '@/shared/components/ui/scroll-area'
 import { Spinner } from '@/shared/components/ui/spinner'
 import { useApiStore } from '@/shared/store/apiStore'
@@ -43,7 +45,7 @@ import {
   PlayerLoadingSkeleton,
   PlayerOverlayNotices,
 } from '@/features/player/components'
-import { useEpisodePagination, useMobilePlayerGestures, useTmdbPlayback } from '@/features/player/hooks'
+import { useEpisodePagination, useMobilePlayerGestures, useTmdbPlayback, useVideoResolution, useResolutionBadge } from '@/features/player/hooks'
 import {
   buildTmdbSelectionScopeKey,
   computeMiniPlayerRect,
@@ -76,7 +78,7 @@ interface PlayerTransientNotice {
 
 const m3u8Processor = createM3u8Processor({
   filterAds: true,
-  customFilters: [createKeyPathFilter()],
+  customFilters: [createNoopFilter()],
 })
 type HlsConstructor = typeof import('hls.js')['default']
 const BETTER_SOURCE_NOTICE_DURATION = 8000
@@ -237,6 +239,8 @@ export default function UnifiedPlayer() {
   const [gestureVolumeLevel, setGestureVolumeLevel] = useState<number | null>(null)
   const [gestureSeekPreviewTime, setGestureSeekPreviewTime] = useState<number | null>(null)
   const [activeArt, setActiveArt] = useState<Artplayer | null>(null)
+  const videoResolution = useVideoResolution(activeArt)
+  const { badgeVisible: showResolutionBadge, flashBadge: flashResolutionBadge } = useResolutionBadge(videoResolution)
   const [cmsMatchedSources, setCmsMatchedSources] = useState<Array<{ sourceCode: string; sourceName: string; vodId: string }>>([])
   const selectedEpisode = parseEpisodeIndex(episodeIndexParam)
   const noticeTimersRef = useRef<Map<string, number>>(new Map())
@@ -341,6 +345,24 @@ const stallTimerRef = useRef<number | null>(null)
     currentScopeKey: currentTmdbSelectionScopeKey,
     lock: tmdbSelectionLockRef.current,
   })
+
+  // 自定义去广告脚本：从 localStorage 加载，编译后注入 m3u8 管线
+  const customFilterRef = useRef<ReturnType<typeof createCustomScriptFilter>>(null)
+  useEffect(() => {
+    const code = getCustomAdFilterCode()
+    if (customFilterRef.current) {
+      m3u8Processor.removeFilter(customFilterRef.current)
+      customFilterRef.current = null
+    }
+    if (code.trim()) {
+      const filter = createCustomScriptFilter(code, resolvedSourceCode)
+      if (filter) {
+        m3u8Processor.addFilter(filter)
+        customFilterRef.current = filter
+      }
+    }
+  }, [resolvedSourceCode])
+
   const canUseTmdbHistory = Boolean(
     isTmdbRoute && tmdbMediaType && Number.isInteger(parsedTmdbId) && parsedTmdbId > 0,
   )
@@ -1986,12 +2008,24 @@ const stallTimerRef = useRef<number | null>(null)
             </div>
           )}
 
-          <section className="relative overflow-hidden rounded-lg border border-border/60 bg-black/95 shadow-lg">
+          <section
+            className="relative overflow-hidden rounded-lg border border-border/60 bg-black/95 shadow-lg"
+            onMouseMove={() => flashResolutionBadge()}
+          >
             <div
               id="player"
               ref={containerRef}
               className="aspect-video min-h-[180px] w-full bg-black sm:h-[clamp(240px,56vw,74vh)] sm:min-h-[220px] sm:aspect-auto [&_.art-video-player]:!h-full [&_.art-video-player]:!w-full [&_.artplayer-app]:!h-full [&_.artplayer-app]:!w-full [&_video]:!h-full [&_video]:!w-full"
             />
+            {/* 实际分辨率标签 — 右上角，5 秒自动隐藏，鼠标移动重现 */}
+            {videoResolution && (
+              <div className={`pointer-events-none absolute top-3 right-3 z-20 transition-opacity duration-300 ${showResolutionBadge ? 'opacity-80' : 'opacity-0'}`}>
+                <span className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-bold text-white ${videoResolution.color}`}>
+                  {videoResolution.label}
+                  <span className="font-normal opacity-80">{videoResolution.width}x{videoResolution.height}</span>
+                </span>
+              </div>
+            )}
             {seekPreviewOverlay &&
               (playerOverlayContainer
                 ? createPortal(seekPreviewOverlay, playerOverlayContainer)
@@ -2073,7 +2107,7 @@ const stallTimerRef = useRef<number | null>(null)
                             key={option.sourceCode}
                             size="sm"
                             variant={active ? 'default' : 'secondary'}
-                            className="min-w-0 max-w-full justify-start gap-1.5 rounded-full sm:w-auto sm:max-w-[260px]"
+                            className="min-w-0 max-w-full justify-start gap-1.5 rounded-full sm:w-auto sm:max-w-[260px] relative overflow-hidden"
                             aria-current={active ? 'true' : undefined}
                             aria-label={`切换到视频源 ${option.sourceName}`}
                             onClick={() => handleSourceChange(option.sourceCode)}
@@ -2084,7 +2118,11 @@ const stallTimerRef = useRef<number | null>(null)
                               <span className="shrink-0 rounded bg-foreground/10 px-1.5 py-0.5 text-[10px] leading-none">{option.bestQuality}</span>
                             )}
                             {hasMultiLang && (
-                              <span className="shrink-0 rounded bg-blue-500/10 px-1.5 py-0.5 text-[10px] leading-none text-blue-600 dark:text-blue-400">多语言</span>
+                              <span
+                                className="pointer-events-none absolute inset-0 opacity-30"
+                                style={{ backgroundImage: 'linear-gradient(45deg, transparent 80%, currentColor 80%, currentColor 90%, transparent 90%)' }}
+                                title="多语言"
+                              />
                             )}
                           </Button>
                         )
