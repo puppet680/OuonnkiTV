@@ -1,31 +1,6 @@
 import { defineEventHandler, getQuery, createError, sendError } from 'h3'
-import type { DoubanComment } from '@/shared/types/douban'
+import { DOUBAN_UA, resolveDoubanUrl, parseComments } from '../../shared/lib/douban'
 import { fetchDoubanWithVerification } from './anti-crawler'
-
-const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36'
-
-// ── proxy ──
-
-const PROXY_MAP: Record<string, string> = {
-  'cmliussss-cdn-tencent': 'https://m.douban.cmliussss.net',
-  'cmliussss-cdn-ali': 'https://m.douban.cmliussss.com',
-  'cmliussss-unified': 'https://img.doubanio.cmliussss.net',
-}
-
-function resolveDoubanUrl(original: string, proxyType: string, proxyUrl: string): string {
-  // cors-proxy-zwei and custom use proxy URL prefix
-  if (proxyType === 'cors-proxy-zwei') {
-    return `https://ciao-cors.is-an.org/${encodeURIComponent(original)}`
-  }
-  if (proxyType === 'custom' && proxyUrl) {
-    return `${proxyUrl}${encodeURIComponent(original)}`
-  }
-  const base = PROXY_MAP[proxyType]
-  if (base) {
-    return original.replace('https://movie.douban.com', base).replace('https://www.douban.com', base)
-  }
-  return original // direct
-}
 
 // ── helpers ──
 
@@ -35,7 +10,7 @@ async function fetchHtml(url: string, timeout = 12000): Promise<string> {
   try {
     const resp = await fetch(url, {
       signal: controller.signal,
-      headers: { 'User-Agent': UA, 'Accept': 'text/html' },
+      headers: { 'User-Agent': DOUBAN_UA, 'Accept': 'text/html' },
       redirect: 'follow',
     })
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
@@ -43,39 +18,6 @@ async function fetchHtml(url: string, timeout = 12000): Promise<string> {
   } finally {
     clearTimeout(id)
   }
-}
-
-function parseDoubanComments(html: string): DoubanComment[] {
-  const comments: DoubanComment[] = []
-  const itemRegex = /<div class="comment-item"[^>]*>([\s\S]*?)(?=<div class="comment-item"|<div id="paginator"|$)/g
-  let match
-  while ((match = itemRegex.exec(html)) !== null) {
-    try {
-      const item = match[0]
-      const userMatch = item.match(/<span class="comment-info">[\s\S]*?<a href="https:\/\/www\.douban\.com\/people\/([^/]+)\/">([^<]+)<\/a>/)
-      const username = userMatch ? userMatch[2].trim() : ''
-      const userId = userMatch ? userMatch[1] : ''
-      const avatarMatch = item.match(/<div class="avatar">[\s\S]*?<img src="([^"]+)"/)
-      const avatar = avatarMatch ? avatarMatch[1].replace(/^http:/, 'https:') : ''
-      const ratingMatch = item.match(/<span class="allstar(\d)0 rating"/)
-      const rating = ratingMatch ? parseInt(ratingMatch[1], 10) : 0
-      const timeMatch = item.match(/<span class="comment-time"[^>]*title="([^"]+)"/)
-      const time = timeMatch ? timeMatch[1] : ''
-      const locationMatch = item.match(/<span class="comment-location">([^<]+)<\/span>/)
-      const location = locationMatch ? locationMatch[1].trim() : ''
-      const contentMatch = item.match(/<span class="short">([\s\S]*?)<\/span>/)
-      let content = ''
-      if (contentMatch) {
-        content = contentMatch[1].replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]+>/g, '').trim()
-      }
-      const usefulMatch = item.match(/<span class="votes vote-count">(\d+)<\/span>/)
-      const usefulCount = usefulMatch ? parseInt(usefulMatch[1], 10) : 0
-      if (username && content) {
-        comments.push({ username, user_id: userId, avatar, rating, time, location, content, useful_count: usefulCount })
-      }
-    } catch { /* skip */ }
-  }
-  return comments
 }
 
 // ── search handler ──
@@ -141,7 +83,7 @@ export const doubanCommentsHandler = defineEventHandler(async (event) => {
     // proxy/cookie mode: simple fetch. direct mode: use anti-crawler.
     let html: string
     if (proxyType !== 'direct' || cookie) {
-      const resp = await fetch(url, { headers: { 'User-Agent': UA, ...(cookie ? { Cookie: cookie } : {}) }, redirect: 'follow' })
+      const resp = await fetch(url, { headers: { 'User-Agent': DOUBAN_UA, ...(cookie ? { Cookie: cookie } : {}) }, redirect: 'follow' })
       if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
       html = await resp.text()
     } else {
@@ -157,7 +99,7 @@ export const doubanCommentsHandler = defineEventHandler(async (event) => {
       }
     }
 
-    const comments = parseDoubanComments(html)
+    const comments = parseComments(html)
     return { code: 0, message: 'success', data: { comments, start, limit, count: comments.length } }
   } catch (err) {
     return {

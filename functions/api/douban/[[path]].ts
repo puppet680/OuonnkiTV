@@ -1,12 +1,7 @@
 // Cloudflare Pages Function: /api/douban/*
 // Douban search + comments with anti-crawler (Web Crypto API)
 
-const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36'
-
-const CORS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET,OPTIONS',
-}
+import { DOUBAN_UA, CORS, resolveDoubanUrl, parseComments, parseChallengePage } from '@/shared/lib/douban'
 
 // ── SHA-512 via Web Crypto ──
 async function sha512(data: string): Promise<string> {
@@ -28,28 +23,20 @@ async function proofOfWork(data: string, difficulty = 4): Promise<number> {
 interface CookieCache { cookie: string; expiresAt: number }
 let cookieCache: CookieCache | null = null
 
-function parseChallengePage(html: string) {
-  const tok = (html.match(/id="tok"[^>]*value="([^"]*)"/) || [])[1] || ''
-  const cha = (html.match(/id="cha"[^>]*value="([^"]*)"/) || [])[1] || ''
-  const red = (html.match(/id="red"[^>]*value="([^"]*)"/) || [])[1] || ''
-  if (!tok || !cha || !red) return null
-  return { tok, cha, red }
-}
-
 async function fetchDoubanWithVerification(url: string): Promise<string> {
   // try cached cookie
   if (cookieCache && Date.now() < cookieCache.expiresAt - 20000) {
-    const resp = await fetch(url, { headers: { 'User-Agent': UA, Cookie: cookieCache.cookie } })
+    const resp = await fetch(url, { headers: { 'User-Agent': DOUBAN_UA, Cookie: cookieCache.cookie } })
     if (resp.ok) return await resp.text()
     cookieCache = null
   }
 
-  let resp = await fetch(url, { headers: { 'User-Agent': UA }, redirect: 'manual' })
+  let resp = await fetch(url, { headers: { 'User-Agent': DOUBAN_UA }, redirect: 'manual' })
 
   if (resp.status === 302) {
     const location = resp.headers.get('location')
     if (location?.includes('sec.douban.com')) {
-      const verifyResp = await fetch(location, { headers: { 'User-Agent': UA } })
+      const verifyResp = await fetch(location, { headers: { 'User-Agent': DOUBAN_UA } })
       const verifyHtml = await verifyResp.text()
       const form = parseChallengePage(verifyHtml)
       if (form) {
@@ -57,7 +44,7 @@ async function fetchDoubanWithVerification(url: string): Promise<string> {
         const body = new URLSearchParams({ tok: form.tok, cha: form.cha, sol: String(sol), red: form.red })
         const submitResp = await fetch('https://sec.douban.com/c', {
           method: 'POST',
-          headers: { 'User-Agent': UA, 'Content-Type': 'application/x-www-form-urlencoded' },
+          headers: { 'User-Agent': DOUBAN_UA, 'Content-Type': 'application/x-www-form-urlencoded' },
           body: body.toString(),
           redirect: 'manual',
         })
@@ -69,47 +56,13 @@ async function fetchDoubanWithVerification(url: string): Promise<string> {
             expiresAt: Date.now() + 300000,
           }
         }
-        resp = await fetch(url, { headers: { 'User-Agent': UA, Cookie: cookieCache?.cookie || '' } })
+        resp = await fetch(url, { headers: { 'User-Agent': DOUBAN_UA, Cookie: cookieCache?.cookie || '' } })
       }
     }
   }
 
   if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
   return await resp.text()
-}
-
-// ── parsers ──
-function parseComments(html: string) {
-  const comments: Array<Record<string, unknown>> = []
-  const itemRegex = /<div class="comment-item"[^>]*>([\s\S]*?)(?=<div class="comment-item"|<div id="paginator"|$)/g
-  let match
-  while ((match = itemRegex.exec(html)) !== null) {
-    try {
-      const item = match[0]
-      const userMatch = item.match(/<span class="comment-info">[\s\S]*?<a href="https:\/\/www\.douban\.com\/people\/([^/]+)\/">([^<]+)<\/a>/)
-      const username = userMatch ? userMatch[2].trim() : ''
-      const userId = userMatch ? userMatch[1] : ''
-      const avatarMatch = item.match(/<div class="avatar">[\s\S]*?<img src="([^"]+)"/)
-      const avatar = avatarMatch ? avatarMatch[1].replace(/^http:/, 'https:') : ''
-      const ratingMatch = item.match(/<span class="allstar(\d)0 rating"/)
-      const rating = ratingMatch ? parseInt(ratingMatch[1], 10) : 0
-      const timeMatch = item.match(/<span class="comment-time"[^>]*title="([^"]+)"/)
-      const time = timeMatch ? timeMatch[1] : ''
-      const locationMatch = item.match(/<span class="comment-location">([^<]+)<\/span>/)
-      const location = locationMatch ? locationMatch[1].trim() : ''
-      const contentMatch = item.match(/<span class="short">([\s\S]*?)<\/span>/)
-      let content = ''
-      if (contentMatch) {
-        content = contentMatch[1].replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]+>/g, '').trim()
-      }
-      const usefulMatch = item.match(/<span class="votes vote-count">(\d+)<\/span>/)
-      const usefulCount = usefulMatch ? parseInt(usefulMatch[1], 10) : 0
-      if (username && content) {
-        comments.push({ username, user_id: userId, avatar, rating, time, location, content, useful_count: usefulCount })
-      }
-    } catch { /* skip */ }
-  }
-  return comments
 }
 
 // ── handler ──
@@ -126,8 +79,13 @@ export const onRequest = async (context: { request: Request; env: unknown }) => 
       const q = url.searchParams.get('q') || ''
       if (!q) return new Response(JSON.stringify({ code: -1, message: 'q required' }), { status: 400, headers: { ...CORS, 'Content-Type': 'application/json' } })
 
+      const proxyType = url.searchParams.get('proxy_type') || 'direct'
+      const proxyUrl = url.searchParams.get('proxy_url') || ''
       const doubanUrl = `https://www.douban.com/search?cat=1002&q=${encodeURIComponent(q)}`
-      const html = await fetchDoubanWithVerification(doubanUrl)
+      const targetUrl = resolveDoubanUrl(doubanUrl, proxyType, proxyUrl)
+      const html = proxyType !== 'direct'
+        ? await (await fetch(targetUrl, { headers: { 'User-Agent': DOUBAN_UA } })).text()
+        : await fetchDoubanWithVerification(doubanUrl)
       const subjects: Array<Record<string, string>> = []
       const seen = new Set<string>()
       const sidRegex = /sid:\s*(\d+)/g
@@ -151,8 +109,23 @@ export const onRequest = async (context: { request: Request; env: unknown }) => 
       const sort = url.searchParams.get('sort') || 'new_score'
       if (!id) return new Response(JSON.stringify({ code: -1, message: 'id required' }), { status: 400, headers: { ...CORS, 'Content-Type': 'application/json' } })
 
+      const cookie = url.searchParams.get('cookie') || ''
+      const proxyType = url.searchParams.get('proxy_type') || 'direct'
+      const proxyUrl = url.searchParams.get('proxy_url') || ''
       const doubanUrl = `https://movie.douban.com/subject/${id}/comments?start=${start}&limit=${limit}&status=P&sort=${sort}`
-      const html = await fetchDoubanWithVerification(doubanUrl)
+      const targetUrl = resolveDoubanUrl(doubanUrl, proxyType, proxyUrl)
+
+      let html: string
+      if (proxyType !== 'direct' || cookie) {
+        const resp = await fetch(targetUrl, {
+          headers: { 'User-Agent': DOUBAN_UA, ...(cookie ? { Cookie: cookie } : {}) },
+          redirect: 'follow',
+        })
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
+        html = await resp.text()
+      } else {
+        html = await fetchDoubanWithVerification(doubanUrl)
+      }
 
       if (html.includes('process(cha)') || html.includes('载入中') || html.length < 500) {
         return new Response(JSON.stringify({ code: -1, message: '豆瓣反爬虫验证触发' }), {
