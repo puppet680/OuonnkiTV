@@ -3,6 +3,7 @@ import { Star, ExternalLink, AlertCircle, Loader2, Search, User } from 'lucide-r
 import type { DoubanComment, DoubanSearchResult, DoubanCommentsResult } from '@/shared/types/douban'
 import { ScrollArea } from '@/shared/components/ui/scroll-area'
 import { cn } from '@/shared/lib/utils'
+import { usePanhubStore } from '@/shared/store/panhubStore'
 
 // ponytail: localStorage cache, 1h TTL
 const CACHE_PREFIX = 'douban_cache:'
@@ -43,8 +44,7 @@ export default function PlayerCommentsTab({ title, year }: PlayerCommentsTabProp
 
     setStatus('loading')
     try {
-      // pony: read from store.getState() to avoid re-fetch on store init
-      const { doubanCookie, doubanProxyType, doubanProxyUrl } = await import('@/shared/store/panhubStore').then(m => m.usePanhubStore.getState())
+      const { doubanCookie, doubanProxyType, doubanProxyUrl } = usePanhubStore.getState()
       const params = new URLSearchParams({ id, limit: '10', sort: 'new_score', proxy_type: doubanProxyType })
       if (doubanCookie) params.set('cookie', doubanCookie)
       if ((doubanProxyType === 'custom' || doubanProxyType === 'cors-proxy-zwei') && doubanProxyUrl) params.set('proxy_url', doubanProxyUrl)
