@@ -4,7 +4,7 @@ import { createPortal } from 'react-dom'
 import Artplayer from 'artplayer'
 import type Hls from 'hls.js'
 import type { HlsConfig } from 'hls.js'
-import { ChevronDown, Camera, PictureInPicture2, Maximize, ExternalLink, Globe, Heart, HeartOff } from 'lucide-react'
+import { ChevronDown, Camera, PictureInPicture2, Maximize, ExternalLink, Globe, Heart, HeartOff, RefreshCw, Ban } from 'lucide-react'
 import { type DetailResult, type VideoItem as CmsVideoItem } from '@ouonnki/cms-core'
 import { createM3u8Processor, createNoopFilter, createCustomScriptFilter, createHlsLoaderClass } from '@ouonnki/cms-core/m3u8'
 import { getCustomAdFilterCode } from '@/features/player/lib/custom-ad-filter'
@@ -14,6 +14,13 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/shared/components/ui/collapsible'
+import {
+  ContextMenu,
+  ContextMenuTrigger,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+} from '@/shared/components/ui/context-menu'
 
 import { ScrollArea } from '@/shared/components/ui/scroll-area'
 import { Spinner } from '@/shared/components/ui/spinner'
@@ -22,6 +29,8 @@ import { useViewingHistoryStore } from '@/shared/store/viewingHistoryStore'
 import { useGlobalContextMenuStore } from '@/shared/store/contextMenuStore'
 import { useSettingStore } from '@/shared/store/settingStore'
 import { useDocumentTitle, useCmsClient } from '@/shared/hooks'
+import { useSourceSpeedTest } from '../hooks/useSourceSpeedTest'
+import { SpeedTestBadge } from './SpeedTestBadge'
 import { useTmdbEnabled } from '@/shared/hooks/useTmdbMode'
 import { cn } from '@/shared/lib/utils'
 import { getCmsSources, storeCmsSources } from '@/features/search/hooks/directSearch.utils'
@@ -1387,6 +1396,28 @@ const stallTimerRef = useRef<number | null>(null)
     return () => controller.abort()
   }, [isCmsRoute, detail?.videoInfo?.title, resolvedSourceCode, resolvedVodId, cmsClient, showPlayerNotice, startCmsMatchTransition])
 
+  // ── 源测速 ──
+  const { results: speedTestResults, testingSet: speedTestingSet, testSingle: speedTestSingle } = useSourceSpeedTest(
+    sourceOptions,
+    videoAPIs,
+    cmsClient,
+  )
+
+  // ── 禁用源 (localStorage) ──
+  const [disabledSources, setDisabledSources] = useState<Set<string>>(() => {
+    try { return new Set(JSON.parse(localStorage.getItem('ouonnki-disabled-sources') || '[]')) }
+    catch { return new Set<string>() }
+  })
+  const toggleDisableSource = (sourceCode: string) => {
+    setDisabledSources(prev => {
+      const next = new Set(prev)
+      if (next.has(sourceCode)) next.delete(sourceCode)
+      else next.add(sourceCode)
+      localStorage.setItem('ouonnki-disabled-sources', JSON.stringify([...next]))
+      return next
+    })
+  }
+
   const handleSourceChange = useCallback(
     (sourceCode: string) => {
       pendingSeekRef.current = playerRef.current?.currentTime || null
@@ -2099,32 +2130,65 @@ const stallTimerRef = useRef<number | null>(null)
                 >
                   <ScrollArea className="max-h-44 sm:max-h-56 xl:h-full xl:max-h-none">
                     <div className="grid grid-cols-2 gap-2 pr-2">
-                      {sourceOptions.map(option => {
+                      {sourceOptions
+                        .filter(o => !disabledSources.has(o.sourceCode))
+                        .map(option => {
                         const active = option.sourceCode === resolvedSourceCode
                         const hasMultiLang = option.alternatives.length > 0
                         return (
-                          <Button
-                            key={option.sourceCode}
-                            size="sm"
-                            variant={active ? 'default' : 'secondary'}
-                            className="min-w-0 max-w-full justify-start gap-1.5 rounded-full sm:w-auto sm:max-w-[260px] relative overflow-hidden"
-                            aria-current={active ? 'true' : undefined}
-                            aria-label={`切换到视频源 ${option.sourceName}`}
-                            onClick={() => handleSourceChange(option.sourceCode)}
-                          >
-                            <span className="truncate text-xs font-medium">{option.sourceName}</span>
-                            {isTmdbRoute && <span className="shrink-0 text-[11px] opacity-70">{option.bestScore}</span>}
-                            {option.bestQuality && (
-                              <span className="shrink-0 rounded bg-foreground/10 px-1.5 py-0.5 text-[10px] leading-none">{option.bestQuality}</span>
-                            )}
-                            {hasMultiLang && (
-                              <span
-                                className="pointer-events-none absolute inset-0 opacity-30"
-                                style={{ backgroundImage: 'linear-gradient(45deg, transparent 80%, currentColor 80%, currentColor 90%, transparent 90%)' }}
-                                title="多语言"
-                              />
-                            )}
-                          </Button>
+                          <ContextMenu key={option.sourceCode}>
+                            <ContextMenuTrigger asChild>
+                              <Button
+                                size="sm"
+                                variant={active ? 'default' : 'secondary'}
+                                className="min-w-0 max-w-full justify-start gap-1.5 rounded-full sm:w-auto sm:max-w-[260px] relative overflow-hidden"
+                                aria-current={active ? 'true' : undefined}
+                                aria-label={`切换到视频源 ${option.sourceName}`}
+                                onClick={() => handleSourceChange(option.sourceCode)}
+                              >
+                                <span className="truncate text-xs font-medium">{option.sourceName}</span>
+                                {isTmdbRoute && <span className="shrink-0 text-[11px] opacity-70">{option.bestScore}</span>}
+                                <span className="ml-auto" />
+                                {!active && (
+                                  speedTestResults.get(option.sourceCode) || speedTestingSet.has(option.sourceCode)
+                                    ? <SpeedTestBadge result={speedTestResults.get(option.sourceCode) ?? null} testing={speedTestingSet.has(option.sourceCode)} />
+                                    : option.bestQuality
+                                      ? <span className="shrink-0 rounded bg-foreground/10 px-1.5 py-0.5 text-[10px] leading-none">{option.bestQuality}</span>
+                                      : (
+                                        <button
+                                          type="button"
+                                          className="shrink-0 rounded bg-blue-500/10 px-1.5 py-0.5 text-[10px] leading-none text-blue-600 hover:bg-blue-500/20"
+                                          onClick={e => { e.stopPropagation(); speedTestSingle(option.sourceCode) }}
+                                          title="点击测速"
+                                        >
+                                          测
+                                        </button>
+                                      )
+                                )}
+                                {hasMultiLang && (
+                                  <span
+                                    className="pointer-events-none absolute inset-0 opacity-30"
+                                    style={{ backgroundImage: 'linear-gradient(45deg, transparent 80%, currentColor 80%, currentColor 90%, transparent 90%)' }}
+                                    title="多语言"
+                                  />
+                                )}
+                              </Button>
+                            </ContextMenuTrigger>
+                            <ContextMenuContent>
+                              <ContextMenuItem onClick={() => speedTestSingle(option.sourceCode)}>
+                                <RefreshCw className="mr-2 size-3.5" />
+                                {speedTestResults.has(option.sourceCode) ? '重新检测' : '检测'}
+                              </ContextMenuItem>
+                              <ContextMenuSeparator />
+                              <ContextMenuItem
+                                variant="destructive"
+                                onClick={() => toggleDisableSource(option.sourceCode)}
+                              >
+                                <Ban className="mr-2 size-3.5" />
+                                禁用源
+                              </ContextMenuItem>
+                            </ContextMenuContent>
+                          </ContextMenu>
                         )
                       })}
                     </div>

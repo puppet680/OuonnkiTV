@@ -10,15 +10,22 @@ const BASE_HEADERS = {
   'Referer': 'https://movie.douban.com/',
 }
 
+// ponytail: no Referer for proxies, they 403 on mismatched referer
+const PROXY_HEADERS = {
+  'User-Agent': UA,
+  'Accept': 'text/html,application/xhtml+xml',
+  'Accept-Language': 'zh-CN,zh;q=0.9',
+}
+
 const CORS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET,OPTIONS',
 }
 
-// ── proxy ──
+// ── proxy (CDN mirrors — JSON API only, not HTML pages) ──
 const PROXY_MAP: Record<string, string> = {
-  'cmliussss-cdn-tencent': 'https://m.douban.cmliussss.net',
-  'cmliussss-cdn-ali': 'https://m.douban.cmliussss.com',
+  'cmliussss-cdn-tencent': 'https://movie.douban.cmliussss.net',
+  'cmliussss-cdn-ali': 'https://movie.douban.cmliussss.com',
   'cmliussss-unified': 'https://img.doubanio.cmliussss.net',
 }
 
@@ -108,11 +115,15 @@ async function fetchDoubanWithVerification(url: string): Promise<string> {
             expiresAt: Date.now() + 300000,
           }
         }
-        resp = await fetchWithTimeout(url, { headers: { ...BASE_HEADERS, Cookie: cookieCache?.cookie || '' } })
+        resp = await fetchWithTimeout(url, { headers: { ...BASE_HEADERS, Cookie: cookieCache?.cookie || '' }, redirect: 'manual' })
       }
     }
   }
 
+  if (resp.status === 302) {
+    const loc = resp.headers.get('location') || 'unknown'
+    throw new Error(`302 redirect to ${loc}`)
+  }
   if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
   return await resp.text()
 }
@@ -167,12 +178,28 @@ export const onRequest = async (context: { request: Request; env: unknown }) => 
 
       const proxyType = url.searchParams.get('proxy_type') || 'direct'
       const proxyUrl = url.searchParams.get('proxy_url') || ''
+      const isCdnProxy = proxyType.startsWith('cmliussss-')
+
+      // CDN proxy → JSON API (only JSON endpoints are cached by CDN)
+      if (isCdnProxy) {
+        const base = PROXY_MAP[proxyType]
+        const apiUrl = `${base}/j/search_subjects?type=movie&tag=${encodeURIComponent(q)}&page_limit=5`
+        const resp = await fetchWithTimeout(apiUrl, { headers: PROXY_HEADERS })
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
+        const data = await resp.json() as { subjects?: Array<{ id: string; title: string; rate: string; cover: string }> }
+        const subjects = (data.subjects || []).map(s => ({ id: s.id, title: s.title, year: '', rating: s.rate || '', type: 'movie' }))
+        return new Response(JSON.stringify({ code: 0, message: 'success', data: { subjects: subjects.slice(0, 5) } }), {
+          status: 200, headers: { ...CORS, 'Content-Type': 'application/json' },
+        })
+      }
+
+      // cors-proxy / custom / direct → HTML scraping
       const doubanUrl = `https://www.douban.com/search?cat=1002&q=${encodeURIComponent(q)}`
       const resolvedUrl = resolveDoubanUrl(doubanUrl, proxyType, proxyUrl)
 
       let html: string
       if (proxyType !== 'direct') {
-        const resp = await fetchWithTimeout(resolvedUrl, { headers: BASE_HEADERS })
+        const resp = await fetchWithTimeout(resolvedUrl, { headers: PROXY_HEADERS })
         if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
         html = await resp.text()
       } else {
@@ -187,14 +214,14 @@ export const onRequest = async (context: { request: Request; env: unknown }) => 
         const sid = m[1]
         if (seen.has(sid)) continue
         seen.add(sid)
-        const start = Math.max(0, m.index - 30)
-        const end = Math.min(html.length, m.index + 120)
-        const ctx = html.slice(start, end)
+        const s = Math.max(0, m.index - 30)
+        const e = Math.min(html.length, m.index + 120)
+        const ctx = html.slice(s, e)
         const titleMatch = ctx.match(/title="([^"]+)"/)
         const title = titleMatch ? titleMatch[1] : ''
-        const itemStart = Math.max(0, m.index - 200)
-        const itemEnd = Math.min(html.length, m.index + 500)
-        const itemCtx = html.slice(itemStart, itemEnd)
+        const is = Math.max(0, m.index - 200)
+        const ie = Math.min(html.length, m.index + 500)
+        const itemCtx = html.slice(is, ie)
         const yearMatch = itemCtx.match(/<span[^>]*>[\s]*\(?(\d{4})\)?[\s]*<\/span>/)
         const year = yearMatch ? yearMatch[1] : ''
         subjects.push({ id: sid, title, year, rating: '', type: 'movie' })
@@ -214,13 +241,20 @@ export const onRequest = async (context: { request: Request; env: unknown }) => 
       const proxyUrl = url.searchParams.get('proxy_url') || ''
       if (!id) return new Response(JSON.stringify({ code: -1, message: 'id required' }), { status: 400, headers: { ...CORS, 'Content-Type': 'application/json' } })
 
+      // ponytail: CDN mirrors don't cache HTML pages, comments have no JSON API
+      if (proxyType.startsWith('cmliussss-')) {
+        return new Response(JSON.stringify({ code: -1, message: '豆瓣短评无JSON接口，CDN代理不支持。请使用 direct/cors-proxy-zwei/custom' }), {
+          status: 200, headers: { ...CORS, 'Content-Type': 'application/json' },
+        })
+      }
+
       const doubanUrl = `https://movie.douban.com/subject/${id}/comments?start=${start}&limit=${limit}&status=P&sort=${sort}`
       const resolvedUrl = resolveDoubanUrl(doubanUrl, proxyType, proxyUrl)
 
       let html: string
       if (proxyType !== 'direct' || cookie) {
         const resp = await fetchWithTimeout(resolvedUrl, {
-          headers: { ...BASE_HEADERS, ...(cookie ? { Cookie: cookie } : {}) },
+          headers: { ...PROXY_HEADERS, ...(cookie ? { Cookie: cookie } : {}) },
         })
         if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
         html = await resp.text()
