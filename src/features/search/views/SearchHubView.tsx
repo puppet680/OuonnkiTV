@@ -31,6 +31,11 @@ export default function SearchHubView() {
   const initialType: SearchType = typeParam === 'person' ? 'person' : 'media'
 
   const [searchType, setSearchType] = useState<SearchType>(initialType)
+
+  // KeepAliveTabs 保持组件挂载，URL type param 变化时需要同步 searchType
+  useEffect(() => {
+    setSearchType(initialType)
+  }, [initialType])
   const [isDirectCentered, setIsDirectCentered] = useState(false)
 
   useEffect(() => {
