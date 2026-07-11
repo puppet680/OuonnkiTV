@@ -116,40 +116,6 @@ async function fetchDoubanWithVerification(url: string): Promise<string> {
   return await resp.text()
 }
 
-// ── parsers ──
-function parseComments(html: string) {
-  const comments: Array<Record<string, unknown>> = []
-  const itemRegex = /<div class="comment-item"[^>]*>([\s\S]*?)(?=<div class="comment-item"|<div id="paginator"|$)/g
-  let match
-  while ((match = itemRegex.exec(html)) !== null) {
-    try {
-      const item = match[0]
-      const userMatch = item.match(/<span class="comment-info">[\s\S]*?<a href="https:\/\/www\.douban\.com\/people\/([^/]+)\/">([^<]+)<\/a>/)
-      const username = userMatch ? userMatch[2].trim() : ''
-      const userId = userMatch ? userMatch[1] : ''
-      const avatarMatch = item.match(/<div class="avatar">[\s\S]*?<img src="([^"]+)"/)
-      const avatar = avatarMatch ? avatarMatch[1].replace(/^http:/, 'https:') : ''
-      const ratingMatch = item.match(/<span class="allstar(\d)0 rating"/)
-      const rating = ratingMatch ? parseInt(ratingMatch[1], 10) : 0
-      const timeMatch = item.match(/<span class="comment-time"[^>]*title="([^"]+)"/)
-      const time = timeMatch ? timeMatch[1] : ''
-      const locationMatch = item.match(/<span class="comment-location">([^<]+)<\/span>/)
-      const location = locationMatch ? locationMatch[1].trim() : ''
-      const contentMatch = item.match(/<span class="short">([\s\S]*?)<\/span>/)
-      let content = ''
-      if (contentMatch) {
-        content = contentMatch[1].replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]+>/g, '').trim()
-      }
-      const usefulMatch = item.match(/<span class="votes vote-count">(\d+)<\/span>/)
-      const usefulCount = usefulMatch ? parseInt(usefulMatch[1], 10) : 0
-      if (username && content) {
-        comments.push({ username, user_id: userId, avatar, rating, time, location, content, useful_count: usefulCount })
-      }
-    } catch { /* skip */ }
-  }
-  return comments
-}
-
 // ── handler ──
 export const onRequest = async (context: { request: Request; env: unknown }) => {
   if (context.request.method === 'OPTIONS') {
@@ -164,6 +130,8 @@ export const onRequest = async (context: { request: Request; env: unknown }) => 
       const q = url.searchParams.get('q') || ''
       if (!q) return new Response(JSON.stringify({ code: -1, message: 'q required' }), { status: 400, headers: { ...CORS, 'Content-Type': 'application/json' } })
 
+      const proxyType = url.searchParams.get('proxy_type') || 'direct'
+      const proxyUrl = url.searchParams.get('proxy_url') || ''
       const proxyType = url.searchParams.get('proxy_type') || 'direct'
       const proxyUrl = url.searchParams.get('proxy_url') || ''
       const doubanUrl = `https://www.douban.com/search?cat=1002&q=${encodeURIComponent(q)}`
@@ -212,6 +180,9 @@ export const onRequest = async (context: { request: Request; env: unknown }) => 
       const proxyUrl = url.searchParams.get('proxy_url') || ''
       if (!id) return new Response(JSON.stringify({ code: -1, message: 'id required' }), { status: 400, headers: { ...CORS, 'Content-Type': 'application/json' } })
 
+      const cookie = url.searchParams.get('cookie') || ''
+      const proxyType = url.searchParams.get('proxy_type') || 'direct'
+      const proxyUrl = url.searchParams.get('proxy_url') || ''
       const doubanUrl = `https://movie.douban.com/subject/${id}/comments?start=${start}&limit=${limit}&status=P&sort=${sort}`
       const resolvedUrl = resolveDoubanUrl(doubanUrl, proxyType, proxyUrl)
 

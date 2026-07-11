@@ -3,7 +3,7 @@ import { persist } from 'zustand/middleware'
 import { immer } from 'zustand/middleware/immer'
 import { DEFAULT_PANHUB_CONFIG, ALL_PLUGIN_NAMES } from '@/shared/types/panhub'
 
-export type DoubanProxyType = 'direct' | 'cors-proxy-zwei' | 'cmliussss-cdn-tencent' | 'cmliussss-cdn-ali' | 'cmliussss-unified' | 'custom'
+export type DoubanProxyType = 'direct' | 'cors-proxy-zwei' | 'cmliussss-cdn-ali' | 'custom'
 
 export interface PanhubConfig {
   apiBase: string
