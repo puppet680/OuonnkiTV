@@ -117,12 +117,6 @@ async function fetchDoubanWithVerification(url: string): Promise<string> {
           }
         }
         resp = await fetchWithTimeout(url, { headers: { ...BASE_HEADERS, Cookie: cookieCache?.cookie || '' }, redirect: 'manual' })
-      } else {
-        if (verifyHtml.includes('01004') || verifyHtml.includes('passport/login')) {
-          throw new Error('豆瓣要求登录，当前IP被限制。请在设置中配置豆瓣Cookie后重试')
-        }
-        const snippet = verifyHtml.slice(0, 600).replace(/\s+/g, ' ').trim()
-        throw new Error(`Anti-crawler parse failed. HTML preview: ${snippet}`)
       }
     }
   }
