@@ -213,7 +213,7 @@ export const SearchResultsGrid = memo(function SearchResultsGrid({
             })}
           </div>
         ) : (
-          <StatePanel mode="empty" title="未找到" description="换个关键词试试吧" />
+          <StatePanel mode="empty" title="未找到" description="未找到相关内容，试试其他关键词" />
         )}
       </div>
 

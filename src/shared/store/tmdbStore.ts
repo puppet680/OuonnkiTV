@@ -95,7 +95,7 @@ interface TmdbState {
 
 interface TmdbActions {
   // 搜索
-  search: (query: string, page?: number) => Promise<void>
+  search: (query: string, page?: number, year?: number) => Promise<void>
   findById: (id: number) => Promise<void>
 
   // 发现/浏览（无搜索词时使用 Discover API）
@@ -236,7 +236,7 @@ export const useTmdbStore = create<TmdbState & TmdbActions>()(
           }
         },
 
-        search: async (query: string, page = 1) => {
+        search: async (query: string, page = 1, year?: number) => {
           const requestId = ++latestSearchRequestId
           const client = getTmdbClient()
           set(state => {
@@ -246,60 +246,111 @@ export const useTmdbStore = create<TmdbState & TmdbActions>()(
           })
 
           try {
-            const res = await client.search.multi({
+            const baseParams = {
               query,
               page,
               language: getTmdbLanguage(),
               include_adult: !useSettingStore.getState().system.isAdultFilterEnabled,
-            })
+            }
 
-            const results: TmdbMediaItem[] = res.results
-              .filter(item => item.media_type === 'movie' || item.media_type === 'tv')
-              .map(item =>
-                normalizeToMediaItem(item as unknown as Record<string, unknown>, item.media_type),
+            let totalPages = 0
+            let totalResults = 0
+
+            if (year !== undefined) {
+              // 年份存在时：分别搜索 movie 和 tv，传年份给 API 服务端过滤
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              const movieParams: any = { ...baseParams, primary_release_year: year }
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              const tvParams: any = { ...baseParams, first_air_date_year: year }
+
+              const [movieRes, tvRes] = await Promise.all([
+                client.search.movies(movieParams),
+                client.search.tvShows(tvParams),
+              ])
+
+              const movieItems = (movieRes.results as unknown as Array<Record<string, unknown>>).map(r =>
+                normalizeToMediaItem(r, 'movie'),
               )
-              .filter(item => {
-                const { isAdultFilterEnabled, cmsFilterKeywords } = useSettingStore.getState().system
+              const tvItems = (tvRes.results as unknown as Array<Record<string, unknown>>).map(r =>
+                normalizeToMediaItem(r, 'tv'),
+              )
+
+              // 合并并按热度排序
+              const allItems = [...movieItems, ...tvItems].sort((a, b) => b.popularity - a.popularity)
+
+              // 成人过滤
+              const { isAdultFilterEnabled, cmsFilterKeywords } = useSettingStore.getState().system
+              const keywords = (import.meta.env.OKI_CMS_FILTER_KEYWORDS || cmsFilterKeywords)
+                .split(',').map((k: string) => k.trim()).filter(Boolean)
+
+              const results = allItems.filter(item => {
                 if (!isAdultFilterEnabled) return true
-                const keywords = (import.meta.env.OKI_CMS_FILTER_KEYWORDS || cmsFilterKeywords)
-                  .split(',').map((k: string) => k.trim()).filter(Boolean)
                 if (keywords.length === 0) return true
                 const haystack = [item.title, item.originalTitle, item.overview]
                   .filter(Boolean).join(' ')
                 return !keywords.some((kw: string) => haystack.includes(kw))
               })
 
-            if (requestId !== latestSearchRequestId) {
-              return
-            }
+              totalPages = Math.max(movieRes.total_pages, tvRes.total_pages)
+              totalResults = movieRes.total_results + tvRes.total_results
 
-            set(state => {
-              if (page > 1) {
-                const existingKeys = new Set(
-                  state.searchResults.map(r => `${r.mediaType}-${r.id}`),
+              if (requestId !== latestSearchRequestId) return
+
+              set(state => {
+                if (page > 1) {
+                  const existingKeys = new Set(state.searchResults.map(r => `${r.mediaType}-${r.id}`))
+                  const newItems = results.filter(r => !existingKeys.has(`${r.mediaType}-${r.id}`))
+                  state.searchResults = [...state.searchResults, ...newItems]
+                } else {
+                  state.searchResults = results
+                }
+                state.searchPagination = { page, totalPages, totalResults }
+                state.loading.search = false
+              })
+            } else {
+              // 无年份：使用 multi search（保持原有行为）
+              const res = await client.search.multi(baseParams)
+
+              const results: TmdbMediaItem[] = res.results
+                .filter(item => item.media_type === 'movie' || item.media_type === 'tv')
+                .map(item =>
+                  normalizeToMediaItem(item as unknown as Record<string, unknown>, item.media_type),
                 )
-                const newItems = results.filter(
-                  r => !existingKeys.has(`${r.mediaType}-${r.id}`),
-                )
-                state.searchResults = [...state.searchResults, ...newItems]
-              } else {
-                state.searchResults = results
-              }
-              state.searchPagination = {
-                page: res.page,
-                totalPages: res.total_pages,
-                totalResults: res.total_results,
-              }
-              state.loading.search = false
-            })
+                .filter(item => {
+                  const { isAdultFilterEnabled, cmsFilterKeywords } = useSettingStore.getState().system
+                  if (!isAdultFilterEnabled) return true
+                  const keywords = (import.meta.env.OKI_CMS_FILTER_KEYWORDS || cmsFilterKeywords)
+                    .split(',').map((k: string) => k.trim()).filter(Boolean)
+                  if (keywords.length === 0) return true
+                  const haystack = [item.title, item.originalTitle, item.overview]
+                    .filter(Boolean).join(' ')
+                  return !keywords.some((kw: string) => haystack.includes(kw))
+                })
+
+              if (requestId !== latestSearchRequestId) return
+
+              set(state => {
+                if (page > 1) {
+                  const existingKeys = new Set(state.searchResults.map(r => `${r.mediaType}-${r.id}`))
+                  const newItems = results.filter(r => !existingKeys.has(`${r.mediaType}-${r.id}`))
+                  state.searchResults = [...state.searchResults, ...newItems]
+                } else {
+                  state.searchResults = results
+                }
+                state.searchPagination = {
+                  page: res.page,
+                  totalPages: res.total_pages,
+                  totalResults: res.total_results,
+                }
+                state.loading.search = false
+              })
+            }
 
             // 更新可用筛选值和应用筛选
             get()._updateAvailableYears()
             get()._applyFilters()
           } catch (err: unknown) {
-            if (requestId !== latestSearchRequestId) {
-              return
-            }
+            if (requestId !== latestSearchRequestId) return
 
             set(state => {
               state.error = (err as Error).message || 'Search failed'

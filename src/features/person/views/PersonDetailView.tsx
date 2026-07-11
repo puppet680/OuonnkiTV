@@ -1,13 +1,14 @@
 import { useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router'
-import { ArrowLeft, CalendarDays, MapPin, Star, Tv, Film, ArrowUpDown } from 'lucide-react'
+import { ArrowLeft, CalendarDays, Lock, MapPin, Star, Tv, Film, ArrowUpDown } from 'lucide-react'
 import { useDocumentTitle } from '@/shared/hooks'
 import { useTmdbPerson } from '@/shared/hooks/useTmdb'
+import { useSettingStore } from '@/shared/store/settingStore'
 import { getPosterUrl, getBackdropUrl } from '@/shared/lib/tmdb'
 import { cn } from '@/shared/lib/utils'
 import { Badge } from '@/shared/components/ui/badge'
 import { Button } from '@/shared/components/ui/button'
-import { ScrollableText } from '@/shared/components/common'
+import { ScrollableText, MediaPosterCard } from '@/shared/components/common'
 import {
   Select,
   SelectContent,
@@ -20,7 +21,8 @@ import type { PersonCastCredit, CreditSortBy } from '@/shared/types/person'
 import { MediaCarousel, HorizontalMediaCard } from '@/shared/components/media'
 import { DetailStatePanel } from '@/features/media/components/tmdb-detail'
 import { PersonDetailSkeleton } from '../components/PersonDetailSkeleton'
-import { buildTmdbDetailPath } from '@/shared/lib/routes'
+import { buildTmdbDetailPath, buildTmdbPlayPath } from '@/shared/lib/routes'
+import { useFavoritesStore } from '@/features/favorites/store/favoritesStore'
 
 const SORT_OPTIONS: { value: CreditSortBy; label: string }[] = [
   { value: 'release_date', label: '上映日期' },
@@ -39,9 +41,30 @@ type MediaFilter = (typeof MEDIA_FILTERS)[number]['key']
 
 interface CreditCardProps {
   credit: PersonCastCredit
+  censored?: boolean
+  heroBg?: string | null
 }
 
-function CreditCard({ credit }: CreditCardProps) {
+function CreditCard({ credit, censored, heroBg }: CreditCardProps) {
+  if (censored) {
+    return (
+      <article className="relative border-border/40 flex gap-3 rounded-lg border p-3 pointer-events-none select-none overflow-hidden">
+        {heroBg && (
+          <img src={heroBg} alt="" className="absolute inset-0 h-full w-full object-cover opacity-60" />
+        )}
+        <div className="relative z-10 border-border/35 aspect-[2/3] w-20 shrink-0 overflow-hidden rounded-lg border bg-zinc-200/40 dark:bg-zinc-800/40" />
+        <div className="relative z-10 min-w-0 flex-1 space-y-1 text-sm">
+          <div className="h-4 w-2/3 rounded bg-zinc-200/40 dark:bg-zinc-800/40" />
+          <div className="h-3 w-1/2 rounded bg-zinc-200/40 dark:bg-zinc-800/40" />
+          <div className="h-3 w-1/3 rounded bg-zinc-200/40 dark:bg-zinc-800/40" />
+        </div>
+        <div className="absolute inset-0 z-20 backdrop-blur-xl bg-background/60 rounded-lg flex items-center justify-center">
+          <Lock className="size-6 text-foreground/30" />
+        </div>
+      </article>
+    )
+  }
+
   return (
     <HorizontalMediaCard
       posterPath={credit.posterPath}
@@ -85,6 +108,7 @@ export default function PersonDetailView() {
   const isValidId = Number.isInteger(personId) && personId > 0
 
   const { person, credits, images, loading, error } = useTmdbPerson(isValidId ? personId : undefined)
+  const favoritesStore = useFavoritesStore()
 
   const [mediaFilter, setMediaFilter] = useState<MediaFilter>('all')
   const [sortBy, setSortBy] = useState<CreditSortBy>('release_date')
@@ -92,35 +116,25 @@ export default function PersonDetailView() {
 
   useDocumentTitle(person?.name || '人物详情')
 
-  const knownWorks = useMemo<TmdbMediaItem[]>(() => {
-    if (!credits) return []
+  const isAdultFilterEnabled = useSettingStore(s => s.system.isAdultFilterEnabled)
+
+  const { knownWorks, adultIds } = useMemo(() => {
+    if (!credits) return { knownWorks: [] as TmdbMediaItem[], adultIds: new Set<number>() }
     const seen = new Set<number>()
-    return [...credits.cast, ...credits.crew]
-      .filter(c => {
-        if (seen.has(c.id)) return false
-        seen.add(c.id)
-        return c.voteAverage > 0 || c.popularity > 1
-      })
+    const ids = new Set<number>()
+    const items = [...credits.cast, ...credits.crew]
+      .filter(c => { if (seen.has(c.id)) return false; seen.add(c.id); if (isAdultFilterEnabled && c.adult) ids.add(c.id); return c.voteAverage > 0 || c.popularity > 1 })
       .sort((a, b) => b.voteAverage - a.voteAverage || b.popularity - a.popularity)
       .slice(0, 18)
       .map(c => ({
-        id: c.id,
-        mediaType: c.mediaType,
-        title: c.title,
-        originalTitle: c.originalTitle,
-        overview: c.overview,
-        posterPath: c.posterPath,
-        backdropPath: c.backdropPath,
-        logoPath: null,
-        releaseDate: c.releaseDate,
-        voteAverage: c.voteAverage,
-        voteCount: c.voteCount,
-        popularity: c.popularity,
-        genreIds: c.genreIds,
-        originalLanguage: c.originalLanguage,
-        originCountry: c.originCountry,
+        id: c.id, mediaType: c.mediaType, title: c.title, originalTitle: c.originalTitle,
+        overview: c.overview, posterPath: c.posterPath, backdropPath: c.backdropPath,
+        logoPath: null, releaseDate: c.releaseDate, voteAverage: c.voteAverage,
+        voteCount: c.voteCount, popularity: c.popularity, genreIds: c.genreIds,
+        originalLanguage: c.originalLanguage, originCountry: c.originCountry,
       }))
-  }, [credits])
+    return { knownWorks: items, adultIds: ids }
+  }, [credits, isAdultFilterEnabled])
 
   const filteredCredits = useMemo<PersonCastCredit[]>(() => {
     if (!credits) return []
@@ -237,6 +251,9 @@ export default function PersonDetailView() {
                   {person.known_for_department}
                 </Badge>
               )}
+              {person.adult && (
+                <Badge className="h-5 rounded-full bg-red-600/80 px-2 text-[10px] text-white">成人演员</Badge>
+              )}
               {person.birthday && (
                 <span className="inline-flex items-center gap-1">
                   <CalendarDays className="size-3.5" />
@@ -262,7 +279,38 @@ export default function PersonDetailView() {
 
       {/* Known works */}
       {knownWorks.length > 0 && (
-        <MediaCarousel title="知名作品" items={knownWorks} />
+        <MediaCarousel
+          title="知名作品"
+          items={knownWorks}
+          itemKey={(item) => `${item.mediaType}-${item.id}`}
+          renderItem={adultIds.size > 0 ? (item) => {
+            const isAdult = adultIds.has(item.id)
+            const inner = (
+              <MediaPosterCard
+                to={isAdult ? '#' : buildTmdbDetailPath(item.mediaType, item.id)}
+                posterUrl={getPosterUrl(item.posterPath, 'w342')}
+                title={item.title}
+                year={item.releaseDate?.split('-')[0]}
+                rating={item.voteAverage}
+                overview={item.overview}
+                onToggleFavorite={() => favoritesStore.toggleTmdbFavorite(item)}
+                isFavorited={favoritesStore.isTmdbFavorited(item.id, item.mediaType)}
+                onPlayNow={() => navigate(buildTmdbPlayPath(item.mediaType, item.id))}
+                onViewDetail={() => navigate(buildTmdbDetailPath(item.mediaType, item.id))}
+              />
+            )
+            if (isAdult) return (
+              <div className="relative flex aspect-[2/3] w-full items-center justify-center rounded-lg border border-border/40 overflow-hidden pointer-events-none select-none">
+                {heroBackdrop && (
+                  <img src={heroBackdrop} alt="" className="absolute inset-0 h-full w-full object-cover opacity-60" />
+                )}
+                <div className="absolute inset-0 backdrop-blur-xl bg-background/60 rounded-lg" />
+                <Lock className="relative size-5 text-foreground/30" />
+              </div>
+            )
+            return inner
+          } : undefined}
+        />
       )}
 
       {/* Acting credits */}
@@ -330,7 +378,7 @@ export default function PersonDetailView() {
         {filteredCredits.length > 0 ? (
           <div className="grid gap-3 md:grid-cols-2">
             {filteredCredits.map((credit, i) => (
-              <CreditCard key={`${credit.id}-${credit.character}-${i}`} credit={credit} />
+              <CreditCard key={`${credit.id}-${credit.character}-${i}`} credit={credit} censored={isAdultFilterEnabled && credit.adult} heroBg={heroBackdrop} />
             ))}
           </div>
         ) : (

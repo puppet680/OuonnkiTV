@@ -51,6 +51,7 @@ export interface PersonCastCredit {
   genreIds: number[]
   originalLanguage: string
   originCountry: string[]
+  adult: boolean
   /** TV 专属：参演集数 */
   episodeCount?: number
 }

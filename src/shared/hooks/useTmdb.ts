@@ -503,6 +503,7 @@ export function useTmdbPerson(personId: number | undefined) {
             genreIds: Array.isArray(item.genre_ids) ? item.genre_ids as number[] : [],
             originalLanguage: (item.original_language as string) || '',
             originCountry: Array.isArray(item.origin_country) ? item.origin_country as string[] : [],
+            adult: Boolean(item.adult),
             episodeCount: (item.episode_count as number) || undefined,
           }
         })

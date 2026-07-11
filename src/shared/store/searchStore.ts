@@ -13,6 +13,8 @@ interface SearchState {
   query: string
   // 搜索历史记录
   searchHistory: SearchHistory
+  // 上次搜索类型
+  lastSearchType: string
 }
 
 interface SearchActions {
@@ -20,8 +22,10 @@ interface SearchActions {
   setQuery: (query: string) => void
   // 清空搜索查询
   clearQuery: () => void
+  // 设置上次搜索类型
+  setLastSearchType: (searchType: string) => void
   // 添加搜索历史项
-  addSearchHistoryItem: (content: string) => void
+  addSearchHistoryItem: (content: string, searchType?: string) => void
   // 删除搜索历史项
   removeSearchHistoryItem: (id: string) => void
   // 清空搜索历史
@@ -37,6 +41,7 @@ export const useSearchStore = create<SearchStore>()(
         // 初始状态
         query: '',
         searchHistory: [],
+        lastSearchType: 'media',
 
         // Actions
         setQuery: (query: string) => {
@@ -51,28 +56,32 @@ export const useSearchStore = create<SearchStore>()(
           })
         },
 
-        addSearchHistoryItem: (content: string) => {
+        setLastSearchType: (searchType: string) => {
+          set(state => {
+            state.lastSearchType = searchType
+          })
+        },
+
+        addSearchHistoryItem: (content: string, searchType?: string) => {
           const normalizedContent = normalizeSearchContent(content)
           if (!normalizedContent) return
 
-          // 检查是否开启了搜索历史记录
-          if (!useSettingStore.getState().search.isSearchHistoryEnabled) {
-            return
-          }
+          if (!useSettingStore.getState().search.isSearchHistoryEnabled) return
 
           set(state => {
+            if (searchType) state.lastSearchType = searchType
             const existingItem = state.searchHistory.find(
               (item: SearchHistoryItem) => item.content === normalizedContent,
             )
 
             if (existingItem) {
-              // 更新现有项的时间戳
               existingItem.updatedAt = Date.now()
+              if (searchType) existingItem.searchType = searchType as SearchHistoryItem['searchType']
             } else {
-              // 添加新项到历史记录开头
               const newItem: SearchHistoryItem = {
                 id: uuidv4(),
                 content: normalizedContent,
+                searchType: searchType as SearchHistoryItem['searchType'],
                 createdAt: Date.now(),
                 updatedAt: Date.now(),
               }
@@ -111,6 +120,7 @@ export const useSearchStore = create<SearchStore>()(
         partialize: state => ({
           // 持久化搜索历史
           searchHistory: state.searchHistory,
+          lastSearchType: state.lastSearchType,
         }),
       },
     ),

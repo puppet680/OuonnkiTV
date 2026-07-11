@@ -8,24 +8,20 @@ export const useSearch = () => {
   // 从 zustand store 获取状态和操作
   const { query: search, setQuery: setSearch, addSearchHistoryItem, clearQuery } = useSearchStore()
 
-  const searchMovie = (query: string, isNavigating: boolean = true) => {
+  const searchMovie = (query: string, isNavigating: boolean = true, type?: string) => {
     const normalizedQuery = query.trim().replace(/\s+/g, ' ')
     if (normalizedQuery.length > 0) {
-      // 设置当前搜索查询
       setSearch(normalizedQuery)
+      addSearchHistoryItem(normalizedQuery, type)
 
-      // 添加到搜索历史
-      addSearchHistoryItem(normalizedQuery)
-
-      // 跟踪搜索事件
       trackEvent('search', {
         query: normalizedQuery,
         timestamp: new Date().toISOString(),
       })
 
-      // 导航到搜索页面
       if (isNavigating) {
-        navigate(`/search?q=${encodeURIComponent(normalizedQuery)}`)
+        const typeParam = type && type !== 'media' ? `&type=${encodeURIComponent(type)}` : ''
+        navigate(`/search?q=${encodeURIComponent(normalizedQuery)}${typeParam}`)
       }
     }
   }

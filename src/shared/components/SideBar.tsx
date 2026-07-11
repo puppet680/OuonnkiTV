@@ -74,11 +74,7 @@ export default function SideBar({
         url: '/bangumi',
         icon: Tv,
       },
-      {
-        title: '搜索中心',
-        url: '/search',
-        icon: Search,
-      },
+
       {
         title: '收藏夹',
         url: '/favorites',

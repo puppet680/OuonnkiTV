@@ -30,7 +30,8 @@ export default function Navigation({ hidden = false, enableScrollAnimation = fal
   return (
     <div
       className={cn(
-        'sticky top-0 z-50 w-full overflow-hidden',
+        'sticky top-0 z-50 w-full',
+        hidden ? 'overflow-hidden' : 'overflow-visible',
         enableScrollAnimation
           ? 'transition-[height] duration-220 ease-out motion-reduce:transition-none'
           : 'transition-none',

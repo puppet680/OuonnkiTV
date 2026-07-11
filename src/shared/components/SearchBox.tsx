@@ -1,18 +1,28 @@
-import { useEffect, useState, useRef, useCallback } from 'react'
-import { Search, X, ArrowLeft, History, Trash2 } from 'lucide-react'
-import { motion, useReducedMotion } from "motion/react"
+import { useEffect, useState, useRef, useCallback, useMemo } from 'react'
+import { Search, X, ArrowLeft, History, Trash2, Film, User, ChevronDown } from 'lucide-react'
+import { AnimatePresence, motion, useReducedMotion } from "motion/react"
 
 import { Input } from '@/shared/components/ui/input'
 import { Button } from '@/shared/components/ui/button'
 import { Popover, PopoverContent, PopoverAnchor } from '@/shared/components/ui/popover'
 import { useSearch, useSearchHistory, useSearchSuggestions } from '@/shared/hooks'
+import { useSearchStore } from '@/shared/store/searchStore'
+import { useTmdbStore } from '@/shared/store/tmdbStore'
+import { useTmdbEnabled } from '@/shared/hooks/useTmdbMode'
 import { ScrollArea } from '@/shared/components/ui/scroll-area'
 
-// 创建支持 motion 的 Button 组件
 const MotionButton = motion.create(Button)
 
+const HINT_PLACEHOLDER = '使用 y:年份 筛选，如"星球大战 y:1977"'
+
+export type NavSearchType = 'media' | 'person'
+
+const TYPE_OPTIONS: { value: NavSearchType; label: string; icon: React.ReactNode }[] = [
+  { value: 'media', label: '影视', icon: <Film className="size-3.5" /> },
+  { value: 'person', label: '人物', icon: <User className="size-3.5" /> },
+]
+
 interface SearchBoxProps {
-  /** 移动端搜索框展开状态变化回调，用于父组件调整布局 */
   onMobileSearchChange?: (isOpen: boolean) => void
 }
 
@@ -21,46 +31,88 @@ export default function SearchBox({ onMobileSearchChange }: SearchBoxProps) {
   const { searchHistory, removeSearchHistoryItem } = useSearchHistory()
   const { suggestions, isLoading, fetchSuggestions, clearSuggestions } = useSearchSuggestions()
   const reducedMotion = useReducedMotion()
+  const tmdbEnabled = useTmdbEnabled()
+  const typeOptions = tmdbEnabled ? TYPE_OPTIONS : [{ value: 'media' as NavSearchType, label: '综合', icon: <Film className="size-3.5" /> }]
 
   const [inputContent, setInputContent] = useState('')
+  const lastSearchType = useSearchStore(s => s.lastSearchType)
+  const setLastSearchType = useSearchStore(s => s.setLastSearchType)
+  const [searchType, setSearchType] = useState<NavSearchType>(() => {
+    if (!tmdbEnabled) return 'media'
+    return (lastSearchType as NavSearchType) || 'media'
+  })
   const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false)
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
+  const [typeMenuOpen, setTypeMenuOpen] = useState(false)
+  const [placeholderIdx, setPlaceholderIdx] = useState(0)
+  const trending = useTmdbStore(s => s.trending)
+
+  const placeholders = useMemo(() => {
+    if (trending.length === 0) return [HINT_PLACEHOLDER]
+    const titles = trending.slice(0, 8).map(t => `大家都在搜：${t.title}`)
+    const result: string[] = []
+    for (let i = 0; i < titles.length; i++) {
+      result.push(titles[i])
+      if ((i + 1) % (Math.floor(Math.random() * 3) + 1) === 0) result.push(HINT_PLACEHOLDER)
+    }
+    return result
+  }, [trending])
+
+  // rotating placeholder
+  useEffect(() => {
+    if (placeholders.length <= 1) return
+    const timer = setInterval(() => setPlaceholderIdx(i => {
+      let next: number
+      do { next = Math.floor(Math.random() * placeholders.length) } while (next === i)
+      return next
+    }), 4000)
+    return () => clearInterval(timer)
+  }, [placeholders.length])
 
   const mobileInputRef = useRef<HTMLInputElement>(null)
   const desktopInputRef = useRef<HTMLInputElement>(null)
   const blurTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const onMobileSearchChangeRef = useRef(onMobileSearchChange)
+  const typeBtnRef = useRef<HTMLButtonElement>(null)
   onMobileSearchChangeRef.current = onMobileSearchChange
 
-  // 判断是否应该显示下拉框
+  // close type menu on outside click
+  useEffect(() => {
+    if (!typeMenuOpen) return
+    const handler = (e: MouseEvent) => {
+      const target = e.target as HTMLElement
+      if (typeBtnRef.current?.contains(target)) return
+      if (target.closest('[data-nav-type-menu]')) return
+      setTypeMenuOpen(false)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [typeMenuOpen])
+
   const hasContent = inputContent.trim().length > 0
   const hasHistory = searchHistory.length > 0
   const hasSuggestions = suggestions.length > 0
-  const shouldShowDropdown =
-    isDropdownOpen && (hasContent ? hasSuggestions || isLoading : hasHistory)
+  const shouldShowDropdown = isDropdownOpen && (hasContent ? hasSuggestions || isLoading : hasHistory)
 
-  const handleInteractiveItemKeyDown = (
-    event: React.KeyboardEvent<HTMLDivElement>,
-    action: () => void,
-  ) => {
+  const handleInteractiveItemKeyDown = (event: React.KeyboardEvent<HTMLDivElement>, action: () => void) => {
     if (event.key !== 'Enter' && event.key !== ' ') return
     event.preventDefault()
     action()
   }
 
+  const doSearch = useCallback((query: string) => {
+    searchMovie(query, true, searchType)
+    setIsDropdownOpen(false)
+  }, [searchMovie, searchType])
+
   const handleKeyDown = (event: React.KeyboardEvent) => {
     if (event.key === 'Enter') {
-      searchMovie(inputContent)
-      setIsDropdownOpen(false)
-      if (isMobileSearchOpen) {
-        closeMobileSearch()
-      }
+      doSearch(inputContent)
+      if (isMobileSearchOpen) closeMobileSearch()
     }
     if (event.key === 'Escape') {
       setIsDropdownOpen(false)
-      if (isMobileSearchOpen) {
-        closeMobileSearch()
-      }
+      if (isMobileSearchOpen) closeMobileSearch()
     }
   }
 
@@ -71,61 +123,40 @@ export default function SearchBox({ onMobileSearchChange }: SearchBoxProps) {
 
   const handleInputChange = (value: string) => {
     setInputContent(value)
-    if (value.trim()) {
-      fetchSuggestions(value)
-    } else {
-      clearSuggestions()
-    }
+    if (value.trim()) fetchSuggestions(value, searchType)
+    else clearSuggestions()
   }
 
   const handleFocus = () => {
-    // 清除之前的 blur 超时
-    if (blurTimeoutRef.current) {
-      clearTimeout(blurTimeoutRef.current)
-    }
+    if (blurTimeoutRef.current) clearTimeout(blurTimeoutRef.current)
     setIsDropdownOpen(true)
   }
 
   const handleBlur = () => {
-    // 延迟关闭以允许点击下拉项
-    blurTimeoutRef.current = setTimeout(() => {
-      setIsDropdownOpen(false)
-    }, 200)
+    blurTimeoutRef.current = setTimeout(() => setIsDropdownOpen(false), 200)
   }
 
-  const handleHistoryItemClick = useCallback(
-    (content: string) => {
-      setInputContent(content)
-      searchMovie(content)
-      setIsDropdownOpen(false)
-    },
-    [searchMovie],
-  )
+  const handleHistoryItemClick = useCallback((content: string, type?: string) => {
+    setInputContent(content)
+    if (type) { setSearchType(type as NavSearchType); setLastSearchType(type) }
+    searchMovie(content, true, type)
+    setIsDropdownOpen(false)
+  }, [searchMovie, setLastSearchType])
 
-  const handleHistoryItemDelete = useCallback(
-    (e: React.MouseEvent, id: string) => {
-      e.stopPropagation()
-      removeSearchHistoryItem(id)
-    },
-    [removeSearchHistoryItem],
-  )
+  const handleHistoryItemDelete = useCallback((e: React.MouseEvent, id: string) => {
+    e.stopPropagation()
+    removeSearchHistoryItem(id)
+  }, [removeSearchHistoryItem])
 
-  const handleSuggestionClick = useCallback(
-    (title: string) => {
-      setInputContent(title)
-      searchMovie(title)
-      setIsDropdownOpen(false)
-    },
-    [searchMovie],
-  )
+  const handleSuggestionClick = useCallback((title: string) => {
+    setInputContent(title)
+    doSearch(title)
+  }, [doSearch])
 
   const openMobileSearch = () => {
     setIsMobileSearchOpen(true)
     onMobileSearchChange?.(true)
-    // 等待动画开始后聚焦输入框
-    setTimeout(() => {
-      mobileInputRef.current?.focus()
-    }, 100)
+    setTimeout(() => mobileInputRef.current?.focus(), 100)
   }
 
   const closeMobileSearch = () => {
@@ -134,48 +165,67 @@ export default function SearchBox({ onMobileSearchChange }: SearchBoxProps) {
     onMobileSearchChange?.(false)
   }
 
-  useEffect(() => {
-    setInputContent(searchQuery)
-  }, [searchQuery])
+  useEffect(() => { setInputContent(searchQuery) }, [searchQuery])
 
-  // 清理定时器 + 组件卸载时通知父组件关闭移动搜索态
   useEffect(() => {
     return () => {
-      if (blurTimeoutRef.current) {
-        clearTimeout(blurTimeoutRef.current)
-      }
+      if (blurTimeoutRef.current) clearTimeout(blurTimeoutRef.current)
       onMobileSearchChangeRef.current?.(false)
     }
   }, [])
 
-  // 下拉框内容组件
+  const currentType = typeOptions.find(o => o.value === searchType)!
+
+  // ---- shared sub-renders ----
+
+  const hasMultipleTypes = typeOptions.length > 1
+  const TypeMenu = typeMenuOpen && hasMultipleTypes && (
+    <div data-nav-type-menu className="absolute top-full left-0 z-50 mt-1 w-22 rounded-lg border border-border bg-popover p-1 shadow-md">
+      {typeOptions.map(opt => (
+        <button
+          key={opt.value}
+          type="button"
+          className={`flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-sm transition-colors hover:bg-accent ${opt.value === searchType ? 'text-primary font-medium' : ''}`}
+          onMouseDown={e => e.preventDefault()}
+          onClick={() => { setSearchType(opt.value); setLastSearchType(opt.value); setTypeMenuOpen(false) }}
+        >
+          {opt.icon}
+          {opt.label}
+        </button>
+      ))}
+    </div>
+  )
+
+
   const DropdownContent = ({ isMobile = false }: { isMobile?: boolean }) => (
     <div className="p-1">
       <ScrollArea className="max-h-100 px-3">
         {!hasContent ? (
-          // 最近搜索
           <div>
             <div className="text-muted-foreground px-3 py-2 text-xs font-medium">最近搜索</div>
             {searchHistory.map(item => (
               <div
                 key={item.id}
                 className="hover:bg-accent group flex cursor-pointer items-center rounded-lg px-3 py-2 transition-colors"
-                onClick={() => handleHistoryItemClick(item.content)}
+                onClick={() => handleHistoryItemClick(item.content, item.searchType)}
                 role="button"
                 tabIndex={0}
-                onKeyDown={e => handleInteractiveItemKeyDown(e, () => handleHistoryItemClick(item.content))}
+                onKeyDown={e => handleInteractiveItemKeyDown(e, () => handleHistoryItemClick(item.content, item.searchType))}
               >
                 <History className="text-muted-foreground mr-3 size-4 shrink-0" />
                 <span className="flex-1 truncate">{item.content}</span>
+                {item.searchType && (
+                  <span className="text-muted-foreground ml-2 shrink-0 text-[10px]">
+                    {item.searchType === 'person' ? '人物' : '影视'}
+                  </span>
+                )}
                 <button
                   type="button"
-                  className={`text-muted-foreground hover:text-destructive shrink-0 p-1 transition-colors ${
-                    isMobile ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
-                  }`}
+                  className={`text-muted-foreground hover:text-destructive shrink-0 p-1 transition-colors ${isMobile ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
                   onMouseDown={e => e.preventDefault()}
                   onKeyDown={e => e.stopPropagation()}
                   onClick={e => handleHistoryItemDelete(e, item.id)}
-                  aria-label={`删除历史记录: ${item.content}`}
+                  aria-label={`删除: ${item.content}`}
                 >
                   <Trash2 className="size-4" />
                 </button>
@@ -183,7 +233,6 @@ export default function SearchBox({ onMobileSearchChange }: SearchBoxProps) {
             ))}
           </div>
         ) : (
-          // 搜索建议
           <div>
             {isLoading ? (
               <div className="text-muted-foreground px-3 py-4 text-center text-sm">搜索中...</div>
@@ -200,7 +249,7 @@ export default function SearchBox({ onMobileSearchChange }: SearchBoxProps) {
                   <Search className="text-muted-foreground mr-3 size-4 shrink-0" />
                   <span className="flex-1 truncate">{item.title}</span>
                   <span className="text-muted-foreground ml-2 shrink-0 text-xs">
-                    {item.mediaType === 'movie' ? '电影' : '剧集'}
+                    {item.mediaType === 'movie' ? '电影' : (item.mediaType as string) === 'person' ? '人物' : '剧集'}
                   </span>
                 </div>
               ))
@@ -213,39 +262,61 @@ export default function SearchBox({ onMobileSearchChange }: SearchBoxProps) {
 
   return (
     <>
-      {/* 移动端搜索模式下的返回按钮 */}
-      <div
-        className={`absolute left-2 transition-all duration-300 ease-out motion-reduce:transition-none sm:hidden ${
-          isMobileSearchOpen
-            ? 'translate-x-0 opacity-100'
-            : 'pointer-events-none -translate-x-4 opacity-0'
-        }`}
-      >
+      {/* 移动端返回按钮 */}
+      <div className={`absolute left-2 transition-all duration-300 ease-out motion-reduce:transition-none sm:hidden ${
+        isMobileSearchOpen ? 'translate-x-0 opacity-100' : 'pointer-events-none -translate-x-4 opacity-0'
+      }`}>
         <Button size="icon" variant="ghost" className="size-9" onClick={closeMobileSearch} aria-label="关闭搜索">
           <ArrowLeft className="text-primary" size={20} />
         </Button>
       </div>
 
-      {/* 搜索框容器 */}
       <div className="flex flex-auto items-center">
-        {/* 桌面端搜索框 */}
+        {/* ======== 桌面端 ======== */}
         <Popover open={shouldShowDropdown && !isMobileSearchOpen}>
           <PopoverAnchor asChild>
             <div className="relative hidden w-full sm:flex">
-              <Search
-                className="text-muted-foreground absolute top-1/2 left-3 -translate-y-1/2"
-                size={18}
-              />
-              <Input
-                ref={desktopInputRef}
-                placeholder="搜索"
-                className="h-9 rounded-full rounded-r-none pr-8 pl-10 overflow-ellipsis focus-visible:ring-1"
-                value={inputContent}
-                onChange={e => handleInputChange(e.target.value)}
-                onKeyDown={handleKeyDown}
-                onFocus={handleFocus}
-                onBlur={handleBlur}
-              />
+              {/* 桌面端类型选择：带标签 */}
+              <div className="relative">
+                <button
+                  ref={typeBtnRef}
+                  type="button"
+                  className="flex h-9 items-center gap-0.5 rounded-full rounded-r-none border border-input bg-transparent pl-2.5 pr-1.5 text-sm font-medium hover:bg-accent/50 transition-colors"
+                  onClick={(e) => { e.stopPropagation(); if (hasMultipleTypes) setTypeMenuOpen(prev => !prev) }}
+                >
+                  {currentType.icon}
+                  <span>{currentType.label}</span>
+                  {hasMultipleTypes && <ChevronDown className="size-2.5 text-muted-foreground" />}
+                </button>
+                {TypeMenu}
+              </div>
+
+              <div className="relative flex-1">
+                <Input
+                  ref={desktopInputRef}
+                  placeholder=""
+                  className="h-9 w-full rounded-none border-x-0 pr-8 pl-3 focus-visible:ring-0"
+                  value={inputContent}
+                  onChange={e => handleInputChange(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  onFocus={handleFocus}
+                  onBlur={handleBlur}
+                />
+                {!inputContent && placeholders.length > 0 && (
+                  <AnimatePresence mode="wait">
+                    <motion.span
+                      key={placeholderIdx}
+                      initial={reducedMotion ? false : { opacity: 0, y: 4 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={reducedMotion ? undefined : { opacity: 0, y: -4 }}
+                      transition={reducedMotion ? { duration: 0 } : { duration: 0.2 }}
+                      className="text-muted-foreground pointer-events-none absolute inset-y-0 left-3 right-3 flex items-center truncate text-sm select-none"
+                    >
+                      {placeholders[placeholderIdx]}
+                    </motion.span>
+                  </AnimatePresence>
+                )}
+              </div>
               {inputContent.length > 0 && (
                 <button
                   type="button"
@@ -258,10 +329,7 @@ export default function SearchBox({ onMobileSearchChange }: SearchBoxProps) {
               <Button
                 disabled={inputContent.length === 0}
                 className="dark:bg-accent dark:hover:bg-accent h-9 w-20 rounded-full rounded-l-none bg-gray-200 hover:bg-gray-300"
-                onClick={() => {
-                  searchMovie(inputContent)
-                  setIsDropdownOpen(false)
-                }}
+                onClick={() => doSearch(inputContent)}
                 aria-label="搜索"
               >
                 <Search className="text-primary" size={20} />
@@ -278,36 +346,56 @@ export default function SearchBox({ onMobileSearchChange }: SearchBoxProps) {
           </PopoverContent>
         </Popover>
 
-        {/* 移动端展开的搜索框 */}
+        {/* ======== 移动端展开 ======== */}
         <Popover open={shouldShowDropdown && isMobileSearchOpen}>
           <PopoverAnchor asChild>
-            <div
-              className={`absolute right-4 left-12 transition-all duration-300 ease-out motion-reduce:transition-none sm:hidden ${
-                isMobileSearchOpen
-                  ? 'scale-100 opacity-100'
-                  : 'pointer-events-none scale-95 opacity-0'
-              }`}
-            >
+            <div className={`absolute right-4 left-12 transition-all duration-300 ease-out motion-reduce:transition-none sm:hidden ${
+              isMobileSearchOpen ? 'scale-100 opacity-100' : 'pointer-events-none scale-95 opacity-0'
+            }`}>
               <div className="relative flex w-full">
-                <Search
-                  className="text-muted-foreground absolute top-1/2 left-3 z-10 -translate-y-1/2"
-                  size={18}
-                />
-                <Input
-                  ref={mobileInputRef}
-                  placeholder="搜索"
-                  className="h-9 rounded-full rounded-r-none pr-8 pl-10 overflow-ellipsis focus-visible:ring-1"
-                  value={inputContent}
-                  onChange={e => handleInputChange(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  onFocus={handleFocus}
-                  onBlur={handleBlur}
-                />
+                <div className="relative">
+                  <button
+                    ref={typeBtnRef}
+                    type="button"
+                    className="flex h-9 items-center gap-0.5 rounded-full rounded-r-none border border-input bg-transparent pl-2.5 pr-1.5 text-sm font-medium hover:bg-accent/50 transition-colors"
+                    onClick={(e) => { e.stopPropagation(); if (hasMultipleTypes) setTypeMenuOpen(prev => !prev) }}
+                  >
+                    {currentType.icon}
+                    {hasMultipleTypes && <ChevronDown className="size-2.5 text-muted-foreground" />}
+                  </button>
+                  {TypeMenu}
+                </div>
+                <div className="relative flex-1">
+                  <Input
+                    ref={mobileInputRef}
+                    placeholder=""
+                    className="h-9 w-full rounded-none border-x-0 pr-8 pl-3 focus-visible:ring-0"
+                    value={inputContent}
+                    onChange={e => handleInputChange(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    onFocus={handleFocus}
+                    onBlur={handleBlur}
+                  />
+                  {!inputContent && placeholders.length > 0 && (
+                    <AnimatePresence mode="wait">
+                      <motion.span
+                        key={placeholderIdx}
+                        initial={reducedMotion ? false : { opacity: 0, y: 4 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={reducedMotion ? undefined : { opacity: 0, y: -4 }}
+                        transition={reducedMotion ? { duration: 0 } : { duration: 0.2 }}
+                        className="text-muted-foreground pointer-events-none absolute inset-y-0 left-3 right-3 flex items-center truncate text-sm select-none"
+                      >
+                        {placeholders[placeholderIdx]}
+                      </motion.span>
+                    </AnimatePresence>
+                  )}
+                </div>
                 {inputContent.length > 0 && (
                   <button
                     type="button"
                     onClick={handleClear}
-                    className="text-muted-foreground hover:text-foreground absolute top-1/2 right-[56px] z-10 -translate-y-1/2 transition-colors"
+                    className="text-muted-foreground hover:text-foreground absolute top-1/2 right-[58px] z-10 -translate-y-1/2 transition-colors"
                   >
                     <X size={16} />
                   </button>
@@ -315,11 +403,7 @@ export default function SearchBox({ onMobileSearchChange }: SearchBoxProps) {
                 <MotionButton
                   disabled={inputContent.length === 0}
                   className="dark:bg-accent dark:hover:bg-accent h-9 w-12 rounded-full rounded-l-none bg-gray-200 hover:bg-gray-300"
-                  onClick={() => {
-                    searchMovie(inputContent)
-                    setIsDropdownOpen(false)
-                    closeMobileSearch()
-                  }}
+                  onClick={() => { doSearch(inputContent); closeMobileSearch() }}
                   layout={!reducedMotion || undefined}
                   aria-label="搜索"
                 >
@@ -347,7 +431,7 @@ export default function SearchBox({ onMobileSearchChange }: SearchBoxProps) {
         </Popover>
       </div>
 
-      {/* 移动端搜索触发按钮 */}
+      {/* ======== 移动端触发按钮 ======== */}
       <MotionButton
         size="icon"
         variant="ghost"
@@ -367,11 +451,7 @@ export default function SearchBox({ onMobileSearchChange }: SearchBoxProps) {
         )}
       </MotionButton>
 
-      {/* 用于传递移动端搜索状态给父组件的隐藏元素 */}
       <input type="hidden" data-mobile-search-open={isMobileSearchOpen} />
     </>
   )
 }
-
-export { SearchBox }
-export type { SearchBoxProps }

@@ -99,7 +99,8 @@ export default function PlayerResourcesTab({ keyword, noScroll }: PlayerResource
     const cached = cacheGet(key)
     if (cached) {
       setResults(cached)
-      // ponytail: still re-search to pick up incomplete plugins, but show cache first
+      setStatus('done')
+      return
     }
 
     abortRef.current?.abort()

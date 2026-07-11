@@ -15,13 +15,13 @@ const DEBOUNCE_DELAY = 100
 interface UseSearchSuggestionsReturn {
   suggestions: TmdbMediaItem[]
   isLoading: boolean
-  fetchSuggestions: (query: string) => void
+  fetchSuggestions: (query: string, type?: string) => void
   clearSuggestions: () => void
 }
 
 /**
  * 搜索建议 hook
- * 使用 TMDB search.multi API 获取搜索建议，带防抖功能
+ * 影视类型使用 search.multi，人物类型使用 search.people
  */
 export function useSearchSuggestions(): UseSearchSuggestionsReturn {
   const [suggestions, setSuggestions] = useState<TmdbMediaItem[]>([])
@@ -32,20 +32,15 @@ export function useSearchSuggestions(): UseSearchSuggestionsReturn {
   // 用于取消过期请求的标识
   const requestIdRef = useRef(0)
 
-  const fetchSuggestions = useCallback((query: string) => {
-    // 清除之前的定时器
-    if (debounceTimerRef.current) {
-      clearTimeout(debounceTimerRef.current)
-    }
+  const fetchSuggestions = useCallback((query: string, type?: string) => {
+    if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current)
 
-    // TMDB 未启用时不提供搜索建议
     if (!isTmdbEnabled()) {
       setSuggestions([])
       setIsLoading(false)
       return
     }
 
-    // 如果查询为空，直接清空建议
     if (!query.trim()) {
       setSuggestions([])
       setIsLoading(false)
@@ -53,44 +48,66 @@ export function useSearchSuggestions(): UseSearchSuggestionsReturn {
     }
 
     setIsLoading(true)
+    const isPerson = type === 'person'
 
-    // 设置防抖定时器
     debounceTimerRef.current = setTimeout(async () => {
       const currentRequestId = ++requestIdRef.current
 
       try {
         const client = getTmdbClient()
-        const res = await client.search.multi({
-          query: query.trim(),
-          page: 1,
-          language: useSettingStore.getState().system.tmdbLanguage as TmdbSearchLanguage,
-          include_adult: !useSettingStore.getState().system.isAdultFilterEnabled,
-        })
+        const language = useSettingStore.getState().system.tmdbLanguage as TmdbSearchLanguage
+        const include_adult = !useSettingStore.getState().system.isAdultFilterEnabled
 
-        // 检查请求是否过期
-        if (currentRequestId !== requestIdRef.current) {
-          return
+        let results: TmdbMediaItem[]
+
+        if (isPerson) {
+          const data = await client.search.people({
+            query: query.trim(),
+            page: 1,
+            language,
+            include_adult,
+          })
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const raw = (data as any).results as Array<Record<string, unknown>>
+          results = raw.slice(0, MAX_SUGGESTIONS).map(r => (({
+            id: r.id as number,
+            mediaType: 'person',
+            title: (r.name as string) || '',
+            originalTitle: (r.original_name as string) || '',
+            overview: '',
+            posterPath: (r.profile_path as string) || null,
+            backdropPath: null,
+            logoPath: null,
+            releaseDate: '',
+            voteAverage: 0,
+            voteCount: 0,
+            popularity: (r.popularity as number) || 0,
+            genreIds: [],
+            originalLanguage: '',
+            originCountry: [],
+          }) as unknown as TmdbMediaItem))
+        } else {
+          const res = await client.search.multi({
+            query: query.trim(),
+            page: 1,
+            language,
+            include_adult,
+          })
+          results = res.results
+            .filter(item => item.media_type === 'movie' || item.media_type === 'tv')
+            .slice(0, MAX_SUGGESTIONS)
+            .map(item =>
+              normalizeToMediaItem(item as unknown as Record<string, unknown>, item.media_type),
+            )
         }
 
-        // 筛选电影和剧集，转换格式，限制数量
-        const results: TmdbMediaItem[] = res.results
-          .filter(item => item.media_type === 'movie' || item.media_type === 'tv')
-          .slice(0, MAX_SUGGESTIONS)
-          .map(item =>
-            normalizeToMediaItem(item as unknown as Record<string, unknown>, item.media_type),
-          )
-
+        if (currentRequestId !== requestIdRef.current) return
         setSuggestions(results)
       } catch (error) {
         console.error('Failed to fetch search suggestions:', error)
-        // 静默失败，不影响用户体验
-        if (currentRequestId === requestIdRef.current) {
-          setSuggestions([])
-        }
+        if (currentRequestId === requestIdRef.current) setSuggestions([])
       } finally {
-        if (currentRequestId === requestIdRef.current) {
-          setIsLoading(false)
-        }
+        if (currentRequestId === requestIdRef.current) setIsLoading(false)
       }
     }, DEBOUNCE_DELAY)
   }, [])

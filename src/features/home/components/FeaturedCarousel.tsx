@@ -474,49 +474,6 @@ export const FeaturedCarousel = memo(function FeaturedCarousel({
           ))}
         </CarouselContent>
       </Carousel>
-
-      {/* 小海报指示器轮播 - 悬浮在巨幕右下角 */}
-      <div className="hidden lg:block absolute right-4 bottom-4 z-20 w-[620px]">
-        <Carousel
-          opts={{ align: 'start', containScroll: 'trimSnaps', dragFree: false }}
-          setApi={(ma) => { miniApiRef.current = ma }}
-        >
-          <CarouselContent className="ml-0">
-            {items.map((posterItem, posterIdx) => {
-              const isActive = posterIdx === activeIndex
-              return (
-                <CarouselItem key={`${posterItem.mediaType}-${posterItem.id}`} className="basis-auto pl-2 first:pl-0">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (api && posterIdx !== activeIndex) {
-                        api.scrollTo(posterIdx)
-                      }
-                    }}
-                    className={`w-24 shrink-0 overflow-hidden rounded-lg transition-all duration-300 cursor-pointer ${
-                      isActive
-                        ? 'shadow-lg scale-105'
-                        : 'opacity-40 hover:opacity-80'
-                    }`}
-                  >
-                    {posterItem.posterPath ? (
-                      <img
-                        src={getPosterUrl(posterItem.posterPath, 'w342')}
-                        alt={posterItem.title}
-                        className="aspect-[2/3] w-full object-cover"
-                        loading="lazy"
-                        style={{ contentVisibility: isActive ? 'visible' : 'auto' }}
-                      />
-                    ) : (
-                      <div className="bg-muted/50 text-white/50 flex aspect-[2/3] items-center justify-center text-[10px]">无海报</div>
-                    )}
-                  </button>
-                </CarouselItem>
-              )
-            })}
-          </CarouselContent>
-        </Carousel>
-      </div>
     </div>
   )
 })

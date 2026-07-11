@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback } from 'react'
+import { useLocation } from 'react-router'
 import { toast } from 'sonner'
 import { StatusTabs } from '../components/StatusTabs'
 import { FavoritesSortControl } from '../components/FavoritesSortControl'
@@ -32,6 +33,8 @@ export default function FavoritesView() {
   } = useFavorites()
 
   const { SidebarInsetPortal } = usePortalToSidebarInset()
+  const { pathname } = useLocation()
+  const isActiveRoute = pathname === '/favorites' || pathname.startsWith('/favorites?')
 
   const [activeTab, setActiveTab] = useState<FavoriteWatchStatus | 'all'>('all')
   const [selectionMode, setSelectionMode] = useState(false)
@@ -181,7 +184,7 @@ export default function FavoritesView() {
       </main>
 
       {/* 管理面板 - 通过 Portal 传送到 SidebarInset 层级 */}
-      {hasContent && (
+      {isActiveRoute && hasContent && (
         <SidebarInsetPortal>
           <ManagementPanel
             isOpen={selectionMode}

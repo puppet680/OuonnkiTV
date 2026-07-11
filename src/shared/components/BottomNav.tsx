@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { NavLink, useLocation } from 'react-router'
-import { Home, Search, Star, History, Tv } from 'lucide-react'
+import { Home, Star, History, Tv } from 'lucide-react'
 import { motion, useReducedMotion } from "motion/react"
 import { useIsMobile } from '@/shared/hooks/use-mobile'
 import { useTmdbEnabled } from '@/shared/hooks/useTmdbMode'
@@ -9,7 +9,6 @@ import { cn } from '@/shared/lib'
 const items = [
   { title: '主页', url: '/', icon: Home },
   { title: '番剧', url: '/bangumi', icon: Tv },
-  { title: '搜索', url: '/search', icon: Search },
   { title: '收藏', url: '/favorites', icon: Star },
   { title: '记录', url: '/history', icon: History },
 ]
