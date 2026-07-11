@@ -75,9 +75,10 @@ interface CookieCache { cookie: string; expiresAt: number }
 let cookieCache: CookieCache | null = null
 
 function parseChallengePage(html: string) {
-  const tok = (html.match(/id="tok"[^>]*value="([^"]*)"/) || [])[1] || ''
-  const cha = (html.match(/id="cha"[^>]*value="([^"]*)"/) || [])[1] || ''
-  const red = (html.match(/id="red"[^>]*value="([^"]*)"/) || [])[1] || ''
+  // ponytail: broader patterns — Douban may change id/name format
+  const tok = (html.match(/id="tok"[^>]*value="([^"]*)"/) || html.match(/name="tok"[^>]*value="([^"]*)"/) || html.match(/<input[^>]*\bid="tok"[^>]*value="([^"]*)"[^>]*\/?>/) || html.match(/<input[^>]*\bname="tok"[^>]*value="([^"]*)"[^>]*\/?>/) || [])[1] || ''
+  const cha = (html.match(/id="cha"[^>]*value="([^"]*)"/) || html.match(/name="cha"[^>]*value="([^"]*)"/) || html.match(/<input[^>]*\bid="cha"[^>]*value="([^"]*)"[^>]*\/?>/) || html.match(/<input[^>]*\bname="cha"[^>]*value="([^"]*)"[^>]*\/?>/) || [])[1] || ''
+  const red = (html.match(/id="red"[^>]*value="([^"]*)"/) || html.match(/name="red"[^>]*value="([^"]*)"/) || html.match(/<input[^>]*\bid="red"[^>]*value="([^"]*)"[^>]*\/?>/) || html.match(/<input[^>]*\bname="red"[^>]*value="([^"]*)"[^>]*\/?>/) || [])[1] || ''
   if (!tok || !cha || !red) return null
   return { tok, cha, red }
 }
@@ -116,6 +117,12 @@ async function fetchDoubanWithVerification(url: string): Promise<string> {
           }
         }
         resp = await fetchWithTimeout(url, { headers: { ...BASE_HEADERS, Cookie: cookieCache?.cookie || '' }, redirect: 'manual' })
+      } else {
+        if (verifyHtml.includes('01004') || verifyHtml.includes('passport/login')) {
+          throw new Error('豆瓣要求登录，当前IP被限制。请在设置中配置豆瓣Cookie后重试')
+        }
+        const snippet = verifyHtml.slice(0, 600).replace(/\s+/g, ' ').trim()
+        throw new Error(`Anti-crawler parse failed. HTML preview: ${snippet}`)
       }
     }
   }
@@ -278,7 +285,13 @@ export const onRequest = async (context: { request: Request; env: unknown }) => 
       status: 404, headers: { ...CORS, 'Content-Type': 'application/json' },
     })
   } catch (err) {
-    return new Response(JSON.stringify({ code: -1, message: err instanceof Error ? err.message : 'internal error' }), {
+    const detail = err instanceof Error ? err.message : 'internal error'
+    console.error('[douban]', detail)
+    const uiMsg = detail.includes('302 redirect') ? '豆瓣访问受限，请尝试配置Cookie'
+      : detail.includes('Anti-crawler') ? '豆瓣验证失败'
+      : detail.includes('HTTP 5') ? '豆瓣服务异常'
+      : detail
+    return new Response(JSON.stringify({ code: -1, message: uiMsg }), {
       status: 500, headers: { ...CORS, 'Content-Type': 'application/json' },
     })
   }
