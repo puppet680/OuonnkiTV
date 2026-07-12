@@ -73,9 +73,6 @@ export function useSourceSpeedTest(
   useEffect(() => {
     if (sourceOptions.length <= 1) return
     if (!cmsClient) return
-    const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)
-    if (isMobile) return
-
     // ponytail: load cache in effect too — useState initializer runs with empty sourceOptions on first render
     let cacheLoaded = false
     setResults(prev => {
@@ -200,5 +197,10 @@ export function useSourceSpeedTest(
       .finally(() => setTestingSet(prev => { const s = new Set(prev); s.delete(sourceCode); return s }))
   }
 
-  return { results, testing, testingSet, testSingle }
+  // ── test all sources ──
+  const testAll = () => {
+    for (const opt of sourceOptions) testSingle(opt.sourceCode)
+  }
+
+  return { results, testing, testingSet, testSingle, testAll }
 }

@@ -126,7 +126,9 @@ export function usePlaylistMatches({
   const getTmdbMatchCacheEntry = useTmdbMatchCacheStore(state => state.getEntry)
   const setTmdbMatchCacheEntry = useTmdbMatchCacheStore(state => state.setEntry)
   const pruneTmdbMatchCache = useTmdbMatchCacheStore(state => state.prune)
-  const enabledSources = useMemo(() => videoAPIs.filter(source => source.isEnabled), [videoAPIs])
+
+  // ponytail: getState() to keep runSearch stable when only isEnabled toggles
+  const getEnabledSources = () => useApiStore.getState().videoAPIs.filter(s => s.isEnabled)
 
   const [state, setState] = useState<PlaylistMatchesState>(initialState)
   const abortRef = useRef<AbortController | null>(null)
@@ -201,7 +203,7 @@ export function usePlaylistMatches({
       const area = originCountry?.[0] ? COUNTRY_CHINESE_NAMES[originCountry[0]] : undefined
       const classParams = genres?.map(g => g.name).filter(Boolean)
       const normalizedKeyword = normalizeCacheText(keyword)
-      const sourceSignature = buildSourceSignature(enabledSources)
+      const sourceSignature = buildSourceSignature(getEnabledSources())
       const currentKey = [
         tmdbType,
         tmdbId,
@@ -220,7 +222,7 @@ export function usePlaylistMatches({
         return
       }
 
-      if (enabledSources.length === 0) {
+      if (getEnabledSources().length === 0) {
         setState(prev => ({
           ...prev,
           loading: false,
@@ -296,7 +298,7 @@ export function usePlaylistMatches({
       uniqueMapRef.current = new Map()
       setAccumulatedVersion(0)
 
-      const sourceMetaList = enabledSources.map(source => ({
+      const sourceMetaList = getEnabledSources().map(source => ({
         id: source.id,
         name: source.name || source.id || '未知源',
       }))
@@ -319,7 +321,7 @@ export function usePlaylistMatches({
         progress: {
           phase: 'search',
           completed: 0,
-          total: enabledSources.length,
+          total: getEnabledSources().length,
           currentSourceName: '',
           currentSourceId: '',
           lastEvent: 'start',
@@ -479,28 +481,28 @@ export function usePlaylistMatches({
           fallbackAttempted = true
           await Promise.all(
             fallbackKeywords.map(altKwd =>
-              cmsClient.aggregatedSearch(altKwd, enabledSources, 1, controller.signal, area, classParams).catch(() => {}),
+              cmsClient.aggregatedSearch(altKwd, getEnabledSources(), 1, controller.signal, area, classParams).catch(() => {}),
             ),
           )
         } else if (isTitleEnglish && fallbackKeywords.length > 0) {
           // 主标题为全英文：并发搜索 title + 所有别名，不等回退
           fallbackAttempted = true
           await Promise.all([
-            cmsClient.aggregatedSearch(keyword, enabledSources, 1, controller.signal, area, classParams).catch(() => {}),
+            cmsClient.aggregatedSearch(keyword, getEnabledSources(), 1, controller.signal, area, classParams).catch(() => {}),
             ...fallbackKeywords.map(altKwd =>
-              cmsClient.aggregatedSearch(altKwd, enabledSources, 1, controller.signal, area, classParams).catch(() => {}),
+              cmsClient.aggregatedSearch(altKwd, getEnabledSources(), 1, controller.signal, area, classParams).catch(() => {}),
             ),
           ])
         } else {
           // 先用 title 搜索
-          await cmsClient.aggregatedSearch(keyword, enabledSources, 1, controller.signal, area, classParams)
+          await cmsClient.aggregatedSearch(keyword, getEnabledSources(), 1, controller.signal, area, classParams)
 
           // 评分低则用回退关键词搜索
           if (await needsFallbackSearch()) {
             fallbackAttempted = true
             await Promise.all(
               fallbackKeywords.map(altKwd =>
-                cmsClient.aggregatedSearch(altKwd, enabledSources, 1, controller.signal, area, classParams).catch(() => {}),
+                cmsClient.aggregatedSearch(altKwd, getEnabledSources(), 1, controller.signal, area, classParams).catch(() => {}),
               ),
             )
           }
@@ -570,7 +572,6 @@ export function usePlaylistMatches({
     [
       clearSubscriptions,
       cmsClient,
-      enabledSources,
       getTmdbMatchCacheEntry,
       alternativeTitles,
       pruneTmdbMatchCache,

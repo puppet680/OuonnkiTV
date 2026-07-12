@@ -185,7 +185,7 @@ export default function UnifiedPlayer() {
 
   const cmsClient = useCmsClient()
   const tmdbEnabled = useTmdbEnabled()
-  const { videoAPIs, adFilteringEnabled } = useApiStore()
+  const { videoAPIs, adFilteringEnabled, setApiEnabled } = useApiStore()
   const { addViewingHistory, viewingHistory } = useViewingHistoryStore()
   const { playback, system: { isAdultFilterEnabled } } = useSettingStore()
 
@@ -1480,26 +1480,13 @@ const stallTimerRef = useRef<number | null>(null)
   }, [isCmsRoute, detail?.videoInfo?.title, resolvedSourceCode, resolvedVodId, cmsClient, showPlayerNotice, startCmsMatchTransition])
 
   // ── 源测速 ──
-  const { results: speedTestResults, testingSet: speedTestingSet, testSingle: speedTestSingle } = useSourceSpeedTest(
+  const { results: speedTestResults, testingSet: speedTestingSet, testSingle: speedTestSingle, testAll: speedTestAll } = useSourceSpeedTest(
     sourceOptions,
     videoAPIs,
     cmsClient,
   )
 
-  // ── 禁用源 (localStorage) ──
-  const [disabledSources, setDisabledSources] = useState<Set<string>>(() => {
-    try { return new Set(JSON.parse(localStorage.getItem('ouonnki-disabled-sources') || '[]')) }
-    catch { return new Set<string>() }
-  })
-  const toggleDisableSource = (sourceCode: string) => {
-    setDisabledSources(prev => {
-      const next = new Set(prev)
-      if (next.has(sourceCode)) next.delete(sourceCode)
-      else next.add(sourceCode)
-      localStorage.setItem('ouonnki-disabled-sources', JSON.stringify([...next]))
-      return next
-    })
-  }
+  // ── 禁用源（复用设置页 setApiEnabled，同步 isEnabled 状态）──
 
   const handleSourceChange = useCallback(
     (sourceCode: string) => {
@@ -2211,10 +2198,12 @@ const stallTimerRef = useRef<number | null>(null)
                     activeRightPanel === 'source' && 'xl:flex xl:flex-1 xl:min-h-0 xl:flex-col',
                   )}
                 >
-                  <ScrollArea className="max-h-44 sm:max-h-56 xl:h-full xl:max-h-none">
-                    <div className="grid grid-cols-2 gap-2 pr-2">
+                  <ContextMenu>
+                    <ContextMenuTrigger asChild>
+                      <ScrollArea className="max-h-44 sm:max-h-56 xl:h-full xl:max-h-none">
+                        <div className="grid grid-cols-2 gap-2 pr-2">
                       {sourceOptions
-                        .filter(o => !disabledSources.has(o.sourceCode))
+                        .filter(o => videoAPIs.find(s => s.id === o.sourceCode)?.isEnabled !== false)
                         .map(option => {
                         const active = option.sourceCode === resolvedSourceCode
                         const hasMultiLang = option.alternatives.length > 0
@@ -2267,7 +2256,7 @@ const stallTimerRef = useRef<number | null>(null)
                               <ContextMenuSeparator />
                               <ContextMenuItem
                                 variant="destructive"
-                                onClick={() => toggleDisableSource(option.sourceCode)}
+                                onClick={() => setApiEnabled(option.sourceCode, false)}
                               >
                                 <Ban className="mr-2 size-3.5" />
                                 禁用源
@@ -2276,8 +2265,22 @@ const stallTimerRef = useRef<number | null>(null)
                           </ContextMenu>
                         )
                       })}
-                    </div>
+                        </div>
                   </ScrollArea>
+                </ContextMenuTrigger>
+                <ContextMenuContent>
+                  {isTmdbRoute && (
+                    <ContextMenuItem onClick={() => tmdbPlayback.playlist.retry()}>
+                      <RefreshCw className="mr-2 size-3.5" />
+                      重新匹配
+                    </ContextMenuItem>
+                  )}
+                  <ContextMenuItem onClick={() => speedTestAll()}>
+                    <RefreshCw className="mr-2 size-3.5" />
+                    全部重测
+                  </ContextMenuItem>
+                </ContextMenuContent>
+              </ContextMenu>
                 </CollapsibleContent>
               </Collapsible>
 

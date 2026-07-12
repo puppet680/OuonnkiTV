@@ -1,5 +1,5 @@
 /**
- * M3U8 源测速 —— 从 LunaTV 移植，精简首版桌面
+ * M3U8 源测速 —— 从 LunaTV 移植，精简首版
  * 创建隐藏 video + HLS.js 加载 M3U8，测量 ping/分辨率/下载速度
  */
 import Hls from 'hls.js'
