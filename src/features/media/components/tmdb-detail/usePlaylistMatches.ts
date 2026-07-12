@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, useDeferredValue } from 'react'
+import { useCallback, useEffect, useRef, useState, useDeferredValue } from 'react'
 import type {
   SearchProgressEvent,
   SearchResultEvent,
@@ -121,7 +121,6 @@ export function usePlaylistMatches({
   genres,
 }: UsePlaylistMatchesParams) {
   const cmsClient = useCmsClient()
-  const videoAPIs = useApiStore(state => state.videoAPIs)
   const tmdbMatchCacheTTLHours = useSettingStore(state => state.playback.tmdbMatchCacheTTLHours)
   const getTmdbMatchCacheEntry = useTmdbMatchCacheStore(state => state.getEntry)
   const setTmdbMatchCacheEntry = useTmdbMatchCacheStore(state => state.setEntry)
