@@ -55,6 +55,7 @@ import {
   PlayerOverlayNotices,
 } from '@/features/player/components'
 import { useEpisodePagination, useMobilePlayerGestures, useTmdbPlayback, useVideoResolution, useResolutionBadge } from '@/features/player/hooks'
+import artplayerPluginAutoThumbnail from '@/features/player/lib/artplayer-plugin-auto-thumbnail'
 import {
   buildTmdbSelectionScopeKey,
   computeMiniPlayerRect,
@@ -261,10 +262,36 @@ export default function UnifiedPlayer() {
   const autoSwitchPendingRef = useRef(false)
   const slowLoadTimerRef = useRef<number | null>(null)
 const stallTimerRef = useRef<number | null>(null)
+  const selectedEpisodeRef = useRef(selectedEpisode)
+  const artInstanceRef = useRef<Artplayer | null>(null)
+  const currentVideoUrlRef = useRef<string>('')
 
   useEffect(() => {
     detailRef.current = detail
   }, [detail])
+
+  useEffect(() => {
+    selectedEpisodeRef.current = selectedEpisode
+  }, [selectedEpisode])
+
+  // 切集：用 switchUrl 保持播放器实例（保留全屏状态）
+  useEffect(() => {
+    const art = artInstanceRef.current
+    if (!art || !detail?.episodes) return
+    const newUrl = detail.episodes[selectedEpisode]
+    if (!newUrl || newUrl === currentVideoUrlRef.current) return
+    currentVideoUrlRef.current = newUrl
+    art.switchUrl(newUrl).catch(() => {
+      // switchUrl 失败由主 effect 兜底重建
+    })
+
+    // 更新切集按钮可见性
+    const totalEps = detail.episodes.length
+    const prevBtn = art.controls['episode-prev'] as HTMLElement | undefined
+    const nextBtn = art.controls['episode-next'] as HTMLElement | undefined
+    if (prevBtn) prevBtn.style.display = selectedEpisode <= 0 ? 'none' : ''
+    if (nextBtn) nextBtn.style.display = selectedEpisode >= totalEps - 1 ? 'none' : ''
+  }, [selectedEpisode, detail?.episodes])
 
   const showPlayerNotice = useCallback((message: string, duration = 2200) => {
     const noticeId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
@@ -778,7 +805,8 @@ const stallTimerRef = useRef<number | null>(null)
   })
 
   useEffect(() => {
-    if (!detail?.episodes || !detail.episodes[selectedEpisode] || !containerRef.current) return
+    const ep = selectedEpisodeRef.current
+    if (!detail?.episodes || !detail.episodes[ep] || !containerRef.current) return
 
     if (playerRef.current && playerRef.current.destroy) {
       playerRef.current.destroy(false)
@@ -789,8 +817,9 @@ const stallTimerRef = useRef<number | null>(null)
     const nextEpisode = () => {
       if (!playbackRef.current.isAutoPlayEnabled) return
 
-      if (selectedEpisode < episodes.length - 1) {
-        const nextIndex = selectedEpisode + 1
+      const curEp = selectedEpisodeRef.current
+      if (curEp < episodes.length - 1) {
+        const nextIndex = curEp + 1
         navigate(buildCurrentPlayPath(nextIndex), { replace: true })
         showPlayerNotice(`即将播放下一集: ${episodes[nextIndex]}`)
       }
@@ -816,7 +845,7 @@ const stallTimerRef = useRef<number | null>(null)
 
     const art = new Artplayer({
       container: containerRef.current,
-      url: detail.episodes[selectedEpisode],
+      url: detail.episodes[ep],
       volume: playbackRef.current.defaultVolume,
       isLive: false,
       muted: false,
@@ -844,6 +873,13 @@ const stallTimerRef = useRef<number | null>(null)
       airplay: !isMobileDevice,
       theme: playbackRef.current.playerThemeColor,
       lang: 'zh-cn',
+      plugins: [
+        artplayerPluginAutoThumbnail({
+          width: 160,
+          number: 100,
+          scale: 1,
+        }),
+      ],
       contextmenu: [], // 禁用 Artplayer 内置右键菜单，由全局右键菜单替代
       moreVideoAttr: {
         crossOrigin: 'anonymous',
@@ -912,6 +948,45 @@ const stallTimerRef = useRef<number | null>(null)
 
     playerRef.current = art
     setActiveArt(art)
+    artInstanceRef.current = art
+    currentVideoUrlRef.current = detail.episodes[ep]
+
+    // 切集按钮（控制器内）
+    if (episodes.length > 1) {
+      // 上一集
+      const prevSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="20,4 10,12 20,20"/><line x1="6" y1="4" x2="6" y2="20"/></svg>'
+      // 下一集
+      const nextSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="4,4 14,12 4,20"/><line x1="18" y1="4" x2="18" y2="20"/></svg>'
+      art.controls.add({
+        name: 'episode-prev',
+        position: 'left',
+        html: prevSvg,
+        tooltip: '上一集',
+        style: { display: selectedEpisodeRef.current <= 0 ? 'none' : '' },
+        click: () => {
+          const cur = selectedEpisodeRef.current
+          if (cur > 0) {
+            pendingSeekRef.current = null
+            navigate(buildCurrentPlayPath(cur - 1), { replace: true })
+          }
+        },
+      })
+
+      art.controls.add({
+        name: 'episode-next',
+        position: 'left',
+        html: nextSvg,
+        tooltip: '下一集',
+        style: { display: selectedEpisodeRef.current >= episodes.length - 1 ? 'none' : '' },
+        click: () => {
+          const cur = selectedEpisodeRef.current
+          if (cur < episodes.length - 1) {
+            pendingSeekRef.current = null
+            navigate(buildCurrentPlayPath(cur + 1), { replace: true })
+          }
+        },
+      })
+    }
 
     // 慢加载自动换源：10 秒内既没开始播放也没加载到数据则切换
     slowLoadTimerRef.current = window.setTimeout(() => {
@@ -1037,21 +1112,13 @@ const stallTimerRef = useRef<number | null>(null)
     window.addEventListener('resize', handleControlViewportChange, { passive: true })
     window.addEventListener('orientationchange', handleControlViewportChange)
 
-    art.on('ready', () => {
-      syncMobileControlBar()
-
-      if (art.video) {
-        art.video.style.objectFit = 'contain'
-        art.video.style.objectPosition = 'center center'
-        art.video.style.background = '#000'
-      }
-
+    const restoreProgress = () => {
       let existingHistory: ViewingHistoryItem | undefined
 
       if (canUseTmdbHistory && tmdbMediaType) {
         existingHistory = viewingHistoryRef.current.find(
           item =>
-            item.episodeIndex === selectedEpisode &&
+            item.episodeIndex === selectedEpisodeRef.current &&
             matchesTmdbHistory(item, tmdbMediaType, parsedTmdbId, tmdbSeasonNumberForHistory),
         )
 
@@ -1061,7 +1128,7 @@ const stallTimerRef = useRef<number | null>(null)
               item.recordType === 'cms' &&
               item.sourceCode === resolvedSourceCode &&
               item.vodId === resolvedVodId &&
-              item.episodeIndex === selectedEpisode,
+              item.episodeIndex === selectedEpisodeRef.current,
           )
         }
       } else {
@@ -1069,7 +1136,7 @@ const stallTimerRef = useRef<number | null>(null)
           item =>
             item.sourceCode === resolvedSourceCode &&
             item.vodId === resolvedVodId &&
-            item.episodeIndex === selectedEpisode,
+            item.episodeIndex === selectedEpisodeRef.current,
         )
       }
 
@@ -1081,6 +1148,22 @@ const stallTimerRef = useRef<number | null>(null)
         art.seek = existingHistory.playbackPosition
         showPlayerNotice('已自动跳转到上次观看位置')
       }
+    }
+
+    art.on('ready', () => {
+      syncMobileControlBar()
+
+      if (art.video) {
+        art.video.style.objectFit = 'contain'
+        art.video.style.objectPosition = 'center center'
+        art.video.style.background = '#000'
+      }
+
+      restoreProgress()
+    })
+
+    art.on('restart', () => {
+      restoreProgress()
     })
 
     const addHistorySnapshot = () => {
@@ -1102,8 +1185,8 @@ const stallTimerRef = useRef<number | null>(null)
         tmdbId: canUseTmdbHistory ? parsedTmdbId : undefined,
         tmdbSeasonNumber:
           canUseTmdbHistory && tmdbMediaType === 'tv' ? tmdbSeasonNumberForHistory : undefined,
-        episodeIndex: selectedEpisode,
-        episodeName: episodes[selectedEpisode],
+        episodeIndex: selectedEpisodeRef.current,
+        episodeName: episodes[selectedEpisodeRef.current],
         playbackPosition: art.currentTime || 0,
         duration: art.duration || 0,
         timestamp: Date.now(),
@@ -1150,8 +1233,8 @@ const stallTimerRef = useRef<number | null>(null)
           tmdbId: canUseTmdbHistory ? parsedTmdbId : undefined,
           tmdbSeasonNumber:
             canUseTmdbHistory && tmdbMediaType === 'tv' ? tmdbSeasonNumberForHistory : undefined,
-          episodeIndex: selectedEpisode,
-          episodeName: episodes[selectedEpisode],
+          episodeIndex: selectedEpisodeRef.current,
+          episodeName: episodes[selectedEpisodeRef.current],
           playbackPosition: currentTime,
           duration,
           timestamp: Date.now(),
@@ -1272,6 +1355,7 @@ const stallTimerRef = useRef<number | null>(null)
         setActiveArt(current => (current === art ? null : current))
         playerRef.current.destroy(false)
         playerRef.current = null
+        artInstanceRef.current = null
       }
     }
   }, [
@@ -1285,7 +1369,6 @@ const stallTimerRef = useRef<number | null>(null)
     parsedTmdbId,
     resolvedSourceCode,
     resolvedVodId,
-    selectedEpisode,
     showPlayerNotice,
     tmdbPlayback.tmdbDetail?.backdropPath,
     tmdbMediaType,
@@ -2155,14 +2238,16 @@ const stallTimerRef = useRef<number | null>(null)
                                     : option.bestQuality
                                       ? <span className="shrink-0 rounded bg-foreground/10 px-1.5 py-0.5 text-[10px] leading-none">{option.bestQuality}</span>
                                       : (
-                                        <button
-                                          type="button"
-                                          className="shrink-0 rounded bg-blue-500/10 px-1.5 py-0.5 text-[10px] leading-none text-blue-600 hover:bg-blue-500/20"
+                                        <span
+                                          role="button"
+                                          tabIndex={0}
+                                          className="shrink-0 cursor-pointer rounded bg-blue-500/10 px-1.5 py-0.5 text-[10px] leading-none text-blue-600 hover:bg-blue-500/20"
                                           onClick={e => { e.stopPropagation(); speedTestSingle(option.sourceCode) }}
+                                          onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); speedTestSingle(option.sourceCode) } }}
                                           title="点击测速"
                                         >
                                           测
-                                        </button>
+                                        </span>
                                       )
                                 )}
                                 {hasMultiLang && (

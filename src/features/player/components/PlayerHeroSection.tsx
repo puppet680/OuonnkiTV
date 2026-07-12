@@ -2,6 +2,7 @@ import { memo } from 'react'
 import { ArrowLeft, Sparkles, Tv, Film } from 'lucide-react'
 import { Badge } from '@/shared/components/ui/badge'
 import { Button } from '@/shared/components/ui/button'
+import { ClickToCopy } from '@/shared/components/ui/click-to-copy'
 import { ScrollableText } from '@/shared/components/common'
 import { getBackdropUrl, getPosterUrl } from '@/shared/lib/tmdb'
 import { getCertColor } from '@/features/media/components'
@@ -88,7 +89,7 @@ export const PlayerHeroSection = memo(function PlayerHeroSection({
 
             <div className="space-y-1.5 sm:space-y-2 md:space-y-2.5">
               <h1 className="line-clamp-2 text-xl leading-tight font-semibold tracking-tight text-white sm:text-2xl md:text-3xl lg:text-4xl">
-                {title}
+                <ClickToCopy text={title} />
               </h1>
               <ScrollableText maxHeight="max-h-16 sm:max-h-[4.5rem] md:max-h-24" className="text-xs leading-5 text-white/80 sm:text-sm sm:leading-6 md:text-[15px]">
                 {overview || '暂无剧情简介'}

@@ -1,8 +1,9 @@
 import { memo, useEffect, useMemo, useRef, useState } from 'react'
-import { Play, Info } from 'lucide-react'
+import { Play, Info, Copy } from 'lucide-react'
 import Autoplay from 'embla-carousel-autoplay'
 import { NavLink } from 'react-router'
 
+import { ClickToCopy } from '@/shared/components/ui/click-to-copy'
 import { getBackdropUrl, getLogoUrl } from '@/shared/lib/tmdb'
 import { buildTmdbDetailPath, buildTmdbPlayPath } from '@/shared/lib/routes'
 import { buildHistoryPlayPath, isTmdbHistoryItem } from '@/shared/lib/viewingHistory'
@@ -19,6 +20,7 @@ import { useIsMobile } from '@/shared/hooks/use-mobile'
 import { useViewingHistoryStore } from '@/shared/store/viewingHistoryStore'
 import type { TmdbMediaItem } from '@/shared/types/tmdb'
 import type { ViewingHistoryItem } from '@/shared/types/video'
+import { toast } from 'sonner'
 
 interface FeaturedCarouselProps {
   items: TmdbMediaItem[]
@@ -89,9 +91,21 @@ const FeaturedCarouselItem = memo(function FeaturedCarouselItem({
             className={`mb-3 flex shrink-0 items-end transition-all delay-100 duration-500 ease-out md:mb-4 ${isActive ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'}`}
           >
             {item.logoPath ? (
-              <img src={getLogoUrl(item.logoPath) || undefined} alt={item.title} className="max-h-12 max-w-[180px] object-contain md:max-h-16 md:max-w-[240px]" />
+              <span className="group relative inline-block max-w-full">
+                <img src={getLogoUrl(item.logoPath) || undefined} alt={item.title} className="max-h-12 max-w-[180px] object-contain md:max-h-16 md:max-w-[240px]" />
+                <span
+                  role="button" tabIndex={0} title="点击复制标题"
+                  className="absolute top-0 right-0 cursor-pointer rounded p-0.5 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none"
+                  onClick={async e => { e.preventDefault(); await navigator.clipboard.writeText(item.title); toast.success(`已复制：${item.title}`) }}
+                  onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigator.clipboard.writeText(item.title); toast.success(`已复制：${item.title}`) } }}
+                >
+                  <Copy className="size-3.5 text-white drop-shadow" />
+                </span>
+              </span>
             ) : (
-              <h2 className="text-xl font-bold text-white md:text-2xl">{item.title}</h2>
+              <h2 className="text-xl font-bold text-white md:text-2xl">
+                <ClickToCopy text={item.title} />
+              </h2>
             )}
           </div>
           <p className={`mb-2 line-clamp-2 min-h-0 shrink text-xs text-white/80 transition-all delay-150 duration-500 ease-out md:mb-4 md:line-clamp-3 md:max-w-md md:text-sm ${isActive ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'}`}>
@@ -138,9 +152,21 @@ const FeaturedCarouselItem = memo(function FeaturedCarouselItem({
         <div className={`absolute inset-0 hidden flex-col justify-end rounded-lg bg-gradient-to-r from-black/90 via-black/50 via-40% to-transparent px-16 pt-25 pb-16 transition-opacity duration-500 ease-out lg:flex ${isActive ? 'opacity-100' : 'opacity-0'}`}>
           <div className={`mb-8 flex h-35 items-end transition-all delay-100 duration-500 ease-out ${isActive ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'}`}>
             {item.logoPath ? (
-              <img src={getLogoUrl(item.logoPath) || undefined} alt={item.title} className="max-h-35 max-w-md object-contain xl:max-h-40 xl:max-w-lg" />
+              <span className="group relative inline-block max-w-full">
+                <img src={getLogoUrl(item.logoPath) || undefined} alt={item.title} className="max-h-35 max-w-md object-contain xl:max-h-40 xl:max-w-lg" />
+                <span
+                  role="button" tabIndex={0} title="点击复制标题"
+                  className="absolute top-0 right-0 cursor-pointer rounded p-0.5 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none"
+                  onClick={async e => { e.preventDefault(); await navigator.clipboard.writeText(item.title); toast.success(`已复制：${item.title}`) }}
+                  onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigator.clipboard.writeText(item.title); toast.success(`已复制：${item.title}`) } }}
+                >
+                  <Copy className="size-4 text-white drop-shadow" />
+                </span>
+              </span>
             ) : (
-              <h2 className="text-2xl font-bold text-white md:text-4xl lg:text-5xl">{item.title}</h2>
+              <h2 className="text-2xl font-bold text-white md:text-4xl lg:text-5xl">
+                <ClickToCopy text={item.title} />
+              </h2>
             )}
           </div>
           <p className={`mb-5 line-clamp-3 max-w-xl text-[0.7rem] text-white/80 transition-all delay-150 duration-500 ease-out md:max-w-2xl md:text-base ${isActive ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'}`}>
@@ -358,9 +384,21 @@ export const FeaturedCarousel = memo(function FeaturedCarousel({
             <div className="absolute inset-0 flex min-h-0 flex-col justify-end rounded-lg bg-gradient-to-t from-black/90 via-black/50 via-60% to-transparent px-6 pt-4 pb-6 transition-opacity duration-500 ease-out md:px-8 md:pb-8 lg:hidden">
               <div className={`mb-3 flex shrink-0 items-end transition-all delay-100 duration-500 ease-out md:mb-4 ${textVisible ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'}`}>
                 {first.logoPath ? (
-                  <img src={getLogoUrl(first.logoPath) || undefined} alt={first.title} className="max-h-12 max-w-[180px] object-contain md:max-h-16 md:max-w-[240px]" />
+                  <span className="group relative inline-block max-w-full">
+                    <img src={getLogoUrl(first.logoPath) || undefined} alt={first.title} className="max-h-12 max-w-[180px] object-contain md:max-h-16 md:max-w-[240px]" />
+                    <span
+                      role="button" tabIndex={0} title="点击复制标题"
+                      className="absolute top-0 right-0 cursor-pointer rounded p-0.5 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none"
+                      onClick={async e => { e.preventDefault(); await navigator.clipboard.writeText(first.title); toast.success(`已复制：${first.title}`) }}
+                      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigator.clipboard.writeText(first.title); toast.success(`已复制：${first.title}`) } }}
+                    >
+                      <Copy className="size-3.5 text-white drop-shadow" />
+                    </span>
+                  </span>
                 ) : (
-                  <h2 className="text-xl font-bold text-white md:text-2xl">{first.title}</h2>
+                  <h2 className="text-xl font-bold text-white md:text-2xl">
+                    <ClickToCopy text={first.title} />
+                  </h2>
                 )}
               </div>
               <p className={`mb-2 line-clamp-2 min-h-0 shrink text-xs text-white/80 transition-all delay-150 duration-500 ease-out md:mb-4 md:line-clamp-3 md:max-w-md md:text-sm ${textVisible ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'}`}>
@@ -406,9 +444,21 @@ export const FeaturedCarousel = memo(function FeaturedCarousel({
             <div className="absolute inset-0 hidden flex-col justify-end rounded-lg bg-gradient-to-r from-black/90 via-black/50 via-40% to-transparent px-16 pt-25 pb-16 transition-opacity duration-500 ease-out lg:flex">
               <div className={`mb-8 flex h-35 items-end transition-all delay-100 duration-500 ease-out ${textVisible ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'}`}>
                 {first.logoPath ? (
-                  <img src={getLogoUrl(first.logoPath) || undefined} alt={first.title} className="max-h-35 max-w-md object-contain xl:max-h-40 xl:max-w-lg" />
+                  <span className="group relative inline-block max-w-full">
+                    <img src={getLogoUrl(first.logoPath) || undefined} alt={first.title} className="max-h-35 max-w-md object-contain xl:max-h-40 xl:max-w-lg" />
+                    <span
+                      role="button" tabIndex={0} title="点击复制标题"
+                      className="absolute top-0 right-0 cursor-pointer rounded p-0.5 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none"
+                      onClick={async e => { e.preventDefault(); await navigator.clipboard.writeText(first.title); toast.success(`已复制：${first.title}`) }}
+                      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigator.clipboard.writeText(first.title); toast.success(`已复制：${first.title}`) } }}
+                    >
+                      <Copy className="size-4 text-white drop-shadow" />
+                    </span>
+                  </span>
                 ) : (
-                  <h2 className="text-2xl font-bold text-white md:text-4xl lg:text-5xl">{first.title}</h2>
+                  <h2 className="text-2xl font-bold text-white md:text-4xl lg:text-5xl">
+                    <ClickToCopy text={first.title} />
+                  </h2>
                 )}
               </div>
               <p className={`mb-5 line-clamp-3 max-w-xl text-[0.7rem] text-white/80 transition-all delay-150 duration-500 ease-out md:max-w-2xl md:text-base ${textVisible ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'}`}>

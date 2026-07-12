@@ -3,6 +3,7 @@ import {
   ArrowLeft,
   CalendarDays,
   Clock3,
+  Copy,
   ExternalLink,
   Film,
   Flame,
@@ -15,8 +16,10 @@ import { getBackdropUrl, getPosterUrl } from '@/shared/lib/tmdb'
 import type { TmdbMediaItem, TmdbMediaType } from '@/shared/types/tmdb'
 import { Badge } from '@/shared/components/ui/badge'
 import { Button } from '@/shared/components/ui/button'
+import { ClickToCopy } from '@/shared/components/ui/click-to-copy'
 import { ScrollableText } from '@/shared/components/common'
 import { getCertColor } from './helpers'
+import { toast } from 'sonner'
 import type { DetailImage, TmdbRichDetail } from './types'
 
 interface DetailHeroSectionProps {
@@ -118,14 +121,38 @@ export function DetailHeroSection({
         <div className="flex flex-col gap-4 md:max-w-2xl">
           <div className="space-y-3">
             {heroLogo ? (
-              <img
-                src={getPosterUrl(heroLogo.file_path, 'w500')}
-                alt={detail.title}
-                className="max-h-24 max-w-[78vw] object-contain sm:max-w-[320px] md:max-h-36 md:max-w-[420px]"
-              />
-            ) : (
-              <h1 className="text-3xl leading-tight font-bold text-white md:text-5xl">{detail.title}</h1>
-            )}
+                <span className="group relative inline-block max-w-full">
+                  <img
+                    src={getPosterUrl(heroLogo.file_path, 'w500')}
+                    alt={detail.title}
+                    className="max-h-24 max-w-[78vw] object-contain sm:max-w-[320px] md:max-h-36 md:max-w-[420px]"
+                  />
+                  <span
+                    role="button"
+                    tabIndex={0}
+                    title="点击复制标题"
+                    className="absolute top-0 right-0 cursor-pointer rounded p-0.5 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none"
+                    onClick={async e => {
+                      e.preventDefault()
+                      await navigator.clipboard.writeText(detail.title)
+                      toast.success(`已复制：${detail.title}`)
+                    }}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault()
+                        navigator.clipboard.writeText(detail.title)
+                        toast.success(`已复制：${detail.title}`)
+                      }
+                    }}
+                  >
+                    <Copy className="size-3.5 text-white drop-shadow" />
+                  </span>
+                </span>
+              ) : (
+                <h1 className="text-3xl leading-tight font-bold text-white md:text-5xl">
+                  <ClickToCopy text={detail.title} />
+                </h1>
+              )}
             {richDetail.tagline && !/(https?:\/\/|\.(com|net|org|cn|xyz|top|info|cc|tv|live|app)\b)/i.test(richDetail.tagline) && (
               <p className="text-sm italic text-white/80 md:text-base">{richDetail.tagline}</p>
             )}
