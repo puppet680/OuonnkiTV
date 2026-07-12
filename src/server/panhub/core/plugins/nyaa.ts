@@ -50,7 +50,7 @@ export class NyaaPlugin extends BaseAsyncPlugin {
       const unique = detail
         ? `nyaa-${detail.split("/").pop()}`
         : `nyaa-${title}`;
-      let magnet = row.find("a[href^='magnet:']").attr("href") || "";
+      const magnet = row.find("a[href^='magnet:']").attr("href") || "";
       if (!magnet && detail) {
         tasks.push(
           (async () => {

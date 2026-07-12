@@ -52,7 +52,7 @@ export class LabiPlugin extends BaseAsyncPlugin {
           },
           timeout: 6000,
         }).catch(() => "");
-        let links: SearchResult["links"] = [];
+        const links: SearchResult["links"] = [];
         if (detail) {
           const $$ = load(detail);
           const found = new Set<string>();

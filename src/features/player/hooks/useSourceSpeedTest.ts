@@ -168,7 +168,7 @@ export function useSourceSpeedTest(
     Promise.all(workers).finally(() => setTesting(false))
 
     return () => { /* no cleanup needed */ }
-  }, [sourceOptions, videoAPIs, cmsClient]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [sourceOptions, videoAPIs, cmsClient])  
 
   // ── single source test — callable from UI ──
   const testSingle = (sourceCode: string) => {

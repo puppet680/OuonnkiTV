@@ -594,7 +594,6 @@ export function DetailPlaylistTab({
       {!loading && error && (
         <DetailStatePanel
           mode="error"
-          compact
           tag="匹配失败"
           title="找不到匹配结果"
           description={error}
@@ -663,7 +662,6 @@ export function DetailPlaylistTab({
       {shouldShowNoMatchState && (
         <DetailStatePanel
           mode="empty"
-          compact
           tag="暂无可用播放项"
           title="找不到匹配结果"
           description="当前已启用视频源中没有可播放条目。你可以重新匹配，或调整视频源后再试。"
