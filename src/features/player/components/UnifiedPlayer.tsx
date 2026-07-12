@@ -85,6 +85,7 @@ interface PlayerTransientNotice {
   duration: number
   progress: number
 }
+const TMDB_SEARCH_PATH = '/search?mode=tmdb'
 
 const m3u8Processor = createM3u8Processor({
   filterAds: true,
@@ -2057,6 +2058,24 @@ const stallTimerRef = useRef<number | null>(null)
     )
   }
 
+  if (isTmdbRoute && isAdultFilterEnabled && isAdultCert(certShort)) {
+    return (
+      <PlayerErrorState
+        title="访问被拒绝"
+        description={certShort ? `该内容分级为 ${certShort}，根据青少年保护设置已自动屏蔽` : '当前青少年模式已开启，该成人内容无法访问'}
+        tag="内容受限"
+        primaryAction={{
+            label: '返回搜索页',
+            onClick: () => navigate(TMDB_SEARCH_PATH),
+          }}
+        secondaryAction={{
+          label: '返回上一页',
+          onClick: () => navigate(-1),
+        }}
+      />
+    )
+  }
+
   if (shouldShowLoading) {
     return <PlayerLoadingSkeleton mode={loadingMode} />
   }
@@ -2067,20 +2086,6 @@ const stallTimerRef = useRef<number | null>(null)
 
   if (!detail || detail.episodes.length === 0) {
     return renderErrorState(error || '无法获取播放信息')
-  }
-
-  if (isTmdbRoute && isAdultFilterEnabled && isAdultCert(certShort)) {
-    return (
-      <PlayerErrorState
-        title="访问被拒绝"
-        description={certShort ? `分级 ${certShort}` : '成人内容'}
-        tag="内容受限"
-        primaryAction={{
-          label: '返回上一页',
-          onClick: () => navigate(-1),
-        }}
-      />
-    )
   }
 
   return (
@@ -2198,7 +2203,7 @@ const stallTimerRef = useRef<number | null>(null)
                     activeRightPanel === 'source' && 'xl:flex xl:flex-1 xl:min-h-0 xl:flex-col',
                   )}
                 >
-                  <ContextMenu>
+                  <ContextMenu key="source-panel">
                     <ContextMenuTrigger asChild>
                       <ScrollArea className="max-h-44 sm:max-h-56 xl:h-full xl:max-h-none">
                         <div className="grid grid-cols-2 gap-2 pr-2">

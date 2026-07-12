@@ -276,7 +276,8 @@ export default function TmdbDetailView() {
         <DetailStatePanel
           mode="error"
           title="访问被拒绝"
-          description={certFull || `分级 ${certShort}`}
+          description={certFull ? `该内容分级为 ${certFull}，根据青少年保护设置已自动屏蔽` : `该内容分级为 ${certShort}，根据青少年保护设置已自动屏蔽`}
+          tag="内容受限"
           primaryAction={{
             label: '返回搜索页',
             onClick: () => navigate(TMDB_SEARCH_PATH),

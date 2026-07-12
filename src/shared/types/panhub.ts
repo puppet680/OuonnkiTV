@@ -29,6 +29,7 @@ export const PLATFORM_INFO: Record<string, { name: string; color: string; icon: 
   tianyi: { name: '天翼云盘', color: '#ec4899', icon: '/icons/panhub/tianyi.png' },
   '123': { name: '123网盘', color: '#10b981', icon: '/icons/panhub/123.png' },
   mobile: { name: '移动云盘', color: '#0ea5e9', icon: '/icons/panhub/mobile.png' },
+  magnet: { name: '磁力链接', color: '#a855f7', icon: '/icons/panhub/magnet.png'},
   others: { name: '其他网盘', color: '#6b7280', icon: '/icons/panhub/others.png' },
 }
 

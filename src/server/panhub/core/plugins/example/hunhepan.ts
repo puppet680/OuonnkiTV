@@ -118,7 +118,7 @@ export class HunhepanPlugin extends BaseAsyncPlugin {
         map.set(key, clone);
       } else {
         const existing = map.get(key)!;
-        let existingScore = (existing.files || "").length;
+        const existingScore = (existing.files || "").length;
         let newScore = (clone.files || "").length;
         if (!existing.disk_pass && clone.disk_pass) newScore += 5;
         if (!existing.shared_time && clone.shared_time) newScore += 3;
