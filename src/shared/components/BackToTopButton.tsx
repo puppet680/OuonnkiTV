@@ -87,7 +87,7 @@ export default function BackToTopButton({
     <div
       className={cn(
         'pointer-events-none absolute right-4 z-40 transition-[bottom] duration-220 ease-out md:right-6',
-        isMobile ? (navVisible ? 'bottom-20' : 'bottom-6') : 'bottom-6 md:bottom-8',
+        isMobile ? (navVisible ? 'bottom-15' : 'bottom-6') : 'bottom-6 md:bottom-8',
         className,
       )}
     >

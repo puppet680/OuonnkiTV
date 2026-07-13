@@ -74,7 +74,7 @@ export default function MainLayout() {
           enableScrollAnimation={isScrollChromeAnimationEnabled}
         />
         <SidebarInset className="h-full overflow-hidden">
-          <div className="h-full p-2 md:pl-1">
+          <div className="h-full p-2 pb-3.5 md:p-2 md:pl-1">
             <div className="border-border bg-sidebar relative h-full rounded-lg border py-2 shadow-sm">
               <ScrollArea data-main-scroll-area className="h-full rounded-lg px-2">
                 <Suspense fallback={

@@ -74,7 +74,13 @@ const router = createBrowserRouter([
   // B. 核心布局路由 (带顶部导航)
   {
     path: '/',
-    element: <MainLayout />,
+    element: (
+      <SuspenseWrapper>
+        <AuthGuard>
+          <MainLayout />
+        </AuthGuard>
+      </SuspenseWrapper>
+    ),
     children: [
       {
         index: true,
@@ -235,11 +241,9 @@ export default function AppRouter() {
   return (
     <ErrorBoundary>
       <Suspense fallback={<LoadingFallback />}>
-        <AuthGuard>
           <RouterProvider router={router} />
           <UpdateModal />
           <PwaInstallPrompt />
-        </AuthGuard>
       </Suspense>
     </ErrorBoundary>
   )

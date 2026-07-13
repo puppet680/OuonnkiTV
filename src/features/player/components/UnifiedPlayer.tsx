@@ -1089,11 +1089,11 @@ const stallTimerRef = useRef<number | null>(null)
       if (!isMobileDevice || !art.video) return
       const isLandscapeVideo = art.video.videoWidth > art.video.videoHeight
       if (!isLandscapeVideo) return
-      try { void (screen.orientation as unknown as { lock?: (mode: string) => Promise<void> })?.lock?.('landscape') } catch {}
+      try { void (screen.orientation as unknown as { lock?: (mode: string) => Promise<void> })?.lock?.('landscape') } catch { /* empty */ }
     }
     const tryUnlockOrientation = () => {
       if (!isMobileDevice) return
-      try { void (screen.orientation as unknown as { unlock?: () => void })?.unlock?.() } catch {}
+      try { void (screen.orientation as unknown as { unlock?: () => void })?.unlock?.() } catch { /* empty */ }
     }
 
     art.on('fullscreen', () => {
