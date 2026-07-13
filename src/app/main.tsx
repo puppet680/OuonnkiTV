@@ -12,6 +12,7 @@ import { RefreshCw } from 'lucide-react'
 import { TooltipProvider } from '@/shared/components/ui/tooltip'
 import { GlobalContextMenu } from '@/shared/components/GlobalContextMenu'
 import { ThemeColorMeta } from '@/shared/components/theme'
+import { PwaUpdateNotifier } from '@/shared/components/PwaUpdateNotifier'
 
 // ponytail: analytics 与首屏渲染无关，lazy-load 避免阻塞 INP/LCP
 const Analytics = import.meta.env.OKI_DISABLE_ANALYTICS !== 'true'
@@ -45,6 +46,7 @@ const builtInContextMenuItems = [
 const app = (
   <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
     <ThemeColorMeta />
+    <PwaUpdateNotifier />
     <TooltipProvider>
       <GlobalContextMenu builtInItems={builtInContextMenuItems}>
         <AppRouter />

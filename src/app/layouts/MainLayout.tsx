@@ -59,7 +59,7 @@ export default function MainLayout() {
       onOpenChange={setSidebarOpen}
       style={
         {
-          '--sidebar-top': isChromeVisible ? '4rem' : '0rem',
+          '--sidebar-top': isChromeVisible ? 'calc(4rem + env(safe-area-inset-top))' : '0rem',
         } as React.CSSProperties
       }
       className="flex h-dvh flex-col overflow-hidden"

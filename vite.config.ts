@@ -47,12 +47,15 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       workbox: {
-        // 新 SW 立即激活（不等所有标签页关闭），刷新即生效
+        // 新 SW 立即激活 + 接管所有页面
         skipWaiting: true,
+        clientsClaim: true,
         // 预缓存所有静态资源（JS/CSS/HTML/字体/图标）
         globPatterns: ['**/*.{js,css,html,woff2,ico,png,svg,webmanifest}'],
         // HLS 视频分片和播放列表不缓存，避免播放错误
         navigationPreload: false,
+        // 导航请求离线时回退到离线页
+        navigateFallback: '/offline.html',
         runtimeCaching: [
           // 同源请求（不含静态资源、m3u8、ts）— Network First，离线兜底
           {
@@ -88,7 +91,7 @@ export default defineConfig({
       },
       manifest: {
         name: 'I TV',
-        short_name: 'I TV',
+        short_name: 'ITV',
         description: '现代化视频聚合搜索与播放',
         start_url: '/',
         scope: '/',
@@ -100,7 +103,19 @@ export default defineConfig({
             src: '/web-app-manifest-192x192.png',
             sizes: '192x192',
             type: 'image/png',
+            purpose: 'any',
+          },
+          {
+            src: '/web-app-manifest-192x192.png',
+            sizes: '192x192',
+            type: 'image/png',
             purpose: 'maskable',
+          },
+          {
+            src: '/web-app-manifest-512x512.png',
+            sizes: '512x512',
+            type: 'image/png',
+            purpose: 'any',
           },
           {
             src: '/web-app-manifest-512x512.png',
@@ -110,7 +125,7 @@ export default defineConfig({
           },
         ],
       },
-      // 覆盖 public/site.webmanifest，由 vite-plugin-pwa 统一管理
+      // 由 vite-plugin-pwa 统一管理 manifest，不自动注入额外图标尺寸
       includeManifestIcons: false,
     }),
   ],

@@ -30,13 +30,13 @@ export default function Navigation({ hidden = false, enableScrollAnimation = fal
   return (
     <div
       className={cn(
-        'sticky top-0 z-50 w-full',
+        'sticky top-0 z-50 w-full pt-[env(safe-area-inset-top)]',
         hidden ? 'overflow-hidden' : 'overflow-visible',
         enableScrollAnimation
           ? 'transition-[height] duration-220 ease-out motion-reduce:transition-none'
           : 'transition-none',
       )}
-      style={{ height: hidden ? '0rem' : '4rem' }}
+      style={{ height: hidden ? '0rem' : 'calc(4rem + env(safe-area-inset-top))' }}
     >
       <div
         className={cn(
