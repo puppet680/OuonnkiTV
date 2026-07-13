@@ -19,13 +19,11 @@
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
     <link rel="manifest" href="/site.webmanifest" />
 
-    <!-- Theme Color: 与 main.css --background 保持同步 -->
-    <!-- ponytail: 首帧 CSS 未加载，无法读变量，必须在此定义。React 挂载后 getComputedStyle 接管。 -->
-    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#ffffff" />
-    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#121212" />
+    <!-- Theme Color: 内联脚本在首帧前同步设置，避免状态栏颜色闪烁 -->
+    <meta name="theme-color" content="#ffffff" />
     <meta name="color-scheme" content="dark light" />
 
-    <!-- 防止暗色模式初始闪烁：在首帧渲染前同步设置主题 class -->
+    <!-- 防止暗色模式初始闪烁 + 首帧状态栏颜色：在首帧渲染前同步设置 -->
     <script>
       (function () {
         var theme = localStorage.getItem('theme')
@@ -33,7 +31,11 @@
           theme === 'dark' ||
           ((theme === 'system' || !theme) &&
             window.matchMedia('(prefers-color-scheme: dark)').matches)
-        if (isDark) document.documentElement.classList.add('dark')
+        if (isDark) {
+          document.documentElement.classList.add('dark')
+          var meta = document.querySelector('meta[name="theme-color"]')
+          if (meta) meta.setAttribute('content', '#121212')
+        }
       })()
     </script>
 
