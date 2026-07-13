@@ -54,8 +54,6 @@ export default defineConfig({
         globPatterns: ['**/*.{js,css,html,woff2,ico,png,svg,webmanifest}'],
         // HLS 视频分片和播放列表不缓存，避免播放错误
         navigationPreload: false,
-        // 导航请求离线时回退到离线页
-        navigateFallback: '/offline.html',
         runtimeCaching: [
           // 同源请求（不含静态资源、m3u8、ts）— Network First，离线兜底
           {
