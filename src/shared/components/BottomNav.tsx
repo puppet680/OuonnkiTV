@@ -72,7 +72,7 @@ export default function BottomNav() {
         visible ? 'translate-y-0 opacity-100' : 'pointer-events-none translate-y-full opacity-0',
       )}
     >
-      <nav className="border-border/40 bg-background/80 border-t pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] shadow-[0_-4px_24px_rgba(0,0,0,0.04)] backdrop-blur-xl">
+      <nav className="border-border/40 bg-background/80 border-t pt-2 pb-safe shadow-[0_-4px_24px_rgba(0,0,0,0.04)] backdrop-blur-xl">
         <div className="mx-auto flex h-12 max-w-md items-center justify-around px-4">
           {filtered.map(item => {
             const active = item.url === '/' ? pathname === '/' : pathname.startsWith(item.url)
