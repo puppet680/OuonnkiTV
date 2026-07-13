@@ -283,11 +283,3 @@
 .art-video-player.oki-hide-mini-progress.art-lock .art-bottom .art-progress {
   display: none !important;
 }
-
-/* 水滴屏/刘海屏：Artplayer 左侧控件（锁定按钮、切集按钮等）偏移 safe area */
-.art-video-player .art-controls-left {
-  padding-left: calc(env(safe-area-inset-left, 0px) + 8px);
-}
-.art-video-player.art-lock .art-lock {
-  left: calc(env(safe-area-inset-left, 0px) + 8px);
-}
