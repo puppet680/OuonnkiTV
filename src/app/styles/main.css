@@ -177,30 +177,6 @@
   }
 }
 
-@media (display-mode: fullscreen) {
-  .pt-safe {
-    padding-top: 0 !important;
-  }
-  .pb-safe {
-    padding-bottom: 0 !important;
-  }
-  .pl-safe {
-    padding-left: 0 !important;
-  }
-  .pr-safe {
-    padding-right: 0 !important;
-  }
-  .top-safe {
-    top: 0 !important;
-  }
-  .bottom-safe {
-    bottom: 0 !important;
-  }
-  .min-h-safe {
-    min-height: 100dvh !important;
-  }
-}
-
 @layer base {
   button:not(:disabled),
   [role='button']:not(:disabled) {
