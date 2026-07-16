@@ -9,6 +9,7 @@ import BackToTopButton from '@/shared/components/BackToTopButton'
 import { Suspense, useEffect, useState } from 'react'
 import { useSettingStore } from '@/shared/store/settingStore'
 import { useApiStore } from '@/shared/store/apiStore'
+import { useSubscriptionStore } from '@/shared/store/subscriptionStore'
 import { useSubscriptionAutoRefresh } from '@/shared/hooks/useSubscriptionAutoRefresh'
 import { useScrollChromeVisibility } from '@/shared/hooks'
 import { useLocation, useNavigate } from 'react-router'
@@ -19,6 +20,7 @@ export default function MainLayout() {
   const isScrollChromeAnimationEnabled = useSettingStore(s => s.system.isScrollChromeAnimationEnabled)
   const isMobile = useIsMobile()
   const { initializeEnvSources } = useApiStore()
+  const initializeSubscriptions = useSubscriptionStore(s => s.initializeSubscriptions)
   const location = useLocation()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const isChromeVisible = useScrollChromeVisibility({
@@ -49,9 +51,10 @@ export default function MainLayout() {
     const needsInitialization = localStorage.getItem('envSourcesInitialized') !== 'true'
     if (needsInitialization) {
       initializeEnvSources()
+      initializeSubscriptions()
       localStorage.setItem('envSourcesInitialized', 'true')
     }
-  }, [initializeEnvSources])
+  }, [initializeEnvSources, initializeSubscriptions])
 
   return (
     <SidebarProvider

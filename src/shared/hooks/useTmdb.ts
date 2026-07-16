@@ -52,6 +52,7 @@ export function useTmdbSearch() {
   const loading = useTmdbStore(s => s.loading.search)
   const filterOptions = useTmdbStore(s => s.filterOptions)
   const availableOptions = useTmdbStore(s => s.availableFilterOptions)
+  const error = useTmdbStore(s => s.error)
 
   const search = useTmdbStore(s => s.search)
   const setFilter = useTmdbStore(s => s.setFilter)
@@ -65,6 +66,7 @@ export function useTmdbSearch() {
     loading,
     filterOptions,
     availableOptions,
+    error,
     search,
     setFilter,
     clearFilter,
@@ -79,6 +81,7 @@ export function useTmdbDiscover() {
   const pagination = useTmdbStore(s => s.discoverPagination)
   const loading = useTmdbStore(s => s.loading.discover)
   const filterOptions = useTmdbStore(s => s.filterOptions)
+  const error = useTmdbStore(s => s.error)
 
   const fetchDiscover = useTmdbStore(s => s.fetchDiscover)
   const setFilter = useTmdbStore(s => s.setFilter)
@@ -89,6 +92,7 @@ export function useTmdbDiscover() {
     pagination,
     loading,
     filterOptions,
+    error,
     fetchDiscover,
     setFilter,
     clearFilter,
@@ -101,6 +105,7 @@ export function useTmdbDiscover() {
 export function useTmdbRegionalDiscover() {
   const cache = useTmdbStore(s => s.regionCache['default'])
   const loading = useTmdbStore(s => s.regionalLoading)
+  const error = useTmdbStore(s => s.error)
   const fetchRegionalDiscover = useTmdbStore(s => s.fetchRegionalDiscover)
 
   useEffect(() => {
@@ -120,6 +125,7 @@ export function useTmdbRegionalDiscover() {
     popularTv: cache?.regionalPopularTv ?? [],
     topRatedTv: cache?.regionalTopRatedTv ?? [],
     loading,
+    error,
   }
 }
 
@@ -131,6 +137,7 @@ export function useTmdbNowPlaying() {
   const tv = useTmdbStore(s => s.popularTv)
   const trending = useTmdbStore(s => s.trending)
   const loading = useTmdbStore(s => s.loading)
+  const error = useTmdbStore(s => s.error)
 
   const fetchNowPlaying = useTmdbStore(s => s.fetchNowPlaying)
   const fetchTrending = useTmdbStore(s => s.fetchTrending)
@@ -146,6 +153,7 @@ export function useTmdbNowPlaying() {
     tv,
     trending,
     loading,
+    error,
     refreshNowPlaying: fetchNowPlaying,
     refreshTrending: fetchTrending,
   }

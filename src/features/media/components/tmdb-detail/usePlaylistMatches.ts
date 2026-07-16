@@ -9,6 +9,7 @@ import type {
 import type { TmdbMediaType } from '@/shared/types/tmdb'
 import { useCmsClient } from '@/shared/hooks'
 import { useApiStore } from '@/shared/store/apiStore'
+import { extractSubscriptionId, useSubscriptionStore } from '@/shared/store/subscriptionStore'
 import { useSettingStore } from '@/shared/store/settingStore'
 import { useTmdbMatchCacheStore } from '@/shared/store/tmdbMatchCacheStore'
 import {
@@ -127,7 +128,16 @@ export function usePlaylistMatches({
   const pruneTmdbMatchCache = useTmdbMatchCacheStore(state => state.prune)
 
   // ponytail: getState() to keep runSearch stable when only isEnabled toggles
-  const getEnabledSources = () => useApiStore.getState().videoAPIs.filter(s => s.isEnabled)
+  const getEnabledSources = () => {
+    const all = useApiStore.getState().videoAPIs.filter(s => s.isEnabled)
+    const subs = useSubscriptionStore.getState().subscriptions
+    return all.filter(s => {
+      const subId = extractSubscriptionId(s.id)
+      if (!subId) return true
+      const sub = subs.find(sub => sub.id === subId)
+      return sub ? sub.isEnabled : true
+    })
+  }
 
   const [state, setState] = useState<PlaylistMatchesState>(initialState)
   const abortRef = useRef<AbortController | null>(null)

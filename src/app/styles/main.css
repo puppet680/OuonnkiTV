@@ -284,3 +284,8 @@
 .art-video-player.oki-hide-mini-progress.art-lock .art-bottom .art-progress {
   display: none !important;
 }
+
+/* 全屏时反馈提示避开顶部栏 */
+.media-default-skin:has(.media-topbar-active) .media-input-feedback-island {
+  top: 4.25rem;
+}

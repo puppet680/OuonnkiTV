@@ -207,10 +207,11 @@ const scoreItem = (
     else if (altPartial) s -= 10
   }
 
-  // 3. 年份不匹配扣分
-  if (releaseYear && item.vod_year) {
+  // 3. 年份不匹配扣分（从 vod_year 提取前 4 位数字，兼容 "2021–" 等非标准格式）
+  const parsedVodYear = item.vod_year?.match(/\b(19|20)\d{2}\b/)?.[0]
+  if (releaseYear && parsedVodYear) {
     const targetYear = Number(releaseYear)
-    const itemYear = Number(item.vod_year)
+    const itemYear = Number(parsedVodYear)
     if (Number.isFinite(targetYear) && Number.isFinite(itemYear)) {
       const diff = Math.abs(targetYear - itemYear)
       if (diff >= 5) s -= 10

@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback, useMemo, useEffect } from 'react'
 import { type VideoItem, type SearchResultEvent, type Pagination, type VideoSource } from '@ouonnki/cms-core'
 import { useApiStore } from '@/shared/store/apiStore'
+import { extractSubscriptionId, useSubscriptionStore } from '@/shared/store/subscriptionStore'
 import { useCmsClient } from '@/shared/hooks'
 import { filterAdult } from '@/shared/hooks/useCmsCore'
 import { PaginationConfig } from '@/shared/config/video.config'
@@ -32,11 +33,18 @@ export function useDirectSearch() {
   const requestVersionRef = useRef(0)
 
   const { videoAPIs } = useApiStore()
+  const subscriptions = useSubscriptionStore(s => s.subscriptions)
   const cmsClient = useCmsClient()
 
   const selectedAPIs = useMemo(() => {
-    return videoAPIs.filter(api => api.isEnabled)
-  }, [videoAPIs])
+    return videoAPIs.filter(api => {
+      if (!api.isEnabled) return false
+      const subId = extractSubscriptionId(api.id)
+      if (!subId) return true
+      const sub = subscriptions.find(s => s.id === subId)
+      return sub ? sub.isEnabled : true
+    })
+  }, [videoAPIs, subscriptions])
 
   const fetchDirectSearch = useCallback(async (keyword: string, page: number = 1) => {
     if (!keyword || selectedAPIs.length === 0) return

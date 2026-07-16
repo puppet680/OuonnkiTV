@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router'
 import { useSettingStore } from '@/shared/store/settingStore'
 import { useApiStore } from '@/shared/store/apiStore'
 import { useTmdbEnabled } from '@/shared/hooks/useTmdbMode'
@@ -16,25 +17,52 @@ import {
 } from '@/shared/components/ui/select'
 import { toast } from 'sonner'
 import {
+  Code2,
   Database,
   Gauge,
   ListFilter,
   Monitor,
   Palette,
   PlaySquare,
+  RotateCcw,
   Settings2,
   Timer,
   Trash2,
   Volume2,
 } from 'lucide-react'
 import { Button } from '@/shared/components/ui/button'
+import { Textarea } from '@/shared/components/ui/textarea'
 import { SettingsItem, SettingsPageShell, SettingsSection } from '../common'
+import { useCustomAdFilter } from '@/features/player/lib/custom-ad-filter'
+
+const EXAMPLE_CODE = `function filterAdsFromM3U8(type, m3u8Content) {
+  if (!m3u8Content) return '';
+  const adKeywords = ['sponsor', '/ad/', '/ads/', 'advert', 'advertisement', '/adjump', 'redtraffic'];
+  const lines = m3u8Content.split('\\n');
+  const filtered = [];
+  let inAdBlock = false;
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (line.includes('#EXT-X-CUE-OUT') || line.includes('#EXT-X-SCTE35') || line.includes('#EXT-OATCLS-SCTE35') || (line.includes('#EXT-X-DATERANGE') && line.includes('SCTE35'))) { inAdBlock = true; continue; }
+    if (line.includes('#EXT-X-CUE-IN')) { inAdBlock = false; continue; }
+    if (inAdBlock) continue;
+    if (line.includes('#EXT-X-DISCONTINUITY')) continue;
+    if (line.includes('#EXTINF:') && i + 1 < lines.length) {
+      const url = lines[i + 1];
+      if (adKeywords.some(k => url.toLowerCase().includes(k))) { i++; continue; }
+    }
+    filtered.push(line);
+  }
+  return filtered.join('\\n');
+}`
 
 export default function PlaybackSettings() {
   const { playback, setPlaybackSettings } = useSettingStore()
   const { adFilteringEnabled, setAdFilteringEnabled } = useApiStore()
   const tmdbEnabled = useTmdbEnabled()
+  const navigate = useNavigate()
   const [confirmClearCacheOpen, setConfirmClearCacheOpen] = useState(false)
+  const adFilter = useCustomAdFilter()
 
   return (
     <SettingsPageShell
@@ -189,17 +217,19 @@ export default function PlaybackSettings() {
             />
           }
         />
-        <SettingsItem
-          title="自动迷你播放器"
-          description="页面滚动时自动将视频缩小为迷你播放器。"
-          controlClassName="self-end mt-1"
-          control={
-            <Switch
-              checked={playback.isAutoMiniEnabled}
-              onCheckedChange={checked => setPlaybackSettings({ isAutoMiniEnabled: checked })}
-            />
-          }
-        />
+        {playback.isPipEnabled && (
+          <SettingsItem
+            title="自动迷你播放器"
+            description="页面滚动时自动将视频缩小为迷你播放器。"
+            controlClassName="self-end mt-1"
+            control={
+              <Switch
+                checked={playback.isAutoMiniEnabled}
+                onCheckedChange={checked => setPlaybackSettings({ isAutoMiniEnabled: checked })}
+              />
+            }
+          />
+        )}
         <SettingsItem
           title="移动端手势操作"
           description="仅在移动端网页全屏下启用滑动、双击和长按手势。"
@@ -231,17 +261,6 @@ export default function PlaybackSettings() {
                 }}
               />
             </div>
-          }
-        />
-        <SettingsItem
-          title="全屏隐藏收起态进度条"
-          description="开启后在网页全屏/系统全屏时隐藏操作栏收起后的底部迷你进度条。"
-          controlClassName="self-end mt-1"
-          control={
-            <Switch
-              checked={playback.isFullscreenProgressHidden}
-              onCheckedChange={checked => setPlaybackSettings({ isFullscreenProgressHidden: checked })}
-            />
           }
         />
         <SettingsItem
@@ -357,6 +376,20 @@ export default function PlaybackSettings() {
             </div>
           }
         />
+      </SettingsSection>
+
+      <SettingsSection
+        title="自定义去广告"
+        description="编写 JS 过滤脚本拦截 M3U8 广告片段"
+        icon={<Code2 className="size-4" />}
+        tone="emerald"
+      >
+        <div className="text-muted-foreground flex items-center justify-between gap-2 text-sm">
+          <span>去广告脚本位于独立编辑页</span>
+          <Button variant="outline" size="sm" onClick={() => navigate('/settings/adfilter')}>
+            <Code2 className="mr-1.5 size-3.5" /> 打开去广告
+          </Button>
+        </div>
       </SettingsSection>
     </SettingsPageShell>
   )

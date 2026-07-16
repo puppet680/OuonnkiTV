@@ -1,19 +1,31 @@
 import { useEffect, useState, useCallback } from 'react'
 import { AnimatePresence, motion, useReducedMotion } from "motion/react"
+import { useNavigate } from 'react-router'
 import { FeaturedCarousel } from '@/features/home/components/FeaturedCarousel'
 import { MediaCarousel } from '@/shared/components/media'
+import { StatePanel } from '@/shared/components/StatePanel'
+import { useSettingStore } from '@/shared/store/settingStore'
+import { useTmdbEnabled } from '@/shared/hooks/useTmdbMode'
 import { getTmdbClient, normalizeToMediaItem } from '@/shared/lib/tmdb'
 import type { TmdbMediaItem } from '@/shared/types/tmdb'
 
 const WEEKDAYS = ['周一', '周二', '周三', '周四', '周五', '周六', '周日']
 
 export default function BangumiView() {
+  const navigate = useNavigate()
+  const tmdbEnabled = useTmdbEnabled()
+
+  // 临时关闭 TMDB 时返回到首页
+  useEffect(() => {
+    if (!tmdbEnabled) navigate('/', { replace: true })
+  }, [tmdbEnabled, navigate])
   const [newAnime, setNewAnime] = useState<TmdbMediaItem[]>([])
   const reducedMotion = useReducedMotion()
   const [series, setSeries] = useState<TmdbMediaItem[]>([])
   const [movies, setMovies] = useState<TmdbMediaItem[]>([])
   const [featured, setFeatured] = useState<TmdbMediaItem[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [scheduleDay, setScheduleDay] = useState(new Date().getDay() === 0 ? 6 : new Date().getDay() - 1)
 
   const fetchAll = useCallback(async () => {
@@ -98,6 +110,7 @@ export default function BangumiView() {
       setFeatured(top10)
     } catch (err) {
       console.error('Bangumi fetch failed:', err)
+      setError(err instanceof Error ? err.message : '获取番剧数据失败')
     } finally {
       setLoading(false)
     }
@@ -113,6 +126,19 @@ export default function BangumiView() {
     const dayIndex = d.getDay() === 0 ? 6 : d.getDay() - 1
     return dayIndex === scheduleDay
   })
+
+  if (error && !loading && !featured.length && !newAnime.length) {
+    return (
+      <StatePanel
+        mode="error"
+        title="番剧数据暂时不可用"
+        description="TMDB 服务暂时不可用，可前往设置页检查代理地址是否正确。"
+        tag="数据加载失败"
+        primaryAction={{ label: '前往设置', to: '/settings/source', variant: 'outline' }}
+        secondaryAction={{ label: '临时关闭 TMDB 智能模式', onClick: () => useSettingStore.getState().setTmdbDisableOnce(true) }}
+      />
+    )
+  }
 
   return (
     <div className="flex flex-col gap-6">
@@ -163,7 +189,7 @@ export default function BangumiView() {
               <MediaCarousel title="" items={dayItems} loading={loading} />
             </motion.div>
           </AnimatePresence>
-        </section>      
+        </section>
         <MediaCarousel title="新番" items={newAnime} loading={loading} />
         <MediaCarousel title="番剧" items={series} loading={loading} />
         <MediaCarousel title="剧场" items={movies} loading={loading} />

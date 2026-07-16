@@ -12,14 +12,17 @@ import { FeaturedCarousel } from '../components/FeaturedCarousel'
 import { ContinueWatching } from '../components/ContinueWatching'
 import { MediaCarousel } from '@/shared/components/media'
 import { CmsHomeContent } from '../components/CmsHomeContent'
+import { StatePanel } from '@/shared/components/StatePanel'
+import { useSettingStore } from '@/shared/store/settingStore'
 import { useMemo } from 'react'
 
 /**
  * TmdbHomeContent - TMDB 模式首页内容
  */
-function TmdbHomeContent() {
+function TmdbHomeContent({ onTempDisable }: { onTempDisable?: () => void }) {
   const favorites = useFavoritesStore(state => state.favorites)
   const viewingHistory = useViewingHistoryStore(state => state.viewingHistory)
+
   const {
     tvShows: regionalTvShows,
     movies: regionalMovies,
@@ -27,6 +30,7 @@ function TmdbHomeContent() {
     variety: regionalVariety,
     featured: regionalFeatured,
     loading: regionalLoading,
+    error: regionalError,
   } = useTmdbRegionalDiscover()
 
   const tmdbRecommendationCandidates = useMemo(() => {
@@ -55,6 +59,20 @@ function TmdbHomeContent() {
   }, [favorites, viewingHistory])
   const { recommendations, loading: recommendationsLoading } =
     useTmdbRecommendations(tmdbRecommendationCandidates)
+
+  // 首次加载失败且无缓存数据 → 显示 TMDB 不可用错误
+  if (regionalError && !regionalLoading && !regionalFeatured.length && !regionalMovies.length) {
+    return (
+      <StatePanel
+        mode="error"
+        title="TMDB 服务暂时不可用"
+        description="TMDB 服务暂时不可用，可前往设置页检查代理地址是否正确。"
+        tag="数据加载失败"
+        primaryAction={{ label: '前往设置', to: '/settings/source', variant: 'outline' }}
+        secondaryAction={{ label: '临时关闭 TMDB 智能模式', onClick: onTempDisable }}
+      />
+    )
+  }
 
   return (
     <div className="flex flex-col gap-6">
@@ -87,5 +105,5 @@ export default function HomeView() {
     return <CmsHomeContent />
   }
 
-  return <TmdbHomeContent />
+  return <TmdbHomeContent onTempDisable={() => useSettingStore.getState().setTmdbDisableOnce(true)} />
 }

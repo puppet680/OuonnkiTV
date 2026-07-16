@@ -48,6 +48,50 @@ import type { VideoApi } from '@/shared/types/video'
 import { INITIAL_CONFIG } from './initialConfig'
 import { DEFAULT_SETTINGS } from './settings.config'
 
+/** 初始订阅源配置 */
+export interface InitialSubscription {
+  name: string
+  url: string
+  refreshInterval?: number
+  isEnabled?: boolean
+}
+
+/**
+ * 从环境变量 / config 获取初始订阅源
+ */
+export const getInitialSubscriptions = (): InitialSubscription[] => {
+  // 1. 优先从 INITIAL_CONFIG 取
+  if (INITIAL_CONFIG?.subscriptions?.length) {
+    return INITIAL_CONFIG.subscriptions.map(s => ({
+      name: s.name,
+      url: s.url,
+      refreshInterval: s.refreshInterval ?? 60,
+      isEnabled: s.isEnabled ?? true,
+    }))
+  }
+
+  // 2. 从 OKI_INITIAL_SUBSCRIPTIONS 环境变量取
+  const envSubs = import.meta.env.OKI_INITIAL_SUBSCRIPTIONS
+  if (!envSubs || typeof envSubs !== 'string') return []
+
+  try {
+    const cleaned = envSubs.trim().replace(/^['"](.*)['"]$/, '$1')
+    const parsed = JSON.parse(cleaned)
+    const list = Array.isArray(parsed) ? parsed : [parsed]
+    return list
+      .filter((s: Record<string, unknown>) => s.name && s.url)
+      .map((s: Record<string, unknown>) => ({
+        name: s.name as string,
+        url: s.url as string,
+        refreshInterval: (s.refreshInterval as number) ?? 60,
+        isEnabled: (s.isEnabled as boolean) ?? true,
+      }))
+  } catch (e) {
+    console.error('解析 OKI_INITIAL_SUBSCRIPTIONS 失败:', e)
+    return []
+  }
+}
+
 // 从环境变量获取初始视频源
 export const getInitialVideoSources = async (): Promise<VideoApi[]> => {
   // 1. First priority: Full JSON config from OKI_INITIAL_CONFIG

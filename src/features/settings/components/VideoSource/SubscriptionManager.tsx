@@ -1,9 +1,10 @@
 import { useState } from 'react'
 import { toast } from 'sonner'
-import { Rss, RefreshCw, Trash2, Clock, AlertCircle, Loader2, Activity } from 'lucide-react'
+import { Rss, RefreshCw, Trash2, Clock, AlertCircle, Loader2, Activity, Pencil, Check, X } from 'lucide-react'
 import { Button } from '@/shared/components/ui/button'
 import { Badge } from '@/shared/components/ui/badge'
 import { Input } from '@/shared/components/ui/input'
+import { Switch } from '@/shared/components/ui/switch'
 import { Label } from '@/shared/components/ui/label'
 import {
   Select,
@@ -167,9 +168,11 @@ function AddSubscriptionModal({
 // ==================== 订阅项卡片 ====================
 
 function SubscriptionCard({ subscription }: { subscription: VideoSourceSubscription }) {
-  const { refreshSubscription, removeSubscription, setRefreshInterval } = useSubscriptionStore()
+  const { refreshSubscription, removeSubscription, setRefreshInterval, updateSubscription, setSubscriptionEnabled } = useSubscriptionStore()
   const [confirmRemoveOpen, setConfirmRemoveOpen] = useState(false)
   const [isRefreshing, setIsRefreshing] = useState(false)
+  const [renaming, setRenaming] = useState(false)
+  const [newName, setNewName] = useState(subscription.name)
 
   const handleRefresh = async () => {
     setIsRefreshing(true)
@@ -177,14 +180,31 @@ function SubscriptionCard({ subscription }: { subscription: VideoSourceSubscript
     setIsRefreshing(false)
   }
 
+  const handleRename = () => {
+    const name = newName.trim()
+    if (!name || name === subscription.name) { setRenaming(false); return }
+    updateSubscription(subscription.id, { name })
+    setRenaming(false)
+    toast.success('订阅名称已更新')
+  }
+
   return (
     <>
-      <div className="bg-muted/35 space-y-2 rounded-lg px-4 py-3">
+      <div className={cn('space-y-2 rounded-lg px-4 py-3', subscription.isEnabled ? 'bg-muted/35' : 'bg-muted/15 opacity-60')}>
         {/* 第一行：名称 + 状态 + 操作 */}
         <div className="flex items-center justify-between gap-2">
           <div className="flex min-w-0 items-center gap-2">
             <Rss className="size-4 shrink-0 text-violet-600 dark:text-violet-400" />
-            <p className="truncate text-sm font-medium">{subscription.name}</p>
+            {renaming ? (
+              <div className="flex items-center gap-1">
+                <Input value={newName} onChange={e => setNewName(e.target.value)} className="h-7 w-40 text-xs"
+                  onKeyDown={e => { if (e.key === 'Enter') handleRename(); if (e.key === 'Escape') setRenaming(false) }} autoFocus />
+                <Button variant="ghost" size="icon" className="size-6" onClick={handleRename}><Check className="size-3" /></Button>
+                <Button variant="ghost" size="icon" className="size-6" onClick={() => setRenaming(false)}><X className="size-3" /></Button>
+              </div>
+            ) : (
+              <p className="truncate text-sm font-medium">{subscription.name}</p>
+            )}
             <Badge
               variant="outline"
               className={cn(
@@ -202,24 +222,23 @@ function SubscriptionCard({ subscription }: { subscription: VideoSourceSubscript
                   ? '刷新失败'
                   : '未刷新'}
             </Badge>
+            {!subscription.isEnabled && (
+              <Badge variant="outline" className="border-gray-500/30 text-gray-500 dark:text-gray-400 shrink-0 text-xs">已禁用</Badge>
+            )}
             <HealthBadge healthKey={`subscription:${subscription.id}`} variant="badge" />
           </div>
           <div className="flex items-center gap-1">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="size-7"
-              onClick={handleRefresh}
-              disabled={isRefreshing}
-            >
+            <Switch checked={subscription.isEnabled} onCheckedChange={v => setSubscriptionEnabled(subscription.id, v)}
+              className="scale-75" />
+            {!renaming && (
+              <Button variant="ghost" size="icon" className="size-7" onClick={() => { setNewName(subscription.name); setRenaming(true) }}>
+                <Pencil className="size-3.5" />
+              </Button>
+            )}
+            <Button variant="ghost" size="icon" className="size-7" onClick={handleRefresh} disabled={isRefreshing}>
               <RefreshCw className={cn('size-3.5', isRefreshing && 'animate-spin')} />
             </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="size-7 text-red-500 hover:text-red-600"
-              onClick={() => setConfirmRemoveOpen(true)}
-            >
+            <Button variant="ghost" size="icon" className="size-7 text-red-500 hover:text-red-600" onClick={() => setConfirmRemoveOpen(true)}>
               <Trash2 className="size-3.5" />
             </Button>
           </div>

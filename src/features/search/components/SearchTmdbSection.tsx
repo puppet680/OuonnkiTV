@@ -5,6 +5,8 @@ import { ArrowUpDown, X } from 'lucide-react'
 import { useTmdbSearch, useTmdbDiscover } from '@/shared/hooks/useTmdb'
 import { useTmdbStore } from '@/shared/store/tmdbStore'
 import { SearchResultsGrid } from './SearchResultsGrid'
+import { StatePanel } from '@/shared/components/StatePanel'
+import { useSettingStore } from '@/shared/store/settingStore'
 import { useInfiniteScroll } from '@/shared/hooks/useInfiniteScroll'
 import {
   Select,
@@ -54,6 +56,7 @@ export function SearchTmdbSection({ query }: SearchTmdbSectionProps) {
     loading: tmdbLoading,
     pagination: tmdbPagination,
     setFilter,
+    error: tmdbSearchError,
   } = useTmdbSearch()
 
   const {
@@ -61,6 +64,7 @@ export function SearchTmdbSection({ query }: SearchTmdbSectionProps) {
     loading: discoverLoading,
     pagination: discoverPagination,
     fetchDiscover,
+    error: discoverError,
   } = useTmdbDiscover()
 
   const fetchGenresAndCountries = useTmdbStore(s => s.fetchGenresAndCountries)
@@ -257,7 +261,11 @@ export function SearchTmdbSection({ query }: SearchTmdbSectionProps) {
 
       {/* 搜索结果区域 */}
       <section>
-        {cleanQuery ? (
+        {cleanQuery && tmdbSearchError && !tmdbLoading && !isSearchingNewQuery ? (
+          <StatePanel mode="error" title="搜索失败" description="TMDB 服务暂时不可用，可前往设置页检查代理地址是否正确。" secondaryAction={{ label: '临时关闭 TMDB 智能模式', onClick: () => useSettingStore.getState().setTmdbDisableOnce(true) }} />
+        ) : !cleanQuery && discoverError && !discoverLoading && !isDiscoverFiltering ? (
+          <StatePanel mode="error" title="获取数据失败" description="TMDB 服务暂时不可用，可前往设置页检查代理地址是否正确。" secondaryAction={{ label: '临时关闭 TMDB 智能模式', onClick: () => useSettingStore.getState().setTmdbDisableOnce(true) }} />
+        ) : cleanQuery ? (
           <SearchResultsGrid
             mode="tmdb"
             tmdbResults={tmdbFilteredResults}

@@ -9,8 +9,8 @@ export const DEFAULT_SETTINGS = {
     defaultTimeout: envSettings?.network?.defaultTimeout ?? 3000,
     defaultRetry: envSettings?.network?.defaultRetry ?? 3,
     concurrencyLimit: envSettings?.network?.concurrencyLimit ?? 3,
-    isProxyEnabled: envSettings?.network?.isProxyEnabled ?? true,
-    proxyUrl: envSettings?.network?.proxyUrl ?? '/proxy?url=',
+    isProxyEnabled: envSettings?.network?.isProxyEnabled ?? import.meta.env.OKI_PROXY_ENABLED !== 'false',
+    proxyUrl: envSettings?.network?.proxyUrl ?? import.meta.env.OKI_PROXY_URL ?? '/proxy?url=',
   },
   search: {
     isSearchHistoryEnabled: envSettings?.search?.isSearchHistoryEnabled ?? true,
@@ -23,7 +23,7 @@ export const DEFAULT_SETTINGS = {
     isAutoPlayEnabled: envSettings?.playback?.isAutoPlayEnabled ?? false,
     defaultEpisodeOrder: envSettings?.playback?.defaultEpisodeOrder ?? 'asc',
     defaultVolume: envSettings?.playback?.defaultVolume ?? 0.7,
-    playerThemeColor: envSettings?.playback?.playerThemeColor ?? '#ef4444',
+    playerThemeColor: envSettings?.playback?.playerThemeColor ?? '#ffffff',
     maxViewingHistoryCount: envSettings?.playback?.maxViewingHistoryCount ?? 50,
     tmdbMatchCacheTTLHours: envSettings?.playback?.tmdbMatchCacheTTLHours ?? 24,
     isLoopEnabled: envSettings?.playback?.isLoopEnabled ?? false,
@@ -32,7 +32,6 @@ export const DEFAULT_SETTINGS = {
     isScreenshotEnabled: envSettings?.playback?.isScreenshotEnabled ?? true,
     isMobileGestureEnabled: envSettings?.playback?.isMobileGestureEnabled ?? true,
     longPressPlaybackRate: envSettings?.playback?.longPressPlaybackRate ?? 2,
-    isFullscreenProgressHidden: envSettings?.playback?.isFullscreenProgressHidden ?? false,
   },
   system: {
     tmdbEnabled: envSettings?.system?.tmdbEnabled ?? Boolean(import.meta.env.OKI_TMDB_API_TOKEN),
@@ -53,7 +52,7 @@ export const DEFAULT_SETTINGS = {
       | 'medium'
       | 'high',
     tmdbRegion: (envSettings?.system?.tmdbRegion ?? 'mainland') as 'international' | 'mainland',
-    varietyNetworks: envSettings?.system?.varietyNetworks ?? '213|1330|2007|2552',
+    varietyNetworks: envSettings?.system?.varietyNetworks ?? '2007',
     isAdultFilterEnabled: envSettings?.system?.isAdultFilterEnabled ?? true,
     cmsFilterKeywords: envSettings?.system?.cmsFilterKeywords ?? import.meta.env.OKI_CMS_FILTER_KEYWORDS ?? '',
     isPwaInstallDismissed: envSettings?.system?.isPwaInstallDismissed ?? false,

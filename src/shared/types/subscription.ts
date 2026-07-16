@@ -20,4 +20,6 @@ export interface VideoSourceSubscription {
   refreshInterval: number
   /** 创建时间 */
   createdAt: Date
+  /** 是否启用（禁用后该订阅所有源不参与搜索） */
+  isEnabled: boolean
 }

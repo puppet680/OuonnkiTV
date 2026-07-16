@@ -772,7 +772,7 @@ export const useTmdbStore = create<TmdbState & TmdbActions>()(
           const networks = useSettingStore.getState().system.varietyNetworks
           if (regionCache.default && cachedNetworks === networks) return
           const client = getTmdbClient()
-          set(s => { s.regionalLoading = true })
+          set(s => { s.regionalLoading = true; s.error = null })
 
           try {
             const tmdbLang = getTmdbLanguage() as string

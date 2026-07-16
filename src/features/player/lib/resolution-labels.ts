@@ -3,6 +3,11 @@
  * 移植自 KVideo，支持从文本、维度、m3u8 manifest 中提取分辨率标签
  */
 
+export interface VideoResolutionInfo extends ResolutionLabel {
+  width: number
+  height: number
+}
+
 export interface ResolutionLabel {
   label: string
   color: string

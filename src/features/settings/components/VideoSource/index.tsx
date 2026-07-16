@@ -1,3 +1,4 @@
+import { cn } from '@/shared/lib/utils'
 import { Button } from '@/shared/components/ui/button'
 import {
   CircleX,
@@ -7,12 +8,15 @@ import {
   ArrowUpDown,
   Loader2,
   GripVertical,
+  Rss,
+  ChevronDown,
 } from 'lucide-react'
 import { useRef, useState } from 'react'
+import { AnimatePresence, motion } from "motion/react"
 import { toast } from 'sonner'
 import { useApiStore } from '@/shared/store/apiStore'
 import { useHealthStore } from '@/shared/store/healthStore'
-import { isSubscriptionSource } from '@/shared/store/subscriptionStore'
+import { isSubscriptionSource, extractSubscriptionId, useSubscriptionStore } from '@/shared/store/subscriptionStore'
 import { useSettingStore } from '@/shared/store/settingStore'
 import { batchCheckVideoSources } from '@/shared/lib/health-check'
 import dayjs from 'dayjs'
@@ -49,7 +53,9 @@ export default function VideoSource() {
     getSelectedAPIs,
     importVideoAPIs,
     reorderVideoAPIs,
+    setApiEnabled,
   } = useApiStore()
+  const subscriptions = useSubscriptionStore(s => s.subscriptions)
 
   const { results } = useHealthStore()
   const hasResults = Object.keys(results).length > 0
@@ -57,9 +63,22 @@ export default function VideoSource() {
   // 本地测速状态（不影响其他组件）
   const [isTesting, setIsTesting] = useState(false)
   const [testProgress, setTestProgress] = useState({ completed: 0, total: 0 })
+  // 分组折叠状态（默认全部收起）
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(
+    () => new Set(useSubscriptionStore.getState().subscriptions.map(s => s.id)),
+  )
+  const [localCollapsed, setLocalCollapsed] = useState(true)
 
-  // 全选逻辑
-  const isAllSelected = videoAPIs.length > 0 && getSelectedAPIs().length === videoAPIs.length
+  // 可操作源（排除禁用订阅的源）
+  const manageableAPIs = videoAPIs.filter(s => {
+    const subId = extractSubscriptionId(s.id)
+    if (!subId) return true
+    const sub = subscriptions.find(sub => sub.id === subId)
+    return sub ? sub.isEnabled : true
+  })
+  const enabledAPIs = getSelectedAPIs()
+  const enabledManageable = enabledAPIs.filter(s => manageableAPIs.includes(s))
+  const isAllSelected = manageableAPIs.length > 0 && enabledManageable.length === manageableAPIs.length
 
   // 编辑弹窗状态
   const [editDialogOpen, setEditDialogOpen] = useState(false)
@@ -271,7 +290,10 @@ export default function VideoSource() {
                 variant="ghost"
                 size="sm"
                 className="h-8 px-3"
-                onClick={() => (isAllSelected ? deselectAllAPIs() : selectAllAPIs())}
+                onClick={() => {
+                  const enabled = isAllSelected ? false : true
+                  manageableAPIs.forEach(s => setApiEnabled(s.id, enabled))
+                }}
               >
                 {isAllSelected ? (
                   <CircleX className="mr-1 size-3.5" />
@@ -334,7 +356,7 @@ export default function VideoSource() {
             {/* 已启用统计 + 拖拽排序提示 */}
             <div className="flex items-center justify-between gap-2">
               <Badge variant="secondary" className="bg-sky-500/14 text-sky-700 dark:text-sky-300">
-                已启用 {getSelectedAPIs().length}/{videoAPIs.length}
+                已启用 {enabledManageable.length}/{manageableAPIs.length}
               </Badge>
               <div className="text-muted-foreground/60 flex items-center gap-1.5 text-xs">
                 <GripVertical className="size-3" />
@@ -342,26 +364,86 @@ export default function VideoSource() {
               </div>
             </div>
 
-            <DndContext
-              sensors={sensors}
-              collisionDetection={closestCenter}
-              onDragEnd={handleDragEnd}
-            >
-              <SortableContext
-                items={videoAPIs.map(s => s.id)}
-                strategy={verticalListSortingStrategy}
-              >
-                <div className="space-y-2">
-                  {videoAPIs.map(source => (
-                    <SortableVideoSourceCard
-                      key={source.id}
-                      source={source}
-                      onEdit={() => handleEditSource(source)}
-                    />
-                  ))}
+            {(() => {
+              const localSources = videoAPIs.filter(s => !isSubscriptionSource(s.id))
+              const subSources = videoAPIs.filter(s => isSubscriptionSource(s.id))
+              const groups = new Map<string, { name: string; sources: typeof subSources }>()
+              for (const s of subSources) {
+                const subId = extractSubscriptionId(s.id) ?? ''
+                if (!groups.has(subId)) groups.set(subId, { name: subscriptions.find(sub => sub.id === subId)?.name ?? '未知订阅', sources: [] })
+                groups.get(subId)!.sources.push(s)
+              }
+              return (
+                <div className="space-y-4">
+                  {localSources.length > 0 && (
+                    <section className="space-y-2">
+                      <button type="button" onClick={() => setLocalCollapsed(v => !v)}
+                        className="flex w-full items-center justify-between gap-3 rounded-lg border border-border/45 px-3 py-2 text-left">
+                        <div className="flex min-w-0 items-center gap-2">
+                          <ChevronDown className={cn('text-muted-foreground size-4 transition-transform', !localCollapsed && 'rotate-180')} />
+                          <Database className="text-muted-foreground size-4" />
+                          <p className="line-clamp-1 text-sm font-semibold">本地源</p>
+                        </div>
+                        <Badge variant="secondary" className="h-7 shrink-0 rounded-full px-2.5 py-0 text-[11px]">{localSources.length} 个源</Badge>
+                      </button>
+                      <AnimatePresence initial={false}>
+                        {!localCollapsed && (
+                          <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }}
+                            transition={{ duration: 0.18, ease: 'easeOut' }} className="overflow-hidden">
+                            <div className="pt-2">
+                              <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                                <SortableContext items={localSources.map(s => s.id)} strategy={verticalListSortingStrategy}>
+                                  <div className="space-y-2">
+                                    {localSources.map(source => (
+                                      <SortableVideoSourceCard key={source.id} source={source} onEdit={() => handleEditSource(source)} />
+                                    ))}
+                                  </div>
+                                </SortableContext>
+                              </DndContext>
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </section>
+                  )}
+                  {[...groups.entries()].map(([subId, group]) => {
+                    const open = !collapsedGroups.has(subId)
+                    return (
+                      <section key={subId} className="space-y-2">
+                        <button type="button" onClick={() => setCollapsedGroups(prev => { const n = new Set(prev); if (n.has(subId)) n.delete(subId); else n.add(subId); return n })}
+                          className={cn('flex w-full items-center justify-between gap-3 rounded-lg border border-border/45 px-3 py-2 text-left', subscriptions.find(s => s.id === subId)?.isEnabled === false && 'opacity-50')}>
+                          <div className="flex min-w-0 items-center gap-2">
+                            <ChevronDown className={cn('text-muted-foreground size-4 transition-transform', open && 'rotate-180')} />
+                            <Rss className="text-muted-foreground size-4" />
+                            <p className="line-clamp-1 text-sm font-semibold">{group.name}</p>
+                          </div>
+                          <div className="flex shrink-0 items-center gap-2">
+                            {subscriptions.find(s => s.id === subId)?.isEnabled === false && (
+                              <Badge variant="outline" className="border-gray-500/30 text-gray-500 dark:text-gray-400 h-5 text-[10px]">已禁用</Badge>
+                            )}
+                            <Badge variant="secondary" className="h-7 shrink-0 rounded-full px-2.5 py-0 text-[11px]">
+                              {group.sources.length} 个源
+                            </Badge>
+                          </div>
+                        </button>
+                        <AnimatePresence initial={false}>
+                          {open && (
+                            <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }}
+                              transition={{ duration: 0.18, ease: 'easeOut' }} className="overflow-hidden">
+                              <div className="space-y-2 pt-2">
+                                {group.sources.map(source => (
+                                  <SortableVideoSourceCard key={source.id} source={source} onEdit={() => handleEditSource(source)} />
+                                ))}
+                              </div>
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                      </section>
+                    )
+                  })}
                 </div>
-              </SortableContext>
-            </DndContext>
+              )
+            })()}
           </>
         )}
 

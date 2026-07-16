@@ -26,7 +26,6 @@ interface SettingsConfig {
     isScreenshotEnabled?: boolean
     isMobileGestureEnabled?: boolean
     longPressPlaybackRate?: number
-    isFullscreenProgressHidden?: boolean
   }
   system?: {
     tmdbEnabled?: boolean
@@ -60,9 +59,17 @@ interface MetaConfig {
   exportDate: string
 }
 
+interface SubscriptionSourceConfig {
+  name: string
+  url: string
+  refreshInterval?: number
+  isEnabled?: boolean
+}
+
 interface ExportedConfig {
   settings?: SettingsConfig
   videoSources?: VideoSourceConfig[]
+  subscriptions?: SubscriptionSourceConfig[]
   meta?: MetaConfig
 }
 

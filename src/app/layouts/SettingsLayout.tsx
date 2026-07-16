@@ -2,7 +2,7 @@ import { useLocation, useNavigate } from 'react-router'
 import { cn } from '@/shared/lib'
 import { Badge } from '@/shared/components/ui/badge'
 import { Button } from '@/shared/components/ui/button'
-import { ArrowLeft, Code2, Compass, FolderCog, ListVideo, Play, Search, Settings2, type LucideIcon } from 'lucide-react'
+import { ArrowLeft, Compass, FolderCog, ListVideo, Play, Settings2, type LucideIcon } from 'lucide-react'
 import { AnimatePresence, motion, useReducedMotion } from "motion/react"
 import { CustomAnimatedOutlet } from '@/shared/components/AnimatedOutlet'
 import { animationPresets } from '@/shared/lib/animationVariants'
@@ -14,23 +14,25 @@ interface SettingsModule {
   shortName: string
   icon: LucideIcon
   path: string
+  /** 该 tab 下的子页面路径（用于高亮匹配） */
+  subPaths?: string[]
   description: string
   badges: string[]
   dotClass: string
   iconClass: string
   badgeClass: string
-  showGuide?: boolean // 关键点：设置为可选属性
+  showGuide?: boolean
 }
 
 const settingsModules: SettingsModule[] = [
   {
     id: 'source',
-    name: '视频源管理',
-    shortName: '视频源',
+    name: '数据源管理',
+    shortName: '数据源',
     icon: ListVideo,
     path: '/settings/source',
-    description: '管理站点可用视频源，支持导入、导出、启停与参数编辑。',
-    badges: ['源列表', '导入导出', '启用策略'],
+    description: '管理视频源、订阅源、TMDB代理 与豆瓣代理，统一配置数据来源。',
+    badges: ['视频源', '订阅源', 'TMDB代理', '豆瓣代理'],
     dotClass: 'bg-sky-500',
     iconClass: 'text-sky-700 dark:text-sky-300',
     badgeClass: 'border-sky-500/28 text-sky-700 dark:text-sky-300',
@@ -41,8 +43,9 @@ const settingsModules: SettingsModule[] = [
     shortName: '播放',
     icon: Play,
     path: '/settings/playback',
-    description: '按你的观看习惯组合播放行为与剧集展示方式。',
-    badges: ['播放行为', '剧集排序', '体验优化'],
+    subPaths: ['/settings/adfilter'],
+    description: '播放行为、外观、功能与去广告过滤，统一管理播放体验。',
+    badges: ['播放行为', '外观', '功能', '去广告'],
     dotClass: 'bg-violet-500',
     iconClass: 'text-violet-700 dark:text-violet-300',
     badgeClass: 'border-violet-500/28 text-violet-700 dark:text-violet-300',
@@ -53,44 +56,22 @@ const settingsModules: SettingsModule[] = [
     shortName: '系统',
     icon: Settings2,
     path: '/settings/system',
-    description: '组合网络、搜索、主题与系统行为，统一管理应用偏好。',
-    badges: ['网络', '搜索', '主题', '系统行为'],
+    subPaths: ['/settings/panhub'],
+    description: '网络、搜索、网盘、主题与系统行为，一站式管理。',
+    badges: ['网络', '搜索', '网盘', '主题', '系统行为'],
     dotClass: 'bg-emerald-500',
     iconClass: 'text-emerald-700 dark:text-emerald-300',
     badgeClass: 'border-emerald-500/28 text-emerald-700 dark:text-emerald-300',
   },
   {
-    id: 'panhub',
-    name: '网盘搜索',
-    shortName: '网盘',
-    icon: Search,
-    path: '/settings/panhub',
-    description: '配置 Panhub 网盘资源搜索源，选择启用的插件与并发策略。',
-    badges: ['搜索源', '并发', '超时'],
-    dotClass: 'bg-teal-500',
-    iconClass: 'text-teal-700 dark:text-teal-300',
-    badgeClass: 'border-teal-500/28 text-teal-700 dark:text-teal-300',
-  },
-  {
-    id: 'adfilter',
-    name: '自定义去广告',
-    shortName: '去广告',
-    icon: Code2,
-    path: '/settings/adfilter',
-    description: '编写 JavaScript 过滤器精准拦截广告片段，支持根据不同播放源定制过滤规则。',
-    badges: ['JS 脚本', '沙箱执行', '自动降级'],
-    dotClass: 'bg-emerald-500',
-    iconClass: 'text-emerald-700 dark:text-emerald-300',
-    badgeClass: 'border-emerald-500/28 text-emerald-700 dark:text-emerald-300',
-  },
-  {
-    id: 'profile',
-    name: '个人配置',
-    shortName: '配置',
+    id: 'other',
+    name: '其他',
+    shortName: '其他',
     icon: FolderCog,
     path: '/settings/profile',
-    description: '管理个人配置快照，支持导入、导出与一键恢复默认状态。',
-    badges: ['配置快照', '导入导出', '恢复默认'],
+    subPaths: ['/settings/about'],
+    description: '个人配置快照的导入导出，以及应用版本信息。',
+    badges: ['配置快照', '导入导出', '关于'],
     dotClass: 'bg-amber-500',
     iconClass: 'text-amber-700 dark:text-amber-300',
     badgeClass: 'border-amber-500/28 text-amber-700 dark:text-amber-300',
@@ -105,8 +86,9 @@ export default function SettingsLayout() {
   const navigate = useNavigate()
   const location = useLocation()
   const reducedMotion = useReducedMotion()
-  const activeModule =
-    settingsModules.find(module => location.pathname.startsWith(module.path)) || settingsModules[0]
+  const activeModule = settingsModules.find(m =>
+    location.pathname.startsWith(m.path) || m.subPaths?.some(p => location.pathname.startsWith(p)),
+  ) || settingsModules[0]
 
   const tabOptions = settingsModules.map(module => ({
     key: module.id,

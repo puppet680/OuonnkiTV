@@ -2,8 +2,10 @@ import NetworkSettings from '../components/NetworkSettings'
 import SearchSettings from '../components/SearchSettings'
 import ThemeSettings from '../components/ThemeSettings'
 import { useSettingStore } from '@/shared/store/settingStore'
+import { usePanhubStore } from '@/shared/store/panhubStore'
 import { Switch } from '@/shared/components/ui/switch'
 import { Input } from '@/shared/components/ui/input'
+import { Checkbox } from '@/shared/components/ui/checkbox'
 import {
   Select,
   SelectContent,
@@ -11,18 +13,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/shared/components/ui/select'
-import { Cog, Image, KeyRound, Link2 } from 'lucide-react'
+import { Button } from '@/shared/components/ui/button'
+import { Cog, KeyRound, Search } from 'lucide-react'
 import { SettingsItem, SettingsPageShell, SettingsSection } from '../components/common'
+import { ALL_PLUGIN_NAMES } from '@/shared/types/panhub'
 
 export default function SystemSettings() {
   const { system, setSystemSettings } = useSettingStore()
+  const panhub = usePanhubStore()
 
   const hasEnvToken = Boolean(import.meta.env.OKI_TMDB_API_TOKEN)
   const hasUserToken = Boolean(system.tmdbApiToken)
   const hasTmdbToken = hasEnvToken || hasUserToken
-  const tmdbApiBaseUrlPlaceholder = import.meta.env.OKI_TMDB_API_BASE_URL || 'https://api.themoviedb.org/3'
-  const tmdbImageBaseUrlPlaceholder =
-    import.meta.env.OKI_TMDB_IMAGE_BASE_URL || 'https://image.tmdb.org/t/p/'
 
   return (
     <SettingsPageShell
@@ -122,38 +124,6 @@ export default function SystemSettings() {
             />
           }
         />
-        <SettingsItem
-          title="TMDB API Base URL"
-          description="支持绝对地址或相对路径，留空后自动回退到环境变量或官方默认地址。"
-          control={
-            <div className="relative w-full sm:w-[340px]">
-              <Link2 className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2" />
-              <Input
-                type="text"
-                className="pl-9"
-                value={system.tmdbApiBaseUrl}
-                placeholder={tmdbApiBaseUrlPlaceholder}
-                onChange={e => setSystemSettings({ tmdbApiBaseUrl: e.target.value })}
-              />
-            </div>
-          }
-        />
-        <SettingsItem
-          title="TMDB 图片 Base URL"
-          description="支持绝对地址或相对路径，留空后自动回退到环境变量或官方默认地址。"
-          control={
-            <div className="relative w-full sm:w-[340px]">
-              <Image className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2" />
-              <Input
-                type="text"
-                className="pl-9"
-                value={system.tmdbImageBaseUrl}
-                placeholder={tmdbImageBaseUrlPlaceholder}
-                onChange={e => setSystemSettings({ tmdbImageBaseUrl: e.target.value })}
-              />
-            </div>
-          }
-        />
         {system.tmdbEnabled && (
           <>
             <SettingsItem
@@ -226,6 +196,62 @@ export default function SystemSettings() {
             />
           </>
         )}
+      </SettingsSection>
+
+      {/* ── 网盘搜索 ── */}
+      <SettingsSection
+        title="网盘搜索"
+        description="配置 Panhub 网盘搜索服务地址、插件与并发策略。"
+        icon={<Search className="size-4" />}
+        tone="cyan"
+      >
+        <SettingsItem
+          title="API 地址"
+          description="默认 /api/panhub 走本地内置服务"
+          control={
+            <Input className="w-full sm:w-[360px]" value={panhub.apiBase}
+              placeholder="/api/panhub"
+              onChange={e => panhub.setConfig({ apiBase: e.target.value.trim() })} />
+          }
+        />
+        <SettingsItem
+          title="并发数"
+          description="同时发起的搜索请求数，范围 1-16"
+          control={
+            <Input type="number" min={1} max={16} className="w-24" value={panhub.concurrency}
+              onChange={e => { const v = parseInt(e.target.value, 10); if (!isNaN(v)) panhub.setConfig({ concurrency: v }) }} />
+          }
+        />
+        <SettingsItem
+          title="插件超时 (ms)"
+          description="单个搜索插件的最大等待时间，范围 1000-60000ms"
+          control={
+            <Input type="number" min={1000} max={60000} step={500} className="w-28" value={panhub.pluginTimeoutMs}
+              onChange={e => { const v = parseInt(e.target.value, 10); if (!isNaN(v)) panhub.setConfig({ pluginTimeoutMs: v }) }} />
+          }
+        />
+        <div className="space-y-3">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-xs text-muted-foreground">已选 {panhub.enabledPlugins.length}/{ALL_PLUGIN_NAMES.length}</span>
+            <Button variant="ghost" size="sm" className="h-7 px-2.5 text-xs"
+              onClick={() => panhub.setConfig({
+                enabledPlugins: panhub.enabledPlugins.length === ALL_PLUGIN_NAMES.length ? [] : [...ALL_PLUGIN_NAMES],
+              })}>
+              {panhub.enabledPlugins.length === ALL_PLUGIN_NAMES.length ? '全不选' : '全选'}
+            </Button>
+          </div>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+            {ALL_PLUGIN_NAMES.map(name => (
+              <label key={name} className="flex cursor-pointer items-center gap-2 rounded-lg border border-border/60 bg-muted/35 px-3 py-2 text-sm transition-colors hover:border-border">
+                <Checkbox checked={panhub.enabledPlugins.includes(name)}
+                  onCheckedChange={c => panhub.setConfig({
+                    enabledPlugins: c ? [...panhub.enabledPlugins, name] : panhub.enabledPlugins.filter(p => p !== name),
+                  })} />
+                <span className="truncate">{name}</span>
+              </label>
+            ))}
+          </div>
+        </div>
       </SettingsSection>
     </SettingsPageShell>
   )

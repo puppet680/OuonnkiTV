@@ -1,4 +1,5 @@
 import { Rss, Pencil, Eye, Clock } from 'lucide-react'
+import { cn } from '@/shared/lib'
 import { Badge } from '@/shared/components/ui/badge'
 import { Switch } from '@/shared/components/ui/switch'
 import { Button } from '@/shared/components/ui/button'
@@ -20,9 +21,13 @@ interface VideoSourceCardProps {
 export default function VideoSourceCard({ source, onEdit }: VideoSourceCardProps) {
   const { setApiEnabled } = useApiStore()
   const isSub = isSubscriptionSource(source.id)
+  const subId = isSub ? extractSubscriptionId(source.id) : null
+  const subscriptions = useSubscriptionStore(s => s.subscriptions)
+  const parentSub = subId ? subscriptions.find(sub => sub.id === subId) : undefined
+  const subDisabled = parentSub && !parentSub.isEnabled
 
   return (
-    <div className="bg-muted/35 space-y-2.5 rounded-lg px-4 py-3">
+    <div className={cn('space-y-2.5 rounded-lg px-4 py-3', subDisabled ? 'bg-muted/15 opacity-50' : 'bg-muted/35')}>
       {/* 第一行：名称 + 测速(桌面端) + 操作区 */}
       <div className="flex items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-2">
@@ -37,6 +42,7 @@ export default function VideoSourceCard({ source, onEdit }: VideoSourceCardProps
         <div className="flex shrink-0 items-center gap-1.5">
           <Switch
             checked={source.isEnabled}
+            disabled={subDisabled}
             onCheckedChange={checked => setApiEnabled(source.id, checked)}
             onClick={e => e.stopPropagation()}
           />
@@ -65,12 +71,7 @@ function SecondaryInfo({ source, isSub }: { source: VideoSource; isSub: boolean 
   return (
     <div className="text-muted-foreground flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1.5 text-xs">
       {isSub ? (
-        <Badge
-          variant="outline"
-          className="border-violet-500/30 text-violet-600 dark:text-violet-400 h-5 text-[10px]"
-        >
-          订阅源
-        </Badge>
+        <Badge variant="outline" className="border-violet-500/30 text-violet-600 dark:text-violet-400 h-5 text-[10px]">订阅源</Badge>
       ) : (
         <Badge
           variant="outline"

@@ -32,7 +32,6 @@ interface PlaybackSettings {
   isScreenshotEnabled: boolean
   isMobileGestureEnabled: boolean
   longPressPlaybackRate: number
-  isFullscreenProgressHidden: boolean
 }
 
 interface SystemSettings {
@@ -56,6 +55,7 @@ interface SettingState {
   search: SearchSettings
   playback: PlaybackSettings
   system: SystemSettings
+  _tmdbDisableOnce: boolean
 }
 
 interface SettingActions {
@@ -71,6 +71,9 @@ interface SettingActions {
   // System
   setSystemSettings: (settings: Partial<SystemSettings>) => void
 
+  // Session-only
+  setTmdbDisableOnce: (v: boolean) => void
+
   // Reset
   resetSettings: () => void
 }
@@ -85,6 +88,7 @@ export const useSettingStore = create<SettingStore>()(
         search: DEFAULT_SETTINGS.search,
         playback: DEFAULT_SETTINGS.playback,
         system: DEFAULT_SETTINGS.system,
+        _tmdbDisableOnce: false,
 
         setNetworkSettings: settings => {
           set(state => {
@@ -113,6 +117,10 @@ export const useSettingStore = create<SettingStore>()(
             }
             state.system = merged
           })
+        },
+
+        setTmdbDisableOnce: v => {
+          set(state => { state._tmdbDisableOnce = v })
         },
 
         resetSettings: () => {
@@ -203,11 +211,6 @@ export const useSettingStore = create<SettingStore>()(
             playback.longPressPlaybackRate ??= DEFAULT_SETTINGS.playback.longPressPlaybackRate
             state.playback = playback
           }
-          if (version < 13) {
-            const playback = (state.playback ?? {}) as Record<string, unknown>
-            playback.isFullscreenProgressHidden ??= DEFAULT_SETTINGS.playback.isFullscreenProgressHidden
-            state.playback = playback
-          }
           if (version < 14) {
             const system = (state.system ?? {}) as Record<string, unknown>
             system.tmdbRegion ??= DEFAULT_SETTINGS.system.tmdbRegion
@@ -230,6 +233,10 @@ export const useSettingStore = create<SettingStore>()(
             state.system = system
           }
           return state
+        },
+        partialize: state => {
+          const { _tmdbDisableOnce, ...rest } = state
+          return rest
         },
       },
     ),

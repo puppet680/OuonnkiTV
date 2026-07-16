@@ -34,7 +34,7 @@ const PanhubSettings = lazy(() => import('@/features/settings/views/PanhubSettin
 const AdFilterSettings = lazy(() => import('@/features/settings/views/AdFilterSettings'))
 
 // Player views
-const UnifiedPlayer = lazy(() => import('@/features/player/components/UnifiedPlayer'))
+const VideojsPlayer = lazy(() => import('@/features/player/components/VideojsPlayer'))
 
 // Loading fallback
 const LoadingFallback = () => {
@@ -150,7 +150,7 @@ const router = createBrowserRouter([
         path: 'play/:type/:tmdbId',
         element: (
           <SuspenseWrapper>
-            <UnifiedPlayer />
+            <VideojsPlayer />
           </SuspenseWrapper>
         ),
       },
@@ -158,7 +158,23 @@ const router = createBrowserRouter([
         path: 'play/cms/:sourceCode/:vodId',
         element: (
           <SuspenseWrapper>
-            <UnifiedPlayer />
+            <VideojsPlayer />
+          </SuspenseWrapper>
+        ),
+      },
+      {
+        path: 'play2/:type/:tmdbId',
+        element: (
+          <SuspenseWrapper>
+            <VideojsPlayer />
+          </SuspenseWrapper>
+        ),
+      },
+      {
+        path: 'play2/cms/:sourceCode/:vodId',
+        element: (
+          <SuspenseWrapper>
+            <VideojsPlayer />
           </SuspenseWrapper>
         ),
       },

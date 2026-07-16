@@ -154,7 +154,7 @@ export default defineConfig({
           }
 
           // 播放器相关（拆分大包，避免单 chunk 过大）
-          if (id.includes('/artplayer/')) return 'artplayer-vendor'
+          if (id.includes('/@videojs/')) return 'videojs-vendor'
           if (id.includes('/hls.js/')) return 'hls-vendor'
 
           // UI 与动效

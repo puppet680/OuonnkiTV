@@ -5,6 +5,7 @@ import { v4 as uuidv4 } from 'uuid'
 import { toast } from 'sonner'
 import type { VideoSource } from '@ouonnki/cms-core'
 import type { VideoSourceSubscription } from '@/shared/types/subscription'
+import { getInitialSubscriptions } from '@/shared/config/api.config'
 import { useApiStore } from './apiStore'
 import { useSettingStore } from './settingStore'
 
@@ -79,8 +80,14 @@ interface SubscriptionActions {
   refreshAllSubscriptions: () => Promise<void>
   /** 更新订阅的自动刷新间隔 */
   setRefreshInterval: (subscriptionId: string, intervalMinutes: number) => void
+  /** 更新订阅信息（重命名等） */
+  updateSubscription: (subscriptionId: string, data: Partial<Pick<VideoSourceSubscription, 'name'>>) => void
+  /** 启用/禁用订阅（批量开关该订阅所有源） */
+  setSubscriptionEnabled: (subscriptionId: string, enabled: boolean) => void
   /** 判断 URL 是否已被订阅 */
   isUrlSubscribed: (url: string) => boolean
+  /** 从环境变量 / config 加载初始订阅 */
+  initializeSubscriptions: () => Promise<void>
 }
 
 type SubscriptionStore = SubscriptionState & SubscriptionActions
@@ -115,6 +122,7 @@ export const useSubscriptionStore = create<SubscriptionStore>()(
           const subscription: VideoSourceSubscription = {
             id: subscriptionId,
             name: resolvedName,
+            isEnabled: true,
             url,
             sourceCount: 0,
             lastRefreshedAt: null,
@@ -200,13 +208,47 @@ export const useSubscriptionStore = create<SubscriptionStore>()(
           })
         },
 
+        updateSubscription: (subscriptionId, data) => {
+          set(state => {
+            const sub = state.subscriptions.find(s => s.id === subscriptionId)
+            if (sub && data.name !== undefined) sub.name = data.name
+          })
+        },
+
+        setSubscriptionEnabled: (subscriptionId, enabled) => {
+          set(state => {
+            const sub = state.subscriptions.find(s => s.id === subscriptionId)
+            if (sub) sub.isEnabled = enabled
+          })
+        },
+
         isUrlSubscribed: (url: string) => {
           return get().subscriptions.some(s => s.url === url)
+        },
+
+        initializeSubscriptions: async () => {
+          const existing = get().subscriptions
+          const initials = getInitialSubscriptions()
+          for (const sub of initials) {
+            if (existing.some(s => s.url === sub.url)) continue
+            try {
+              await get().addSubscription(sub.url, sub.name, sub.refreshInterval ?? 60)
+            } catch (e) {
+              console.error(`初始化订阅失败: ${sub.name} (${sub.url})`, e)
+            }
+          }
         },
       })),
       {
         name: 'ouonnki-tv-subscription-store',
-        version: 1,
+        version: 2,
+        migrate: (state: unknown, version: number) => {
+          const s = state as { subscriptions: VideoSourceSubscription[] }
+          if (version < 2) {
+            s.subscriptions.forEach(sub => { (sub as { isEnabled?: boolean }).isEnabled ??= true })
+          }
+          return s as SubscriptionStore
+        },
       },
     ),
     {
