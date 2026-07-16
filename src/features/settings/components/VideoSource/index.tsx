@@ -47,8 +47,6 @@ import type { VideoSource } from '@ouonnki/cms-core'
 
 export default function VideoSource() {
   const {
-    selectAllAPIs,
-    deselectAllAPIs,
     videoAPIs,
     getSelectedAPIs,
     importVideoAPIs,

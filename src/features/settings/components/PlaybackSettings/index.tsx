@@ -24,37 +24,13 @@ import {
   Monitor,
   Palette,
   PlaySquare,
-  RotateCcw,
   Settings2,
   Timer,
   Trash2,
   Volume2,
 } from 'lucide-react'
 import { Button } from '@/shared/components/ui/button'
-import { Textarea } from '@/shared/components/ui/textarea'
 import { SettingsItem, SettingsPageShell, SettingsSection } from '../common'
-import { useCustomAdFilter } from '@/features/player/lib/custom-ad-filter'
-
-const EXAMPLE_CODE = `function filterAdsFromM3U8(type, m3u8Content) {
-  if (!m3u8Content) return '';
-  const adKeywords = ['sponsor', '/ad/', '/ads/', 'advert', 'advertisement', '/adjump', 'redtraffic'];
-  const lines = m3u8Content.split('\\n');
-  const filtered = [];
-  let inAdBlock = false;
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    if (line.includes('#EXT-X-CUE-OUT') || line.includes('#EXT-X-SCTE35') || line.includes('#EXT-OATCLS-SCTE35') || (line.includes('#EXT-X-DATERANGE') && line.includes('SCTE35'))) { inAdBlock = true; continue; }
-    if (line.includes('#EXT-X-CUE-IN')) { inAdBlock = false; continue; }
-    if (inAdBlock) continue;
-    if (line.includes('#EXT-X-DISCONTINUITY')) continue;
-    if (line.includes('#EXTINF:') && i + 1 < lines.length) {
-      const url = lines[i + 1];
-      if (adKeywords.some(k => url.toLowerCase().includes(k))) { i++; continue; }
-    }
-    filtered.push(line);
-  }
-  return filtered.join('\\n');
-}`
 
 export default function PlaybackSettings() {
   const { playback, setPlaybackSettings } = useSettingStore()
@@ -62,7 +38,6 @@ export default function PlaybackSettings() {
   const tmdbEnabled = useTmdbEnabled()
   const navigate = useNavigate()
   const [confirmClearCacheOpen, setConfirmClearCacheOpen] = useState(false)
-  const adFilter = useCustomAdFilter()
 
   return (
     <SettingsPageShell
