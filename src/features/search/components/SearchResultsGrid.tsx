@@ -1,11 +1,13 @@
-import { memo } from 'react'
+import { memo, useState, useMemo } from 'react'
 import type { TmdbMediaItem } from '@/shared/types/tmdb'
 import type { VideoItem } from '@ouonnki/cms-core'
 import { type AggregatedVideoItem, storeCmsSources } from '../hooks/directSearch.utils'
+import Fuse from 'fuse.js'
 import { MediaPosterCard } from '@/shared/components/common/MediaPosterCard'
 import { POSTER_GRID } from '@/shared/components/media'
 import { StatePanel } from '@/shared/components/StatePanel'
 import { Skeleton } from '@/shared/components/ui/skeleton'
+import { Switch } from '@/shared/components/ui/switch'
 import { cn } from '@/shared/lib/utils'
 import { AspectRatio } from '@/shared/components/ui/aspect-ratio'
 import type { SearchMode } from './SearchModeToggle'
@@ -34,6 +36,8 @@ interface SearchResultsGridProps {
   hasMore?: boolean
   /** 哨兵元素引用（用于滚动加载） */
   sentinelRef?: React.RefObject<HTMLDivElement | null>
+  /** 搜索关键词（用于过滤非关键词） */
+  query?: string
   className?: string
 }
 
@@ -70,10 +74,24 @@ export const SearchResultsGrid = memo(function SearchResultsGrid({
   isSearchingNewQuery,
   hasMore = false,
   sentinelRef,
+  query,
   className,
 }: SearchResultsGridProps) {
   const favoritesStore = useFavoritesStore()
   const navigate = useNavigate()
+  const [filterNonKeyword, setFilterNonKeyword] = useState(true)
+
+  const fuse = useMemo(
+    () => new Fuse(aggregatedDirectResults, {
+      keys: ['vod_name'],
+      threshold: 0.4,
+      includeScore: true,
+      ignoreLocation: true,
+      minMatchCharLength: 2,
+      isCaseSensitive: false,
+    }),
+    [aggregatedDirectResults],
+  )
 
   // TMDB 模式：显示所有结果
   if (mode === 'tmdb') {
@@ -154,16 +172,27 @@ export const SearchResultsGrid = memo(function SearchResultsGrid({
   }
 
   // Direct 模式：显示聚合后的结果
-  const results = aggregatedDirectResults
+  const allResults = aggregatedDirectResults
+  const results = (filterNonKeyword && query)
+    ? fuse.search(query).map(r => r.item)
+    : allResults
   const hasResults = results.length > 0
 
   return (
     <div className={cn('space-y-6', className)}>
       {/* 结果统计 */}
       {hasResults && (
-        <div className="text-muted-foreground text-sm">
-          共聚合 <span className="text-primary font-medium">{results.length}</span> 个结果
-          ，来自 <span className="text-primary font-medium">{directResults.length}</span> 条原始数据
+        <div className="text-muted-foreground flex items-center justify-between text-sm">
+          <span>
+            共聚合 <span className="text-primary font-medium">{results.length}</span> 个结果
+            ，来自 <span className="text-primary font-medium">{directResults.length}</span> 条原始数据
+          </span>
+          {query && (
+            <label className="flex cursor-pointer items-center gap-1.5 text-xs">
+              <Switch checked={filterNonKeyword} onCheckedChange={setFilterNonKeyword} />
+              过滤非关键词
+            </label>
+          )}
         </div>
       )}
 

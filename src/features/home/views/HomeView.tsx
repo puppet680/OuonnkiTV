@@ -1,7 +1,5 @@
-import {
-  useTmdbRecommendations,
-  useTmdbRegionalDiscover,
-} from '@/shared/hooks/useTmdb'
+import { useTmdbRecommendations } from '@/shared/hooks/useTmdbRecommendations'
+import { useTmdbRegionalDiscover } from '@/shared/hooks/useTmdbRegional'
 import { useFavoritesStore } from '@/features/favorites/store/favoritesStore'
 import { useViewingHistoryStore } from '@/shared/store'
 import { isTmdbHistoryItem } from '@/shared/lib/viewingHistory'

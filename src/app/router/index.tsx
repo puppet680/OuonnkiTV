@@ -163,22 +163,6 @@ const router = createBrowserRouter([
         ),
       },
       {
-        path: 'play2/:type/:tmdbId',
-        element: (
-          <SuspenseWrapper>
-            <VideojsPlayer />
-          </SuspenseWrapper>
-        ),
-      },
-      {
-        path: 'play2/cms/:sourceCode/:vodId',
-        element: (
-          <SuspenseWrapper>
-            <VideojsPlayer />
-          </SuspenseWrapper>
-        ),
-      },
-      {
         path: 'settings',
         element: (
           <SuspenseWrapper>

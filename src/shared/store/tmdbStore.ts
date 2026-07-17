@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { devtools, persist, createJSONStorage } from 'zustand/middleware'
 import { immer } from 'zustand/middleware/immer'
-import { getTmdbClient, normalizeToMediaItem } from '../lib/tmdb'
+import { getTmdbClient, normalizeToMediaItem, fillItemLogos } from '../lib/tmdb'
 import { get, set, del } from 'idb-keyval'
 import { useSettingStore } from './settingStore'
 import type {
@@ -722,40 +722,10 @@ export const useTmdbStore = create<TmdbState & TmdbActions>()(
               )
 
             // 并行获取每个项目的 logo
-            const resultsWithLogos = await Promise.all(
-              baseResults.map(async item => {
-                try {
-                  // 根据媒体类型调用对应的 images 接口
-                  const images =
-                    item.mediaType === 'movie'
-                      ? await client.movies.images(item.id, {
-                        include_image_language: ['zh', 'en', 'null'],
-                      })
-                      : await client.tvShows.images(item.id, {
-                        include_image_language: ['zh', 'en', 'null'],
-                      })
-
-                  // 选择最佳 logo: 优先中文 > 英文 > 无语言标记
-                  const logos = images.logos || []
-                  const bestLogo =
-                    logos.find(l => l.iso_639_1 === 'zh') ||
-                    logos.find(l => l.iso_639_1 === 'en') ||
-                    logos.find(l => !l.iso_639_1) ||
-                    logos[0]
-
-                  return {
-                    ...item,
-                    logoPath: bestLogo?.file_path ?? null,
-                  }
-                } catch {
-                  // 获取 logo 失败不影响整体，保持 logoPath 为 null
-                  return item
-                }
-              }),
-            )
+            await fillItemLogos(client, baseResults)
 
             set(state => {
-              state.trending = resultsWithLogos
+              state.trending = baseResults
               state.loading.trending = false
             })
           } catch (err: unknown) {
@@ -788,6 +758,7 @@ export const useTmdbStore = create<TmdbState & TmdbActions>()(
                 client.discover.movie({
                   language: tmdbLang, sort_by: 'vote_average.desc',
                   with_watch_providers: '8|350',
+                  'primary_release_date.gte': '2020-01-01', // ponytail: 评分降序，只取近年
                   'vote_count.gte': 200,
                 }),
               )
@@ -804,6 +775,7 @@ export const useTmdbStore = create<TmdbState & TmdbActions>()(
                 client.discover.movie({
                   language: tmdbLang, sort_by: 'vote_average.desc',
                   with_original_language: 'zh',
+                  'primary_release_date.gte': '2020-01-01',
                   'vote_count.gte': 30,
                 }),
               )
@@ -851,24 +823,7 @@ export const useTmdbStore = create<TmdbState & TmdbActions>()(
               .slice(0, 10)
 
             // 批量拉取 logo，TMDB discover 不返回 logo_path
-            try {
-              const logoResults = await Promise.allSettled(
-                featured.map(async item => {
-                  const res =
-                    item.mediaType === 'movie'
-                      ? await client.movies.images(item.id)
-                      : await client.tvShows.images(item.id)
-                  const logos: { file_path: string }[] = (res as unknown as Record<string, unknown>).logos as { file_path: string }[] ?? []
-                  return { id: item.id, mediaType: item.mediaType, logoPath: logos[0]?.file_path ?? null }
-                }),
-              )
-              for (const r of logoResults) {
-                if (r.status === 'fulfilled' && r.value.logoPath) {
-                  const item = featured.find(i => i.id === r.value.id && i.mediaType === r.value.mediaType)
-                  if (item) item.logoPath = r.value.logoPath
-                }
-              }
-            } catch { /* logo 拉取失败不影响主流程 */ }
+            await fillItemLogos(client, featured)
 
             set(s => {
               s.regionCache.default = {

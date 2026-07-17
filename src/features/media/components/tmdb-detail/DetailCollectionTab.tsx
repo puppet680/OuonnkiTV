@@ -1,14 +1,11 @@
-import { useEffect, useState } from 'react'
 import { MediaPosterCard } from '@/shared/components/common'
-import { getPosterUrl, getTmdbClient } from '@/shared/lib/tmdb'
+import { getPosterUrl } from '@/shared/lib/tmdb'
 import { buildTmdbDetailPath, buildTmdbPlayPath } from '@/shared/lib/routes'
-import { useSettingStore } from '@/shared/store/settingStore'
-import { getReleaseYear } from './helpers'
 import { useLocation, useNavigate } from 'react-router'
-import type { LanguageOption } from 'tmdb-ts'
-import type { DetailCollectionFull, DetailCollectionMovie } from './types'
-import type { TmdbMediaItem } from '@/shared/types/tmdb'
 import { useFavoritesStore } from '@/features/favorites/store/favoritesStore'
+import { useCollectionDetail } from './useCollectionDetail'
+import { getReleaseYear } from './helpers'
+import type { TmdbMediaItem } from '@/shared/types/tmdb'
 
 interface DetailCollectionTabProps {
   collectionId: number
@@ -18,50 +15,16 @@ interface DetailCollectionTabProps {
   currentLabel?: string
 }
 
+/**
+ * 系列/合集详情 Tab
+ * 展示合集内所有作品，按上映日期排序
+ */
 export function DetailCollectionTab({ collectionId, currentTmdbId, currentLabel = '正在播放' }: DetailCollectionTabProps) {
   const location = useLocation()
   const navigate = useNavigate()
   const favoritesStore = useFavoritesStore()
   const currentUrl = location.pathname + location.search
-  const [collection, setCollection] = useState<DetailCollectionFull | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-
-  useEffect(() => {
-    let cancelled = false
-    const fetchCollection = async () => {
-      setLoading(true)
-      setError(null)
-      try {
-        const client = getTmdbClient()
-        const language = useSettingStore.getState().system.tmdbLanguage
-        const data = await client.collections.details(collectionId, { language } as LanguageOption)
-        if (cancelled) return
-        setCollection({
-          name: data.name,
-          overview: data.overview,
-          poster_path: data.poster_path,
-          backdrop_path: data.backdrop_path,
-          parts: (data.parts || [])
-            .map((m): DetailCollectionMovie => ({
-              id: m.id,
-              title: m.title || '',
-              poster_path: m.poster_path,
-              release_date: m.release_date,
-              overview: m.overview,
-            }))
-            .sort((a, b) => (a.release_date || '').localeCompare(b.release_date || '')),
-        })
-        setLoading(false)
-      } catch (e) {
-        if (cancelled) return
-        setError((e as Error).message || 'Failed to fetch collection')
-        setLoading(false)
-      }
-    }
-    fetchCollection()
-    return () => { cancelled = true }
-  }, [collectionId])
+  const { collection, loading, error } = useCollectionDetail(collectionId)
 
   if (loading) {
     return (

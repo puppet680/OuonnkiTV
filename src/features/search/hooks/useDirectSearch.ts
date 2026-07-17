@@ -31,6 +31,11 @@ export function useDirectSearch() {
   const [successfulSourcesInCurrentPage, setSuccessfulSourcesInCurrentPage] = useState<Set<string>>(new Set())
   // 新增：请求版本号，用于处理竞态条件
   const requestVersionRef = useRef(0)
+  // ponytail: 锁定 hasMore = false，阻止事件 handler 再改写
+  const hasMoreLockedRef = useRef(false)
+  // 搜索结果缓存：keyword → VideoItem[]，避免重复请求相同关键词
+  const searchCacheRef = useRef<Map<string, VideoItem[]>>(new Map())
+  const pageResultsRef = useRef<VideoItem[]>([])
 
   const { videoAPIs } = useApiStore()
   const subscriptions = useSubscriptionStore(s => s.subscriptions)
@@ -61,11 +66,25 @@ export function useDirectSearch() {
 
     // 第1页时清空现有结果
     if (page === 1) {
+      // 命中缓存则直接恢复，不请求 API
+      const cached = searchCacheRef.current.get(keyword)
+      if (cached) {
+        setDirectResults(cached)
+        setAggregatedResults(aggregateByTitle(cached))
+        setHasMore(false)
+        setDirectLoading(false)
+        setSearchProgress({ completed: 0, total: 0 })
+        // 恢复分页缓存让列表可翻页
+        return
+      }
+
       setDirectResults([])
       setAggregatedResults([])
       sourcePaginationCacheRef.current.clear()
       setCompletedSourcesInCurrentPage(new Set())
       setSuccessfulSourcesInCurrentPage(new Set())
+      hasMoreLockedRef.current = false
+      pageResultsRef.current = []
     } else {
       // 翻页时清空当前页的已完成记录
       setCompletedSourcesInCurrentPage(new Set())
@@ -161,6 +180,7 @@ export function useDirectSearch() {
       }
 
       const filtered = filterAdult(event.items)
+      pageResultsRef.current.push(...filtered)
       setDirectResults(prev => {
         // 累积所有源的结果
         return [...prev, ...filtered]
@@ -217,7 +237,9 @@ export function useDirectSearch() {
         })
 
         // 判断是否还有更多页
-        setHasMore(event.pagination.page < maxTotalPages)
+        if (!hasMoreLockedRef.current) {
+          setHasMore(event.pagination.page < maxTotalPages)
+        }
       }
     })
 
@@ -227,6 +249,10 @@ export function useDirectSearch() {
         // If no results returned and not on first page, there might be no more data
         // This handles the case where totalPages info is inconsistent with actual data
         if (allResults.length === 0 && page > 1) {
+          setHasMore(false)
+        }
+        if (page >= 2) {
+          hasMoreLockedRef.current = true
           setHasMore(false)
         }
 
@@ -263,6 +289,16 @@ export function useDirectSearch() {
 
           unsubResult()
           unsubProgress()
+
+          // 缓存第 1 页结果，同关键词再搜时跳过网络请求
+          if (page === 1 && pageResultsRef.current.length > 0) {
+            if (searchCacheRef.current.size >= 20) {
+              const firstKey = searchCacheRef.current.keys().next().value
+              if (firstKey) searchCacheRef.current.delete(firstKey)
+            }
+            searchCacheRef.current.set(keyword, [...pageResultsRef.current])
+          }
+
           setDirectLoading(false)
 
           if (timeOutTimer.current) {
@@ -299,6 +335,7 @@ export function useDirectSearch() {
     setSuccessfulSourcesInCurrentPage(new Set())
     sourcesToFetchRef.current = []
     sourcePaginationCacheRef.current.clear()
+    hasMoreLockedRef.current = false
   }, [])
 
   // Cleanup on unmount

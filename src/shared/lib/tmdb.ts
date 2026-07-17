@@ -177,6 +177,31 @@ export function getLogoUrl(path: string | null, size = 'w500'): string {
   return buildTmdbImageUrl(path, size)
 }
 
+/**
+ * 批量拉取并填充媒体项的 logo 地址
+ * TMDB discover/trending 接口不返回 logo_path，需要单独拉取
+ * @param client - TMDB 客户端实例
+ * @param items - 媒体项列表（会原地修改 logoPath）
+ */
+export async function fillItemLogos(client: TMDB, items: TmdbMediaItem[]): Promise<void> {
+  const results = await Promise.allSettled(
+    items.map(async item => {
+      const res = item.mediaType === 'movie'
+        ? await client.movies.images(item.id, { include_image_language: ['zh', 'en', 'null'] })
+        : await client.tvShows.images(item.id, { include_image_language: ['zh', 'en', 'null'] })
+      const logos: { file_path: string; iso_639_1?: string }[] = (res as unknown as Record<string, unknown>).logos as { file_path: string; iso_639_1?: string }[] ?? []
+      const best = logos.find(l => l.iso_639_1 === 'zh') ?? logos.find(l => l.iso_639_1 === 'en') ?? logos[0]
+      return { id: item.id, mediaType: item.mediaType, logoPath: best?.file_path ?? null }
+    }),
+  )
+  for (const r of results) {
+    if (r.status === 'fulfilled' && r.value.logoPath) {
+      const item = items.find(i => i.id === r.value.id && i.mediaType === r.value.mediaType)
+      if (item) item.logoPath = r.value.logoPath
+    }
+  }
+}
+
 // 数据转换器
 export function normalizeToMediaItem(
   raw: Record<string, unknown>,

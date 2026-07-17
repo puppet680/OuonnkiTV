@@ -3,7 +3,7 @@ import { useSearchParams } from 'react-router'
 import { motion, useReducedMotion } from "motion/react"
 import { useDocumentTitle } from '@/shared/hooks'
 import { useTmdbEnabled } from '@/shared/hooks/useTmdbMode'
-import { useTmdbNowPlaying } from '@/shared/hooks/useTmdb'
+import { useTmdbNowPlaying } from '@/shared/hooks/useTmdbLists'
 import { useSearchStore } from '@/shared/store/searchStore'
 import { OkiLogo } from '@/shared/components/icons'
 import { normalizeSearchMode } from '../lib/searchMode'

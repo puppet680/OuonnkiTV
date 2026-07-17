@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { findNextRecommendationSource, selectRecommendationSource } from './useTmdb'
+import { findNextRecommendationSource, selectRecommendationSource } from './useTmdbRecommendations'
 
 describe('selectRecommendationSource', () => {
   it('候选为空时返回 null', () => {

@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { useApiStore } from '@/shared/store/apiStore'
-import { useTmdbDetail } from '@/shared/hooks/useTmdb'
+import { useTmdbDetail } from '@/shared/hooks/useTmdbDetail'
 import type { TmdbMediaType, TmdbMovieDetail, TmdbTvDetail, TmdbMediaItem } from '@/shared/types/tmdb'
 import {
   augmentSeasonsFromTitles,

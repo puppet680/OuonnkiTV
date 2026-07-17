@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback, useMemo } from 'react'
 import { useSearchParams } from 'react-router'
 import { AnimatePresence, motion, useReducedMotion } from "motion/react"
 import { ArrowUpDown, X } from 'lucide-react'
-import { useTmdbSearch, useTmdbDiscover } from '@/shared/hooks/useTmdb'
+import { useTmdbSearch, useTmdbDiscover } from '@/shared/hooks/useTmdbSearch'
 import { useTmdbStore } from '@/shared/store/tmdbStore'
 import { SearchResultsGrid } from './SearchResultsGrid'
 import { StatePanel } from '@/shared/components/StatePanel'

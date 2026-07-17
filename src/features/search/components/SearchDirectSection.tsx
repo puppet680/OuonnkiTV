@@ -63,6 +63,7 @@ export function SearchDirectSection({ query }: SearchDirectSectionProps) {
       <section>
         <SearchResultsGrid
           mode="direct"
+          query={query}
           directResults={directResults}
           aggregatedDirectResults={aggregatedResults}
           loading={directLoading}

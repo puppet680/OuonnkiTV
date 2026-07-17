@@ -4,7 +4,7 @@ import { AnimatePresence, motion, useReducedMotion } from "motion/react"
 import { ExternalLink, Heart, HeartOff } from 'lucide-react'
 import { useDocumentTitle } from '@/shared/hooks'
 import { useTmdbEnabled } from '@/shared/hooks/useTmdbMode'
-import { useTmdbDetail } from '@/shared/hooks/useTmdb'
+import { useTmdbDetail } from '@/shared/hooks/useTmdbDetail'
 import { buildTmdbPlayPath } from '@/shared/lib/routes'
 import { buildHistoryPlayPath, isTmdbHistoryItem } from '@/shared/lib/viewingHistory'
 import type {
