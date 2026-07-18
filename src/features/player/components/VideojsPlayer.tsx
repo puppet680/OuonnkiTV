@@ -340,7 +340,7 @@ function PlaybackTracker({
         }
       }
 
-      // 进度 ≥ 90% 时预加载下一集，加速切集
+      // 进度 ≥ 90% 时预加载下一集
       if (!prefetchedRef.current && currentTime > 0 && duration > 0) {
         const pct = currentTime / duration
         if (pct >= 0.9) {
@@ -407,7 +407,15 @@ function SourceAutoSwitch({
     speedResults: Map<string, VideoSourceTestResult>
     onAllExhausted?: () => void
   }>(null!)
-  metaRef.current = { resolvedSourceCode, isTmdbRoute, isCmsRoute, sourceOptions, selectedEpisode, speedResults, onAllExhausted }
+  metaRef.current = {
+    resolvedSourceCode,
+    isTmdbRoute,
+    isCmsRoute,
+    sourceOptions,
+    selectedEpisode,
+    speedResults,
+    onAllExhausted,
+  }
 
   const exhaustedRef = useRef(false)
   const startedRef = useRef(false)
@@ -467,9 +475,9 @@ function SourceAutoSwitch({
         m.onAllExhausted?.()
         return
       }
-      const next = nextSafe || (
-        curIdx >= 0 && curIdx + 1 < m.sourceOptions.length ? m.sourceOptions[curIdx + 1] : null
-      )
+      const next =
+        nextSafe ||
+        (curIdx >= 0 && curIdx + 1 < m.sourceOptions.length ? m.sourceOptions[curIdx + 1] : null)
 
       if (m.isTmdbRoute) {
         if (tryNext(next)) {
@@ -583,9 +591,13 @@ function ResolutionTracker({ onResolution }: ResolutionTrackerProps) {
 function renderResolutionBadge(info: VideoResolutionInfo | null) {
   if (!info) return undefined
   return (
-    <span className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-bold text-white ${info.color}`}>
+    <span
+      className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-bold text-white ${info.color}`}
+    >
       {info.label}
-      <span className="font-normal opacity-80">{info.width}x{info.height}</span>
+      <span className="font-normal opacity-80">
+        {info.width}x{info.height}
+      </span>
     </span>
   )
 }
@@ -603,7 +615,10 @@ function DefaultVolumeSetter() {
   useEffect(() => {
     if (appliedRef.current) return
     const id = setInterval(() => {
-      if (appliedRef.current) { clearInterval(id); return }
+      if (appliedRef.current) {
+        clearInterval(id)
+        return
+      }
       const video = document.querySelector<HTMLVideoElement>('video')
       if (!video || video.volume === defaultVolume) return
       clearInterval(id)
@@ -637,7 +652,15 @@ function LoopSetter() {
 /**
  * 页面滚动时自动进入画中画模式（浏览器原生 PiP API）
  */
-function AutoPiP({ playerSection, enabled, pipEnabled }: { playerSection: HTMLElement | null; enabled: boolean; pipEnabled: boolean }) {
+function AutoPiP({
+  playerSection,
+  enabled,
+  pipEnabled,
+}: {
+  playerSection: HTMLElement | null
+  enabled: boolean
+  pipEnabled: boolean
+}) {
   useEffect(() => {
     if (!enabled || !pipEnabled || !playerSection || !document.pictureInPictureEnabled) return
 
@@ -651,13 +674,16 @@ function AutoPiP({ playerSection, enabled, pipEnabled }: { playerSection: HTMLEl
 
     const checkVisibility = () => {
       const rect = playerSection.getBoundingClientRect()
-      const isVisible = rect.bottom > VISIBILITY_GAP && rect.top < window.innerHeight - VISIBILITY_GAP
+      const isVisible =
+        rect.bottom > VISIBILITY_GAP && rect.top < window.innerHeight - VISIBILITY_GAP
 
       if (!isVisible && !isPiP) {
         isPiP = true
         const video = document.querySelector<HTMLVideoElement>('video')
         if (video && !document.pictureInPictureElement) {
-          video.requestPictureInPicture().catch(() => { isPiP = false })
+          video.requestPictureInPicture().catch(() => {
+            isPiP = false
+          })
         }
       } else if (isVisible && isPiP) {
         isPiP = false
@@ -699,7 +725,7 @@ function SpeedTracker({ onChange }: { onChange: (rate: number) => void }) {
 
   useEffect(() => {
     const id = setInterval(() => {
-      const rate = (store as Record<string, unknown>).playbackRate as number ?? 1
+      const rate = ((store as Record<string, unknown>).playbackRate as number) ?? 1
       if (rate !== prevRef.current) {
         prevRef.current = rate
         onChangeRef.current(rate)
@@ -766,9 +792,15 @@ const TMDB_SEARCH_PATH = '/search?mode=tmdb'
 
 // 分辨率标签 → Tailwind 背景色
 const RES_COLORS: Record<string, string> = {
-  '8K': 'bg-rose-500', '4K': 'bg-amber-500', '2K': 'bg-emerald-500',
-  '1080P': 'bg-green-500', '720P': 'bg-teal-500', '540P': 'bg-cyan-500',
-  '480P': 'bg-sky-500', '360P': 'bg-gray-500', '240P': 'bg-gray-500',
+  '8K': 'bg-rose-500',
+  '4K': 'bg-amber-500',
+  '2K': 'bg-emerald-500',
+  '1080P': 'bg-green-500',
+  '720P': 'bg-teal-500',
+  '540P': 'bg-cyan-500',
+  '480P': 'bg-sky-500',
+  '360P': 'bg-gray-500',
+  '240P': 'bg-gray-500',
 }
 
 // ── component ──
@@ -796,9 +828,7 @@ export default function VideojsPlayer() {
   } = useSettingStore()
 
   const isCustomProxy = network.proxyUrl && network.proxyUrl !== '/proxy?url='
-  const proxyStatus = isCustomProxy
-    ? { usingProxy: network.isProxyEnabled, canToggle: true }
-    : null
+  const proxyStatus = isCustomProxy ? { usingProxy: network.isProxyEnabled, canToggle: true } : null
 
   const viewingHistoryRef = useRef(viewingHistory)
   const detailRef = useRef<DetailResult | null>(null)
@@ -863,13 +893,17 @@ export default function VideojsPlayer() {
   }, [])
   const [speedNotice, setSpeedNotice] = useState<string | null>(null)
   const handleSpeedChange = useCallback((rate: number) => {
-    if (rate === 1) { setSpeedNotice(null) }
-    else { setSpeedNotice(`${rate}x`) }
+    if (rate === 1) {
+      setSpeedNotice(null)
+    } else {
+      setSpeedNotice(`${rate}x`)
+    }
   }, [])
   const [seekPreview, setSeekPreview] = useState<string | null>(null)
   const handleSeekPreview = useCallback((time: number, duration: number) => {
     const fmt = (s: number) => {
-      const m = Math.floor(s / 60); const sec = Math.floor(s % 60)
+      const m = Math.floor(s / 60)
+      const sec = Math.floor(s % 60)
       return `${m}:${sec.toString().padStart(2, '0')}`
     }
     setSeekPreview(`${fmt(time)} / ${fmt(duration)}`)
@@ -1535,15 +1569,14 @@ export default function VideojsPlayer() {
 
   // ── Video.js player URL（m3u8 走代理） ──
   const rawEpisodeUrl = detail?.episodes?.[selectedEpisode] ?? null
-  const proxyPrefix = network.isProxyEnabled && network.proxyUrl && network.proxyUrl !== '/proxy?url='
-    ? normalizeProxyPrefix(network.proxyUrl)
-    : ''
-  const proxiedEpisodeUrl = rawEpisodeUrl && proxyPrefix
-    ? proxyPrefix + encodeURIComponent(rawEpisodeUrl)
-    : rawEpisodeUrl
+  const proxyPrefix =
+    network.isProxyEnabled && network.proxyUrl && network.proxyUrl !== '/proxy?url='
+      ? normalizeProxyPrefix(network.proxyUrl)
+      : ''
+  const proxiedEpisodeUrl =
+    rawEpisodeUrl && proxyPrefix ? proxyPrefix + encodeURIComponent(rawEpisodeUrl) : rawEpisodeUrl
   // ponytail: 不含 selectedEpisode — 切集时保持 Player.Provider 挂载，不退出全屏
   const playerKey = `${resolvedSourceCode}:${resolvedVodId}`
-
 
   // ── ad filter hls.js config ──
   const [hlsConfig, setHlsConfig] = useState<Partial<HlsConfig>>({})
@@ -1598,15 +1631,21 @@ export default function VideojsPlayer() {
                 ? { label: '查看影视详情', to: detailLink, variant: 'outline' as const }
                 : undefined
         }
-        extraAction={isCustomProxy ? {
-          label: network.isProxyEnabled ? '切换为直连' : '切换为代理',
-          variant: 'outline' as const,
-          onClick: () => {
-            setNetworkSettings({ isProxyEnabled: !network.isProxyEnabled })
-            Object.keys(localStorage).filter(k => k.startsWith('ouonnki-speed::')).forEach(k => localStorage.removeItem(k))
-            window.location.reload()
-          },
-        } : undefined}
+        extraAction={
+          isCustomProxy
+            ? {
+                label: network.isProxyEnabled ? '切换为直连' : '切换为代理',
+                variant: 'outline' as const,
+                onClick: () => {
+                  setNetworkSettings({ isProxyEnabled: !network.isProxyEnabled })
+                  Object.keys(localStorage)
+                    .filter(k => k.startsWith('ouonnki-speed::'))
+                    .forEach(k => localStorage.removeItem(k))
+                  window.location.reload()
+                },
+              }
+            : undefined
+        }
       />
     )
   }
@@ -1639,8 +1678,11 @@ export default function VideojsPlayer() {
 
     const { playback } = useSettingStore.getState()
     const items = []
-    if (playback.isScreenshotEnabled) items.push({
-        id: 'player-screenshot', label: '截取画面', icon: <Camera className="size-4" />,
+    if (playback.isScreenshotEnabled)
+      items.push({
+        id: 'player-screenshot',
+        label: '截取画面',
+        icon: <Camera className="size-4" />,
         onClick: () => {
           const video = document.querySelector<HTMLVideoElement>('video')
           if (!video || video.videoWidth === 0) return
@@ -1661,8 +1703,10 @@ export default function VideojsPlayer() {
           }, 'image/png')
         },
       })
-    if (playback.isPipEnabled) items.push({
-        id: 'player-pip', label: '画中画',
+    if (playback.isPipEnabled)
+      items.push({
+        id: 'player-pip',
+        label: '画中画',
         icon: <PictureInPicture2 className="size-4" />,
         onClick: () => {
           const video = document.querySelector<HTMLVideoElement>('video')
@@ -1679,11 +1723,11 @@ export default function VideojsPlayer() {
         },
       })
     items.push({
-        id: 'player-favorite',
-        label: favActiveRef.current ? '取消收藏' : '加入收藏',
-        icon: favActiveRef.current ? <HeartOff className="size-4" /> : <Heart className="size-4" />,
-        onClick: () => favToggleRef.current(),
-      })
+      id: 'player-favorite',
+      label: favActiveRef.current ? '取消收藏' : '加入收藏',
+      icon: favActiveRef.current ? <HeartOff className="size-4" /> : <Heart className="size-4" />,
+      onClick: () => favToggleRef.current(),
+    })
     if (detailLinkRef.current) {
       items.push({
         id: 'player-detail',
@@ -1788,11 +1832,13 @@ export default function VideojsPlayer() {
           adultLevel={certShort}
           proxyStatus={proxyStatus}
           onToggleProxy={() => {
-  setNetworkSettings({ isProxyEnabled: !network.isProxyEnabled })
-  // 切换代理后清除测速缓存，让新环境重新测速
-  Object.keys(localStorage).filter(k => k.startsWith('ouonnki-speed::')).forEach(k => localStorage.removeItem(k))
-  window.location.reload()
-}}
+            setNetworkSettings({ isProxyEnabled: !network.isProxyEnabled })
+            // 切换代理后清除测速缓存，让新环境重新测速
+            Object.keys(localStorage)
+              .filter(k => k.startsWith('ouonnki-speed::'))
+              .forEach(k => localStorage.removeItem(k))
+            window.location.reload()
+          }}
           onBack={() => navigate(-1)}
         />
       )}
@@ -1840,102 +1886,147 @@ export default function VideojsPlayer() {
             </div>
             {proxiedEpisodeUrl ? (
               <Player.Provider key={playerKey}>
-                  <VideojsSkin
-                    languageOptions={languageOptions.length > 1 ? languageOptions : undefined}
-                    languageValue={languageOptions.length > 1 ? (__lastSelectedLangLabel && languageOptions.some(o => o.label === __lastSelectedLangLabel) ? __lastSelectedLangLabel : languageOptions[0].label) : ''}
-                    onLanguageChange={(vodId, label) => {
-                      __lastSelectedLangLabel = label
-                      handleLanguageChange(vodId, label)
-                    }}
-                    poster={
-                      getBackdropUrl(tmdbPlayback.tmdbDetail?.backdropPath || null, 'w1280') ||
-                      detail?.videoInfo?.cover ||
-                      undefined
-                    }
-                    title={title}
-                    currentEpisode={episodes.length > 1 ? `第 ${selectedEpisode + 1} 集` : undefined}
-                    resolutionBadge={resolutionInfo ? renderResolutionBadge(resolutionInfo) : (
-                      <span className="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] text-white/30">···</span>
-                    )}
-                    episodes={episodes}
-                    selectedEpisode={selectedEpisode}
-                    onEpisodeSelect={(i) => handleEpisodeChange(i)}
-                    onPrevEpisode={episodes.length > 1 && selectedEpisode > 0
-                      ? () => handleEpisodeChange(episodePagination.isReversed ? episodes.length - 1 - (selectedEpisode - 1) : selectedEpisode - 1)
-                      : undefined}
-                    onNextEpisode={episodes.length > 1 && selectedEpisode < episodes.length - 1
-                      ? () => handleEpisodeChange(episodePagination.isReversed ? episodes.length - 1 - (selectedEpisode + 1) : selectedEpisode + 1)
-                      : undefined}
-                  >
-                    <MediaElement src={proxiedEpisodeUrl} playsInline autoPlay hlsConfig={hlsConfig} />
-                    {/* Overlays — inside Container, visible in fullscreen */}
-                    {playerNotice && (
-                      <div className="pointer-events-none absolute top-3 left-1/2 z-30 -translate-x-1/2">
-                        <span className="rounded-full border border-white/15 bg-black/65 px-3 py-1.5 text-xs text-white shadow-lg backdrop-blur-sm whitespace-nowrap">
-                          {playerNotice}
-                        </span>
-                      </div>
-                    )}
-                    {speedNotice && (
-                      <div className="pointer-events-none absolute top-3 left-1/2 z-30 -translate-x-1/2">
-                        <span className="rounded-full bg-black/70 px-3 py-1.5 text-sm font-bold text-white shadow-lg backdrop-blur-sm">
-                          {speedNotice}
-                        </span>
-                      </div>
-                    )}
-                    {seekPreview && (
-                      <div className="pointer-events-none absolute top-3 left-1/2 z-30 -translate-x-1/2">
-                        <span className="rounded-full border border-white/15 bg-black/65 px-3 py-1.5 text-xs text-white shadow-lg backdrop-blur-sm tabular-nums">
-                          {seekPreview}
-                        </span>
-                      </div>
-                    )}
-                  </VideojsSkin>
-                  <PlaybackTracker
-                    resolvedSourceCode={resolvedSourceCode}
-                    resolvedVodId={resolvedVodId}
-                    detail={detail}
-                    episodes={episodes}
-                    selectedEpisode={selectedEpisode}
-                    canUseTmdbHistory={canUseTmdbHistory}
-                    tmdbMediaType={tmdbMediaType}
-                    parsedTmdbId={parsedTmdbId}
-                    tmdbSeasonNumberForHistory={tmdbSeasonNumberForHistory}
-                    backdropUrl={
-                      getBackdropUrl(tmdbPlayback.tmdbDetail?.backdropPath || null, 'w1280') || ''
-                    }
-                    onEnded={() => {
-                      if (!playback.isLoopEnabled && playback.isAutoPlayEnabled && selectedEpisode < episodes.length - 1) {
-                        handleEpisodeChange(
-                          episodePagination.isReversed
-                            ? episodes.length - 1 - (selectedEpisode + 1)
-                            : selectedEpisode + 1,
-                        )
-                      }
-                    }}
+                <VideojsSkin
+                  languageOptions={languageOptions.length > 1 ? languageOptions : undefined}
+                  languageValue={
+                    languageOptions.length > 1
+                      ? __lastSelectedLangLabel &&
+                        languageOptions.some(o => o.label === __lastSelectedLangLabel)
+                        ? __lastSelectedLangLabel
+                        : languageOptions[0].label
+                      : ''
+                  }
+                  onLanguageChange={(vodId, label) => {
+                    __lastSelectedLangLabel = label
+                    handleLanguageChange(vodId, label)
+                  }}
+                  poster={
+                    getBackdropUrl(tmdbPlayback.tmdbDetail?.backdropPath || null, 'w1280') ||
+                    detail?.videoInfo?.cover ||
+                    undefined
+                  }
+                  title={title}
+                  currentEpisode={episodes.length > 1 ? `第 ${selectedEpisode + 1} 集` : undefined}
+                  resolutionBadge={
+                    resolutionInfo ? (
+                      renderResolutionBadge(resolutionInfo)
+                    ) : (
+                      <span className="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] text-white/30">
+                        ···
+                      </span>
+                    )
+                  }
+                  episodes={episodes}
+                  selectedEpisode={selectedEpisode}
+                  onEpisodeSelect={i => handleEpisodeChange(i)}
+                  onPrevEpisode={
+                    episodes.length > 1 && selectedEpisode > 0
+                      ? () =>
+                          handleEpisodeChange(
+                            episodePagination.isReversed
+                              ? episodes.length - 1 - (selectedEpisode - 1)
+                              : selectedEpisode - 1,
+                          )
+                      : undefined
+                  }
+                  onNextEpisode={
+                    episodes.length > 1 && selectedEpisode < episodes.length - 1
+                      ? () =>
+                          handleEpisodeChange(
+                            episodePagination.isReversed
+                              ? episodes.length - 1 - (selectedEpisode + 1)
+                              : selectedEpisode + 1,
+                          )
+                      : undefined
+                  }
+                >
+                  <MediaElement
+                    src={proxiedEpisodeUrl}
+                    playsInline
+                    autoPlay
+                    hlsConfig={hlsConfig}
                   />
-                  <SourceAutoSwitch
-                    resolvedSourceCode={resolvedSourceCode}
-                    isTmdbRoute={isTmdbRoute}
-                    isCmsRoute={isCmsRoute}
-                    sourceOptions={sourceOptions.map(o => ({
-                      sourceCode: o.sourceCode,
-                      sourceName: o.sourceName,
-                      bestVodId: o.bestVodId,
-                    }))}
-                    selectedEpisode={selectedEpisode}
-                    speedResults={speedResults}
-                    onNotice={showPlayerNotice}
-                    onAllExhausted={() => setAllExhausted(true)}
-                  />
-                  <ResolutionTracker onResolution={setResolutionInfo} />
-                  <DefaultVolumeSetter />
-                  <LoopSetter />
-                  <AutoPiP playerSection={playerSectionRef.current} enabled={playback.isAutoMiniEnabled} pipEnabled={playback.isPipEnabled} />
-                  <OrientationLocker />
-                  <VideojsMobileGestures container={playerSectionRef.current} onSpeedChange={handleSpeedChange} onSeekPreview={handleSeekPreview} onSeekPreviewEnd={handleSeekPreviewEnd} />
-                  <SpeedTracker onChange={handleSpeedChange} />
-                  <DesktopSpeedKeys onSpeedChange={handleSpeedChange} />
+                  {/* Overlays — inside Container, visible in fullscreen */}
+                  {playerNotice && (
+                    <div className="pointer-events-none absolute top-3 left-1/2 z-30 -translate-x-1/2">
+                      <span className="rounded-full border border-white/15 bg-black/65 px-3 py-1.5 text-xs whitespace-nowrap text-white shadow-lg backdrop-blur-sm">
+                        {playerNotice}
+                      </span>
+                    </div>
+                  )}
+                  {speedNotice && (
+                    <div className="pointer-events-none absolute top-3 left-1/2 z-30 -translate-x-1/2">
+                      <span className="rounded-full bg-black/70 px-3 py-1.5 text-sm font-bold text-white shadow-lg backdrop-blur-sm">
+                        {speedNotice}
+                      </span>
+                    </div>
+                  )}
+                  {seekPreview && (
+                    <div className="pointer-events-none absolute top-3 left-1/2 z-30 -translate-x-1/2">
+                      <span className="rounded-full border border-white/15 bg-black/65 px-3 py-1.5 text-xs text-white tabular-nums shadow-lg backdrop-blur-sm">
+                        {seekPreview}
+                      </span>
+                    </div>
+                  )}
+                </VideojsSkin>
+                <PlaybackTracker
+                  resolvedSourceCode={resolvedSourceCode}
+                  resolvedVodId={resolvedVodId}
+                  detail={detail}
+                  episodes={episodes}
+                  selectedEpisode={selectedEpisode}
+                  canUseTmdbHistory={canUseTmdbHistory}
+                  tmdbMediaType={tmdbMediaType}
+                  parsedTmdbId={parsedTmdbId}
+                  tmdbSeasonNumberForHistory={tmdbSeasonNumberForHistory}
+                  backdropUrl={
+                    getBackdropUrl(tmdbPlayback.tmdbDetail?.backdropPath || null, 'w1280') || ''
+                  }
+                  onEnded={() => {
+                    if (
+                      !playback.isLoopEnabled &&
+                      playback.isAutoPlayEnabled &&
+                      selectedEpisode < episodes.length - 1
+                    ) {
+                      handleEpisodeChange(
+                        episodePagination.isReversed
+                          ? episodes.length - 1 - (selectedEpisode + 1)
+                          : selectedEpisode + 1,
+                      )
+                    }
+                  }}
+                />
+                <SourceAutoSwitch
+                  resolvedSourceCode={resolvedSourceCode}
+                  isTmdbRoute={isTmdbRoute}
+                  isCmsRoute={isCmsRoute}
+                  sourceOptions={sourceOptions.map(o => ({
+                    sourceCode: o.sourceCode,
+                    sourceName: o.sourceName,
+                    bestVodId: o.bestVodId,
+                  }))}
+                  selectedEpisode={selectedEpisode}
+                  speedResults={speedResults}
+                  onNotice={showPlayerNotice}
+                  onAllExhausted={() => setAllExhausted(true)}
+                />
+                <ResolutionTracker onResolution={setResolutionInfo} />
+                <DefaultVolumeSetter />
+                <LoopSetter />
+                <AutoPiP
+                  playerSection={playerSectionRef.current}
+                  enabled={playback.isAutoMiniEnabled}
+                  pipEnabled={playback.isPipEnabled}
+                />
+                <OrientationLocker />
+                <VideojsMobileGestures
+                  container={playerSectionRef.current}
+                  onSpeedChange={handleSpeedChange}
+                  onSeekPreview={handleSeekPreview}
+                  onSeekPreviewEnd={handleSeekPreviewEnd}
+                />
+                <SpeedTracker onChange={handleSpeedChange} />
+                <DesktopSpeedKeys onSpeedChange={handleSpeedChange} />
               </Player.Provider>
             ) : (
               <div className="text-muted-foreground flex aspect-video items-center justify-center text-sm">
@@ -2033,20 +2124,28 @@ export default function VideojsPlayer() {
                                         )}
                                         <div className="ml-auto flex shrink-0 flex-col items-end gap-0.5">
                                           {/* 上方：分辨率标签（测速中隐藏，测速结果优先，兜底 bestQuality） */}
-                                          {!speedTesting.has(option.sourceCode) && (() => {
-                                            const testQuality = speedResults.get(option.sourceCode)?.quality
-                                            const label = testQuality?.label || option.bestQuality
-                                            if (!label) return null
-                                            const color = testQuality?.color || RES_COLORS[label] || 'bg-foreground/10'
-                                            return (
-                                              <span className={`${color} rounded px-1.5 py-0.5 text-[10px] leading-none text-white`}>
-                                                {label}
-                                              </span>
-                                            )
-                                          })()}
+                                          {!speedTesting.has(option.sourceCode) &&
+                                            (() => {
+                                              const testQuality = speedResults.get(
+                                                option.sourceCode,
+                                              )?.quality
+                                              const label = testQuality?.label || option.bestQuality
+                                              if (!label) return null
+                                              const color =
+                                                testQuality?.color ||
+                                                RES_COLORS[label] ||
+                                                'bg-foreground/10'
+                                              return (
+                                                <span
+                                                  className={`${color} rounded px-1.5 py-0.5 text-[10px] leading-none text-white`}
+                                                >
+                                                  {label}
+                                                </span>
+                                              )
+                                            })()}
                                           {/* 下方：速度 badge（无结果时不显示） */}
                                           {(speedResults.get(option.sourceCode) ||
-                                          speedTesting.has(option.sourceCode)) && (
+                                            speedTesting.has(option.sourceCode)) && (
                                             <SpeedTestBadge
                                               result={speedResults.get(option.sourceCode) ?? null}
                                               testing={speedTesting.has(option.sourceCode)}
@@ -2241,7 +2340,6 @@ export default function VideojsPlayer() {
         currentTmdbId={parsedTmdbId || undefined}
         recommendations={recommendationItems}
       />
-
     </div>
   )
 }

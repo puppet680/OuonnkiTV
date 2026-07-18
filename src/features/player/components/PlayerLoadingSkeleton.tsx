@@ -34,6 +34,7 @@ export const PlayerLoadingSkeleton = memo(function PlayerLoadingSkeleton({ mode 
                 <div className="flex items-center gap-1.5 sm:gap-2">
                   <Skeleton className="h-5 w-28 rounded-full sm:h-6 sm:w-32" />
                   <Skeleton className="h-5 w-24 rounded-full sm:h-6 sm:w-30" />
+                  <Skeleton className="h-5 w-24 rounded-full sm:h-6 sm:w-30" />
                 </div>
               </div>
 

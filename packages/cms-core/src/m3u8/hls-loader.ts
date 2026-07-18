@@ -28,6 +28,27 @@ export interface HlsLoaderConfig {
  * })
  * ```
  */
+/** 获取 M3U8 的基准 URL（用于补全相对路径） */
+function getBaseUrl(m3u8Url: string): string {
+  const idx = m3u8Url.lastIndexOf('/')
+  return idx > 0 ? m3u8Url.slice(0, idx + 1) : m3u8Url
+}
+
+/** 补全 M3U8 内容中所有相对路径为绝对 URL */
+function resolveRelativeUrls(content: string, baseUrl: string): string {
+  if (!baseUrl) return content
+  return content.split('\n').map(line => {
+    const trimmed = line.trim()
+    if (!trimmed || trimmed.startsWith('#')) return line
+    try {
+      new URL(trimmed) // 已经是绝对 URL
+      return line
+    } catch {
+      return line.replace(trimmed, new URL(trimmed, baseUrl).toString())
+    }
+  }).join('\n')
+}
+
 export function createHlsLoaderClass(config: HlsLoaderConfig): any {
   const { m3u8Processor, Hls } = config
 
@@ -50,11 +71,13 @@ export function createHlsLoaderClass(config: HlsLoaderConfig): any {
         // 对所有 M3U8 播放列表应用广告过滤（含 level 类型在 light 版本 type=undefined 的情况）
         if (context.type === 'manifest' || context.type === 'level' || isM3u8) {
           const originalOnSuccess = callbacks.onSuccess
+          const baseUrl = getBaseUrl(context.url)
 
           callbacks.onSuccess = (response: any, stats: any, ctx: any, networkDetails: unknown) => {
-            // 处理M3U8内容
             if (response.data && typeof response.data === 'string') {
-              response.data = m3u8Processor.process(response.data)
+              // 先把相对路径补全为绝对 URL，再交给过滤器处理
+              const resolved = resolveRelativeUrls(response.data, baseUrl)
+              response.data = m3u8Processor.process(resolved)
             }
             return originalOnSuccess(response, stats, ctx, networkDetails)
           }

@@ -97,16 +97,13 @@ export function VideojsMobileGestures({ container, onSpeedChange, onSeekPreview,
       const video = getVideo()
       if (!video) return
 
-      // 中间区域默认水平滑动(seek)，两侧为垂直滑动(音量)
-      const isSide = pos.x < pos.w * 0.22 || pos.x > pos.w * 0.78
-
       sessionRef.current = {
         touchId: touch.identifier,
         startX: pos.x, startY: pos.y,
         startTime: video.currentTime || 0,
         startVolume: video.volume,
         w: pos.w, h: pos.h,
-        axis: isSide ? 'v' : null,
+        axis: null,
         longPressFired: false,
         rateAtLongPress: longPressRateRef.current,
         rateAdjusted: false,
