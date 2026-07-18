@@ -22,7 +22,7 @@ const nearestRateIndex = (rate: number) =>
   RATES.reduce((best, r, i) => Math.abs(r - rate) < Math.abs(RATES[best] - rate) ? i : best, 0)
 
 interface Props {
-  container: HTMLElement | null
+  playerSectionRef: React.RefObject<HTMLElement | null>
   onSpeedChange?: (rate: number) => void
   onSeekPreview?: (time: number, duration: number) => void
   onSeekPreviewEnd?: () => void
@@ -31,7 +31,7 @@ interface Props {
 /**
  * 移动端全屏手势：水平滑动 seek、垂直滑动音量、长按倍速
  */
-export function VideojsMobileGestures({ container, onSpeedChange, onSeekPreview, onSeekPreviewEnd }: Props) {
+export function VideojsMobileGestures({ playerSectionRef, onSpeedChange, onSeekPreview, onSeekPreviewEnd }: Props) {
   const sessionRef = useRef<{
     touchId: number
     startX: number; startY: number
@@ -57,11 +57,17 @@ export function VideojsMobileGestures({ container, onSpeedChange, onSeekPreview,
 
   const { longPressPlaybackRate, isMobileGestureEnabled } = useSettingStore(s => s.playback)
   const longPressRateRef = useRef(longPressPlaybackRate)
-  longPressRateRef.current = longPressPlaybackRate
   const gestureEnabledRef = useRef(isMobileGestureEnabled)
-  gestureEnabledRef.current = isMobileGestureEnabled
+
+  // 确保 Zustand 状态更新同步到 Ref 内部
+  useEffect(() => {
+    longPressRateRef.current = longPressPlaybackRate
+    gestureEnabledRef.current = isMobileGestureEnabled
+  }, [longPressPlaybackRate, isMobileGestureEnabled])
 
   useEffect(() => {
+    // 运行时直接从 Ref 中解包真实 DOM
+    const container = playerSectionRef.current
     if (!isTouchDevice() || !container || !gestureEnabledRef.current) return
 
     const getVideo = () => document.querySelector<HTMLVideoElement>('video')
@@ -133,7 +139,6 @@ export function VideojsMobileGestures({ container, onSpeedChange, onSeekPreview,
       const pos = getPos(touch)
       const dx = pos.x - s.startX
 
-      // 长按倍速模式 → 左右滑动按预设档位切换倍速
       if (s.longPressFired) {
         e.preventDefault()
         const startIdx = nearestRateIndex(longPressRateRef.current)
@@ -153,7 +158,6 @@ export function VideojsMobileGestures({ container, onSpeedChange, onSeekPreview,
       if (!s.axis && (Math.abs(dx) > ACTIVATION_PX || Math.abs(dy) > ACTIVATION_PX)) {
         s.axis = Math.abs(dx) > Math.abs(dy) ? 'h' : 'v'
       }
-      // 轴确定后（不论此时刚确定还是 touchstart 已锁定）立即取消长按计时
       if (s.axis && longPressRef.current) {
         clearTimeout(longPressRef.current); longPressRef.current = null
       }
@@ -162,7 +166,6 @@ export function VideojsMobileGestures({ container, onSpeedChange, onSeekPreview,
       if (!video || video.duration <= 0) return
 
       if (s.axis === 'h') {
-        // 水平滑动 → seek：右滑前进，左滑后退
         const seekDelta = (dx / 100) * SEEK_SECS_PER_100PX
         const target = clamp(s.startTime + seekDelta, 0, video.duration)
         if (target !== s.lastSeekTarget) {
@@ -171,7 +174,6 @@ export function VideojsMobileGestures({ container, onSpeedChange, onSeekPreview,
           onSeekPreviewRef.current?.(target, video.duration)
         }
       } else if (s.axis === 'v') {
-        // 垂直滑动 → 音量（派发键盘事件触发 Video.js VolumeIndicator）
         const volDelta = -dy / (s.h * VOLUME_FULL_RANGE)
         const newVol = clamp(s.startVolume + volDelta, 0, 1)
         video.volume = newVol
@@ -182,7 +184,6 @@ export function VideojsMobileGestures({ container, onSpeedChange, onSeekPreview,
             key: newVol > s.startVolume ? 'ArrowUp' : 'ArrowDown',
             bubbles: true, cancelable: true,
           }))
-          // hotkey 也会调音量步进 0.05，覆盖回正确值
           video.volume = newVol
         }
       }
@@ -206,7 +207,8 @@ export function VideojsMobileGestures({ container, onSpeedChange, onSeekPreview,
       document.removeEventListener('fullscreenchange', onFullscreenChange)
       clearSession()
     }
-  }, [container])
+    // 核心更改：让组件监听父级 RefObject 的变动，只要 Provider 重建或 Ref 重新注入，便安全重新绑定
+  }, [playerSectionRef])
 
   return null
 }
