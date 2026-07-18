@@ -34,9 +34,10 @@ export function derivePlayerViewState(params: DerivePlayerViewStateParams): Play
     }
   }
 
-  if (hasPendingLoad && !params.hasDetail) {
+  // 匹配/加载未完成时，不展示错误，优先显示骨架屏
+  if (hasPendingLoad) {
     return {
-      shouldShowLoading: true,
+      shouldShowLoading: !params.hasDetail,
       primaryError: null,
     }
   }
