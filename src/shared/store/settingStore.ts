@@ -84,7 +84,7 @@ export const useSettingStore = create<SettingStore>()(
   devtools(
     persist(
       immer<SettingStore>(set => ({
-        network: DEFAULT_SETTINGS.network,
+        network: { ...DEFAULT_SETTINGS.network },
         search: DEFAULT_SETTINGS.search,
         playback: DEFAULT_SETTINGS.playback,
         system: DEFAULT_SETTINGS.system,

@@ -1,7 +1,6 @@
 import { useRef, useEffect, useState, useCallback, useMemo } from 'react'
 import {
   createCmsClient,
-  createDirectStrategy,
   createUrlPrefixProxyStrategy,
   type CmsClient,
   type VideoSource,
@@ -37,12 +36,10 @@ let globalNetworkKey: string | null = null
 
 function getCmsClient(config?: CmsClientConfig): CmsClient {
   const { network } = useSettingStore.getState()
-  const normalizedProxyUrl = normalizeProxyPrefix(network.proxyUrl)
-  const networkKey = [
-    network.concurrencyLimit,
-    network.isProxyEnabled ? 'proxy' : 'direct',
-    network.isProxyEnabled ? normalizedProxyUrl : '',
-  ].join('|')
+  const proxyUrl = network.isProxyEnabled
+    ? normalizeProxyPrefix(network.proxyUrl)
+    : normalizeProxyPrefix('') // 关闭时使用默认 /proxy?url=
+  const networkKey = [network.concurrencyLimit, proxyUrl].join('|')
 
   // 当网络设置变化时重建单例
   if (globalClient && globalNetworkKey !== networkKey) {
@@ -53,9 +50,7 @@ function getCmsClient(config?: CmsClientConfig): CmsClient {
   if (!globalClient) {
     globalNetworkKey = networkKey
     globalClient = createCmsClient({
-      proxyStrategy: network.isProxyEnabled
-        ? createUrlPrefixProxyStrategy(normalizedProxyUrl)
-        : createDirectStrategy(),
+      proxyStrategy: createUrlPrefixProxyStrategy(proxyUrl),
       concurrencyLimit: network.concurrencyLimit,
       ...config,
     })

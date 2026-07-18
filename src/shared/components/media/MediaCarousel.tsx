@@ -137,8 +137,9 @@ function MediaCarouselInner<T>({
   if (loading) return <CarouselSkeleton title={title} />
   if (items.length === 0) return null
 
+  // ponytail: content-visibility 跳过不可见区域样式计算，主题切换时首屏以下不 recalc
   return (
-    <div className="group/carousel">
+    <div className="group/carousel" style={{ contentVisibility: 'auto', containIntrinsicSize: 'auto 320px' }}>
       <div className="px-1">
         {linkTo ? (
           <NavLink className="group/title inline-flex items-center gap-1" to={linkTo}>

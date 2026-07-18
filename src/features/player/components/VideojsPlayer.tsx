@@ -60,6 +60,7 @@ import type { ViewingHistoryItem } from '@/shared/types'
 import type { VideoItem } from '@/shared/types/video'
 import { useTmdbRecommendations } from '@/shared/hooks/useTmdbRecommendations'
 import { getCertShort, isAdultCert } from '@/features/media/components'
+import { normalizeProxyPrefix } from '@/shared/config/api.config'
 import { getResolutionLabel, type VideoResolutionInfo } from '../lib/resolution-labels'
 import { toast } from 'sonner'
 import {
@@ -73,6 +74,7 @@ import {
 import { useEpisodePagination, useTmdbPlayback } from '@/features/player/hooks'
 import { useSourceSpeedTest } from '../hooks/useSourceSpeedTest'
 import { SpeedTestBadge } from './SpeedTestBadge'
+import type { VideoSourceTestResult } from '../lib/source-speed-test'
 
 // 模块级：跨导航追踪语言的 label（用 label 比对，vodId 可能不匹配）
 let __lastSelectedLangLabel = ''
@@ -235,6 +237,7 @@ function PlaybackTracker({
   const lastWriteRef = useRef(0)
   const prevPausedRef = useRef(true)
   const prevEndedRef = useRef(false)
+  const prefetchedRef = useRef(false)
   const onEndedRef = useRef(onEnded)
   onEndedRef.current = onEnded
 
@@ -243,6 +246,7 @@ function PlaybackTracker({
     hasRestoredRef.current = false
     lastWriteRef.current = 0
     prevPausedRef.current = true
+    prefetchedRef.current = false
   }, [selectedEpisode, resolvedSourceCode, resolvedVodId])
 
   // Polling loop
@@ -336,6 +340,19 @@ function PlaybackTracker({
         }
       }
 
+      // 进度 ≥ 90% 时预加载下一集，加速切集
+      if (!prefetchedRef.current && currentTime > 0 && duration > 0) {
+        const pct = currentTime / duration
+        if (pct >= 0.9) {
+          const m = metaRef.current
+          const nextUrl = m.detail?.episodes?.[m.selectedEpisode + 1]
+          if (nextUrl) {
+            prefetchedRef.current = true
+            fetch(nextUrl, { mode: 'no-cors', priority: 'low' }).catch(() => {})
+          }
+        }
+      }
+
       // Ended → next episode (fire once per end event)
       if (ended && !prevEndedRef.current && currentTime > 0) {
         writeSnapshot(currentTime, duration)
@@ -359,6 +376,7 @@ interface SourceAutoSwitchProps {
   isCmsRoute: boolean
   sourceOptions: Array<{ sourceCode: string; sourceName: string; bestVodId: string }>
   selectedEpisode: number
+  speedResults: Map<string, VideoSourceTestResult>
   onNotice: (msg: string) => void
   onAllExhausted?: () => void
 }
@@ -373,21 +391,23 @@ function SourceAutoSwitch({
   isCmsRoute,
   sourceOptions,
   selectedEpisode,
+  speedResults,
   onNotice,
   onAllExhausted,
 }: SourceAutoSwitchProps) {
   const store = Player.usePlayer()
   const navigate = useNavigate()
 
-  const metaRef = useRef({
-    resolvedSourceCode,
-    isTmdbRoute,
-    isCmsRoute,
-    sourceOptions,
-    selectedEpisode,
-    onAllExhausted,
-  })
-  metaRef.current = { resolvedSourceCode, isTmdbRoute, isCmsRoute, sourceOptions, selectedEpisode, onAllExhausted }
+  const metaRef = useRef<{
+    resolvedSourceCode: string
+    isTmdbRoute: boolean
+    isCmsRoute: boolean
+    sourceOptions: SourceAutoSwitchProps['sourceOptions']
+    selectedEpisode: number
+    speedResults: Map<string, VideoSourceTestResult>
+    onAllExhausted?: () => void
+  }>(null!)
+  metaRef.current = { resolvedSourceCode, isTmdbRoute, isCmsRoute, sourceOptions, selectedEpisode, speedResults, onAllExhausted }
 
   const exhaustedRef = useRef(false)
   const startedRef = useRef(false)
@@ -433,10 +453,25 @@ function SourceAutoSwitch({
         return false
       }
 
+      const curIdx = m.sourceOptions.findIndex(o => o.sourceCode === m.resolvedSourceCode)
+      // 跳过测速失败的源，找第一个可用的
+      const nextSafe = (m.sourceOptions ?? []).find((o, i) => {
+        if (i <= curIdx) return false
+        const r = m.speedResults.get(o.sourceCode)
+        return !r || !(r.status === 'failed' || r.hasError)
+      })
+      // 如果所有后续源都测速失败 → 直接耗尽
+      const allFailed = !nextSafe && (m.sourceOptions ?? []).slice(curIdx + 1).length > 0
+      if (allFailed) {
+        exhaustedRef.current = true
+        m.onAllExhausted?.()
+        return
+      }
+      const next = nextSafe || (
+        curIdx >= 0 && curIdx + 1 < m.sourceOptions.length ? m.sourceOptions[curIdx + 1] : null
+      )
+
       if (m.isTmdbRoute) {
-        const curIdx = m.sourceOptions.findIndex(o => o.sourceCode === m.resolvedSourceCode)
-        const next =
-          curIdx >= 0 && curIdx + 1 < m.sourceOptions.length ? m.sourceOptions[curIdx + 1] : null
         if (tryNext(next)) {
           const params = new URLSearchParams(window.location.search)
           params.set('source', next!.sourceCode)
@@ -446,15 +481,10 @@ function SourceAutoSwitch({
         return
       }
 
-      if (m.isCmsRoute) {
-        const curIdx = m.sourceOptions.findIndex(o => o.sourceCode === m.resolvedSourceCode)
-        const next =
-          curIdx >= 0 && curIdx + 1 < m.sourceOptions.length ? m.sourceOptions[curIdx + 1] : null
-        if (tryNext(next)) {
-          navigate(buildCmsPlayPath(next!.sourceCode, next!.bestVodId, m.selectedEpisode), {
-            replace: true,
-          })
-        }
+      if (m.isCmsRoute && tryNext(next)) {
+        navigate(buildCmsPlayPath(next!.sourceCode, next!.bestVodId, m.selectedEpisode), {
+          replace: true,
+        })
       }
     }
 
@@ -734,6 +764,13 @@ const matchesTmdbHistory = (
 
 const TMDB_SEARCH_PATH = '/search?mode=tmdb'
 
+// 分辨率标签 → Tailwind 背景色
+const RES_COLORS: Record<string, string> = {
+  '8K': 'bg-rose-500', '4K': 'bg-amber-500', '2K': 'bg-emerald-500',
+  '1080P': 'bg-green-500', '720P': 'bg-teal-500', '540P': 'bg-cyan-500',
+  '480P': 'bg-sky-500', '360P': 'bg-gray-500', '240P': 'bg-gray-500',
+}
+
 // ── component ──
 
 export default function VideojsPlayer() {
@@ -753,8 +790,15 @@ export default function VideojsPlayer() {
   const { viewingHistory } = useViewingHistoryStore()
   const {
     playback,
+    network,
     system: { isAdultFilterEnabled },
+    setNetworkSettings,
   } = useSettingStore()
+
+  const isCustomProxy = network.proxyUrl && network.proxyUrl !== '/proxy?url='
+  const proxyStatus = isCustomProxy
+    ? { usingProxy: network.isProxyEnabled, canToggle: true }
+    : null
 
   const viewingHistoryRef = useRef(viewingHistory)
   const detailRef = useRef<DetailResult | null>(null)
@@ -1489,8 +1533,14 @@ export default function VideojsPlayer() {
       bestSourceOption.bestScore > currentSourceScore,
   )
 
-  // ── Video.js player URL ──
-  const episodeUrl = detail?.episodes?.[selectedEpisode] ?? null
+  // ── Video.js player URL（m3u8 走代理） ──
+  const rawEpisodeUrl = detail?.episodes?.[selectedEpisode] ?? null
+  const proxyPrefix = network.isProxyEnabled && network.proxyUrl && network.proxyUrl !== '/proxy?url='
+    ? normalizeProxyPrefix(network.proxyUrl)
+    : ''
+  const proxiedEpisodeUrl = rawEpisodeUrl && proxyPrefix
+    ? proxyPrefix + encodeURIComponent(rawEpisodeUrl)
+    : rawEpisodeUrl
   // ponytail: 不含 selectedEpisode — 切集时保持 Player.Provider 挂载，不退出全屏
   const playerKey = `${resolvedSourceCode}:${resolvedVodId}`
 
@@ -1531,6 +1581,7 @@ export default function VideojsPlayer() {
         ? '找不到匹配播放源'
         : '视频暂时无法播放'
     const tag = isRouteInvalid ? '路由校验失败' : isNoMatch ? '匹配结果为空' : '播放链路异常'
+    const isCustomProxy = network.proxyUrl && network.proxyUrl !== '/proxy?url='
 
     return (
       <PlayerErrorState
@@ -1547,6 +1598,15 @@ export default function VideojsPlayer() {
                 ? { label: '查看影视详情', to: detailLink, variant: 'outline' as const }
                 : undefined
         }
+        extraAction={isCustomProxy ? {
+          label: network.isProxyEnabled ? '切换为直连' : '切换为代理',
+          variant: 'outline' as const,
+          onClick: () => {
+            setNetworkSettings({ isProxyEnabled: !network.isProxyEnabled })
+            Object.keys(localStorage).filter(k => k.startsWith('ouonnki-speed::')).forEach(k => localStorage.removeItem(k))
+            window.location.reload()
+          },
+        } : undefined}
       />
     )
   }
@@ -1726,6 +1786,13 @@ export default function VideojsPlayer() {
           currentEpisodeText={episodes[selectedEpisode] || `第 ${selectedEpisode + 1} 集`}
           totalEpisodeText={`${detail.episodes.length} 集`}
           adultLevel={certShort}
+          proxyStatus={proxyStatus}
+          onToggleProxy={() => {
+  setNetworkSettings({ isProxyEnabled: !network.isProxyEnabled })
+  // 切换代理后清除测速缓存，让新环境重新测速
+  Object.keys(localStorage).filter(k => k.startsWith('ouonnki-speed::')).forEach(k => localStorage.removeItem(k))
+  window.location.reload()
+}}
           onBack={() => navigate(-1)}
         />
       )}
@@ -1771,7 +1838,7 @@ export default function VideojsPlayer() {
                 </button>
               )}
             </div>
-            {episodeUrl ? (
+            {proxiedEpisodeUrl ? (
               <Player.Provider key={playerKey}>
                   <VideojsSkin
                     languageOptions={languageOptions.length > 1 ? languageOptions : undefined}
@@ -1800,7 +1867,7 @@ export default function VideojsPlayer() {
                       ? () => handleEpisodeChange(episodePagination.isReversed ? episodes.length - 1 - (selectedEpisode + 1) : selectedEpisode + 1)
                       : undefined}
                   >
-                    <MediaElement src={episodeUrl} playsInline autoPlay hlsConfig={hlsConfig} />
+                    <MediaElement src={proxiedEpisodeUrl} playsInline autoPlay hlsConfig={hlsConfig} />
                     {/* Overlays — inside Container, visible in fullscreen */}
                     {playerNotice && (
                       <div className="pointer-events-none absolute top-3 left-1/2 z-30 -translate-x-1/2">
@@ -1857,6 +1924,7 @@ export default function VideojsPlayer() {
                       bestVodId: o.bestVodId,
                     }))}
                     selectedEpisode={selectedEpisode}
+                    speedResults={speedResults}
                     onNotice={showPlayerNotice}
                     onAllExhausted={() => setAllExhausted(true)}
                   />
@@ -1963,39 +2031,28 @@ export default function VideojsPlayer() {
                                             {option.bestScore}
                                           </span>
                                         )}
-                                        <span className="ml-auto" />
-                                        {!active &&
-                                          (speedResults.get(option.sourceCode) ||
-                                          speedTesting.has(option.sourceCode) ? (
+                                        <div className="ml-auto flex shrink-0 flex-col items-end gap-0.5">
+                                          {/* 上方：分辨率标签（测速中隐藏，测速结果优先，兜底 bestQuality） */}
+                                          {!speedTesting.has(option.sourceCode) && (() => {
+                                            const testQuality = speedResults.get(option.sourceCode)?.quality
+                                            const label = testQuality?.label || option.bestQuality
+                                            if (!label) return null
+                                            const color = testQuality?.color || RES_COLORS[label] || 'bg-foreground/10'
+                                            return (
+                                              <span className={`${color} rounded px-1.5 py-0.5 text-[10px] leading-none text-white`}>
+                                                {label}
+                                              </span>
+                                            )
+                                          })()}
+                                          {/* 下方：速度 badge（无结果时不显示） */}
+                                          {(speedResults.get(option.sourceCode) ||
+                                          speedTesting.has(option.sourceCode)) && (
                                             <SpeedTestBadge
                                               result={speedResults.get(option.sourceCode) ?? null}
                                               testing={speedTesting.has(option.sourceCode)}
                                             />
-                                          ) : option.bestQuality ? (
-                                            <span className="bg-foreground/10 shrink-0 rounded px-1.5 py-0.5 text-[10px] leading-none">
-                                              {option.bestQuality}
-                                            </span>
-                                          ) : (
-                                            <span
-                                              role="button"
-                                              tabIndex={0}
-                                              className="shrink-0 cursor-pointer rounded bg-blue-500/10 px-1.5 py-0.5 text-[10px] leading-none text-blue-500 hover:bg-blue-500/20"
-                                              onClick={e => {
-                                                e.stopPropagation()
-                                                speedTestSingle(option.sourceCode)
-                                              }}
-                                              onKeyDown={e => {
-                                                if (e.key === 'Enter' || e.key === ' ') {
-                                                  e.preventDefault()
-                                                  e.stopPropagation()
-                                                  speedTestSingle(option.sourceCode)
-                                                }
-                                              }}
-                                              title="测速"
-                                            >
-                                              测
-                                            </span>
-                                          ))}
+                                          )}
+                                        </div>
                                         {hasMultiLang && (
                                           <span
                                             className="pointer-events-none absolute inset-0 opacity-30"
@@ -2039,7 +2096,7 @@ export default function VideojsPlayer() {
                         )}
                         <ContextMenuItem onClick={() => speedTestAll()}>
                           <Activity className="mr-2 size-3.5" />
-                          分辨率重测
+                          源质量重测
                         </ContextMenuItem>
                       </ContextMenuContent>
                     </ContextMenu>

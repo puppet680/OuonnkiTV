@@ -19,8 +19,7 @@ export interface VideoSourceTestResult {
 
 function formatSpeed(speedKBps: number): string {
   if (!Number.isFinite(speedKBps) || speedKBps <= 0) return '未知'
-  if (speedKBps >= 1024) return `${(speedKBps / 1024).toFixed(2)} MB/s`
-  return `${speedKBps.toFixed(2)} KB/s`
+  return `${(speedKBps / 1024).toFixed(2)} MB/s`
 }
 
 /**

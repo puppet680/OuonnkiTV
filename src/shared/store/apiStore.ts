@@ -209,14 +209,21 @@ export const useApiStore = create<ApiStore>()(
             // 移除旧的订阅源
             const nonSubscriptionSources = state.videoAPIs.filter(s => !s.id.startsWith(prefix))
 
-            // 对新源应用之前的 isEnabled 设置
+            // 对新源应用之前的 isEnabled 设置；禁用的源保留旧配置
             const newSources = sources.map(s => {
               const key = `${s.name}||${s.url}`
               const prevEnabled = oldEnabledMap.get(key)
-              return {
-                ...s,
-                isEnabled: prevEnabled !== undefined ? prevEnabled : s.isEnabled,
+              if (prevEnabled !== undefined) {
+                // 用户手动设置过 → 保留 isEnabled；若禁用则保留旧源完整配置
+                if (!prevEnabled) {
+                  const oldSource = state.videoAPIs.find(
+                    a => a.id.startsWith(prefix) && `${a.name}||${a.url}` === key,
+                  )
+                  if (oldSource) return oldSource
+                }
+                return { ...s, isEnabled: prevEnabled }
               }
+              return { ...s, isEnabled: s.isEnabled }
             })
 
             // 手动源在前，订阅源追加到末尾

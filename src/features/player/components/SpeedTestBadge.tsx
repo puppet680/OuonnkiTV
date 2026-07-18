@@ -1,6 +1,5 @@
 /**
- * 源测速分辨率 badge —— 显示在源列表按钮上
- * 彩色：4K/2K 紫色, 1080p/720p 绿色, 480p/SD 黄色
+ * 源测速 badge —— 显示实测下载速度，颜色反映测到的质量等级
  */
 import type { VideoSourceTestResult } from '../lib/source-speed-test'
 
@@ -40,14 +39,15 @@ export function SpeedTestBadge({ result, testing }: SpeedTestBadgeProps) {
     )
   }
 
-  const label = result.quality?.label || (result.playable ? '已连通' : '')
-  if (!label) return null
+  const speed = result.loadSpeed && result.loadSpeed !== '未知' ? result.loadSpeed : null
+  if (!speed) return null
 
-  const colorClass = QUALITY_COLORS[label] || 'bg-gray-400 text-white'
+  const qualityLabel = result.quality?.label || ''
+  const colorClass = QUALITY_COLORS[qualityLabel] || 'bg-gray-400 text-white'
 
   return (
     <span className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] leading-none ${colorClass}`}>
-      {label}
+      {speed}
     </span>
   )
 }

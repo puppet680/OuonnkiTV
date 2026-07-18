@@ -1,5 +1,5 @@
 import { memo } from 'react'
-import { ArrowLeft, Sparkles, Tv, Film } from 'lucide-react'
+import { ArrowLeft, Sparkles, Tv, Film, Globe, WifiOff } from 'lucide-react'
 import { Badge } from '@/shared/components/ui/badge'
 import { Button } from '@/shared/components/ui/button'
 import { ClickToCopy } from '@/shared/components/ui/click-to-copy'
@@ -19,6 +19,8 @@ interface PlayerHeroSectionProps {
   currentEpisodeText: string
   totalEpisodeText: string
   adultLevel?: string
+  proxyStatus?: { usingProxy: boolean; canToggle: boolean } | null
+  onToggleProxy?: () => void
   onBack: () => void
 }
 
@@ -33,6 +35,8 @@ export const PlayerHeroSection = memo(function PlayerHeroSection({
   currentEpisodeText,
   totalEpisodeText,
   adultLevel,
+  proxyStatus,
+  onToggleProxy,
   onBack,
 }: PlayerHeroSectionProps) {
   const mediaTypeText = tmdbMediaType === 'tv' ? '剧集' : tmdbMediaType === 'movie' ? '电影' : null
@@ -103,6 +107,20 @@ export const PlayerHeroSection = memo(function PlayerHeroSection({
               <Badge className="h-5 rounded-full bg-white/16 px-2 text-white hover:bg-white/22 sm:h-auto sm:px-3">
                 总计 {totalEpisodeText}
               </Badge>
+              {proxyStatus && (
+                <Badge
+                  className={`h-5 cursor-pointer rounded-full px-2 text-[10px] sm:h-auto sm:px-3 sm:text-xs ${
+                    proxyStatus.usingProxy
+                      ? 'bg-amber-500/70 text-white hover:bg-amber-500/85'
+                      : 'bg-zinc-500/60 text-white/80 hover:bg-zinc-500/75'
+                  }`}
+                  onClick={proxyStatus.canToggle ? onToggleProxy : undefined}
+                  title={proxyStatus.canToggle ? (proxyStatus.usingProxy ? '点击切换为直连' : '点击切换为代理') : undefined}
+                >
+                  {proxyStatus.usingProxy ? <Globe className="size-3.5" /> : <WifiOff className="size-3.5" />}
+                  {proxyStatus.usingProxy ? '代理' : '直连'}
+                </Badge>
+              )}
             </div>
           </div>
 

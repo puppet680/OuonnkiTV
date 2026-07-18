@@ -17,6 +17,7 @@ export interface StatePanelProps {
   tag?: string
   primaryAction?: StatePanelAction
   secondaryAction?: StatePanelAction
+  extraAction?: StatePanelAction
   className?: string
 }
 
@@ -30,6 +31,7 @@ export function StatePanel({
   tag,
   primaryAction,
   secondaryAction,
+  extraAction,
   className,
 }: StatePanelProps) {
   const isError = mode === 'error'
@@ -101,10 +103,11 @@ export function StatePanel({
         </p>
 
         {/* 动作按钮组 */}
-        {(primaryAction || secondaryAction) && (
-          <div className="mt-5 flex flex-row-reverse items-center justify-center gap-2 w-full">
+        {(primaryAction || secondaryAction || extraAction) && (
+          <div className="mt-5 flex flex-wrap items-center justify-center gap-2 w-full">
             {primaryAction && renderAction(primaryAction, 'primary')}
             {secondaryAction && renderAction(secondaryAction, 'secondary')}
+            {extraAction && renderAction(extraAction, 'secondary')}
           </div>
         )}
       </div>
