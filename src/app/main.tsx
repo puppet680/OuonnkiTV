@@ -15,24 +15,30 @@ import { TooltipProvider } from '@/shared/components/ui/tooltip'
 import { GlobalContextMenu } from '@/shared/components/GlobalContextMenu'
 import { ThemeColorMeta } from '@/shared/components/theme'
 import { PwaUpdateNotifier } from '@/shared/components/PwaUpdateNotifier'
+import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
 
 // ponytail: analytics 与首屏渲染无关，lazy-load 避免阻塞 INP/LCP
-const Analytics = import.meta.env.OKI_DISABLE_ANALYTICS !== 'true'
-  ? lazy(() => import('@vercel/analytics/react').then(m => ({ default: m.Analytics })))
-  : null
+const Analytics =
+  import.meta.env.OKI_DISABLE_ANALYTICS !== 'true'
+    ? lazy(() => import('@vercel/analytics/react').then(m => ({ default: m.Analytics })))
+    : null
 
 const root = document.getElementById('root')!
 
 // ponytail: 在 React 挂载前捕获 beforeinstallprompt，避免时序竞争导致丢失
 let __deferredPrompt: Event | null = null
-window.addEventListener('beforeinstallprompt', (e) => {
+window.addEventListener('beforeinstallprompt', e => {
   e.preventDefault()
   __deferredPrompt = e
 })
 // 暴露给 usePwaInstall hook 读取
 ;(window as unknown as Record<string, unknown>).__oki_deferredPrompt = {
-  get current() { return __deferredPrompt },
-  clear() { __deferredPrompt = null },
+  get current() {
+    return __deferredPrompt
+  },
+  clear() {
+    __deferredPrompt = null
+  },
 }
 
 // 全局右键菜单内置项
@@ -41,7 +47,9 @@ const builtInContextMenuItems = [
     id: 'refresh',
     label: '刷新页面',
     icon: <RefreshCw className="size-4" />,
-    onClick: () => { window.location.reload() },
+    onClick: () => {
+      window.location.reload()
+    },
   },
 ]
 
@@ -62,6 +70,7 @@ const app = (
         )}
       </TooltipProvider>
     </ThemeProvider>
+    <ReactQueryDevtools initialIsOpen={false} />
   </QueryClientProvider>
 )
 
