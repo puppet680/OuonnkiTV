@@ -1,7 +1,6 @@
-import pLimit from "p-limit";
 import { UnifiedCache, CacheNamespace } from "../cache/unifiedCache";
 import { safeExecute } from "../utils/fetch";
-import type { MergedLinks, SearchResponse, SearchResult } from "../types/models";
+import type { SearchResponse, SearchResult } from "../types/models";
 import { PluginManager, type AsyncSearchPlugin } from "../plugins/manager";
 import {
   PluginHealthChecker,
@@ -13,6 +12,13 @@ import {
   type WarningInfo,
 } from "../utils/errors";
 import { buildSearchKeywordVariants } from "../utils/searchKeyword";
+import {
+  mergeUniqueResults,
+  sortResultsByTimeDesc,
+  mergeResultsByType,
+  withTimeout,
+  runWithConcurrency,
+} from "./searchResultUtils";
 
 export interface SearchServiceOptions {
   priorityChannels: string[];
@@ -145,8 +151,8 @@ export class SearchService {
 
     await Promise.all(tasks.map((task) => task()));
 
-    const allResults = this.mergeSearchResults(tgResults, pluginResults);
-    this.sortResultsByTimeDesc(allResults);
+    const allResults = mergeUniqueResults(tgResults, pluginResults);
+    sortResultsByTimeDesc(allResults);
 
     const filteredForResults: SearchResult[] = [];
     for (const result of allResults) {
@@ -157,7 +163,7 @@ export class SearchService {
       }
     }
 
-    const mergedLinks = this.mergeResultsByType(
+    const mergedLinks = mergeResultsByType(
       allResults,
       keyword,
       cloudTypes
@@ -238,7 +244,7 @@ export class SearchService {
 
         const result = await safeExecute(
           () =>
-            this.withTimeout<SearchResult[]>(
+            withTimeout<SearchResult[]>(
               fetchTgChannelPosts(channel, keyword, {
                 limitPerChannel,
                 signal: mergedSignal,
@@ -266,7 +272,7 @@ export class SearchService {
       createChannelTask(channel, SearchService.TG_CHANNEL_LIMIT)
     );
     const shallowResults = flattenResults(
-      await this.runWithConcurrency(shallowTasks, concurrency, signal)
+      await runWithConcurrency(shallowTasks, concurrency)
     );
 
     let results = shallowResults;
@@ -279,9 +285,9 @@ export class SearchService {
         createChannelTask(channel, SearchService.TG_DEEP_CHANNEL_LIMIT)
       );
       const deepResults = flattenResults(
-        await this.runWithConcurrency(deepTasks, concurrency, signal)
+        await runWithConcurrency(deepTasks, concurrency)
       );
-      results = this.mergeUniqueResults(results, deepResults);
+      results = mergeUniqueResults(results, deepResults);
     }
 
     if (cacheEnabled && results.length > 0) {
@@ -362,14 +368,14 @@ export class SearchService {
           const mergedSignal = signal
             ? AbortSignal.any([signal, controller.signal])
             : controller.signal;
-          const currentResults = await this.withTimeout<SearchResult[]>(
+          const currentResults = await withTimeout<SearchResult[]>(
             plugin.search(query, { ...ext, signal: mergedSignal }),
             timeoutMs,
             [],
             controller
           );
 
-          results = this.mergeUniqueResults(results, currentResults || []);
+          results = mergeUniqueResults(results, currentResults || []);
 
           if (
             results.length >= SearchService.PLUGIN_VARIANT_TRIGGER ||
@@ -390,7 +396,7 @@ export class SearchService {
       }
     });
 
-    const resultsByPlugin = await this.runWithConcurrency(
+    const resultsByPlugin = await runWithConcurrency(
       pluginPromises.map((promiseFactory) => async () => {
         try {
           return await promiseFactory();
@@ -400,8 +406,7 @@ export class SearchService {
           return [];
         }
       }),
-      concurrency,
-      signal
+      concurrency
     );
 
     const merged: SearchResult[] = [];
@@ -416,109 +421,6 @@ export class SearchService {
     }
 
     return merged;
-  }
-
-  private withTimeout<T>(
-    promise: Promise<T>,
-    ms: number,
-    fallback: T,
-    controller?: AbortController
-  ): Promise<T> {
-    if (!ms || ms <= 0) return promise;
-    let timeoutHandle: any;
-    const timeoutPromise = new Promise<T>((resolve) => {
-      timeoutHandle = setTimeout(() => {
-        // 超时后取消底层请求，避免 socket/内存泄漏
-        if (controller && !controller.signal.aborted) {
-          controller.abort();
-        }
-        resolve(fallback);
-      }, ms);
-    });
-    return Promise.race([
-      promise.finally(() => clearTimeout(timeoutHandle)),
-      timeoutPromise,
-    ]) as Promise<T>;
-  }
-
-  private mergeSearchResults(
-    a: SearchResult[],
-    b: SearchResult[]
-  ): SearchResult[] {
-    return this.mergeUniqueResults(a, b);
-  }
-
-  private mergeUniqueResults(
-    a: SearchResult[],
-    b: SearchResult[]
-  ): SearchResult[] {
-    const seen = new Set<string>();
-    const out: SearchResult[] = [];
-    const pushUnique = (result: SearchResult) => {
-      const firstLink = Array.isArray(result.links) ? result.links[0]?.url : "";
-      const key =
-        result.unique_id ||
-        result.message_id ||
-        firstLink ||
-        `${result.title}|${result.channel}|${result.datetime || ""}`;
-      if (seen.has(key)) return;
-      seen.add(key);
-      out.push(result);
-    };
-
-    for (const result of a) pushUnique(result);
-    for (const result of b) pushUnique(result);
-    return out;
-  }
-
-  private sortResultsByTimeDesc(arr: SearchResult[]) {
-    // 缺失/非法 datetime 不能直接 new Date(...).getTime()（会得 NaN），
-    // 否则比较器返回 NaN 让排序结果未定义。统一视为 0（最旧），排到末尾。
-    const toTime = (value?: string): number => {
-      if (!value) return 0;
-      const t = Date.parse(value);
-      return Number.isFinite(t) ? t : 0;
-    };
-    arr.sort((x, y) => toTime(y.datetime) - toTime(x.datetime));
-  }
-
-  private mergeResultsByType(
-    results: SearchResult[],
-    _keyword: string,
-    cloudTypes?: string[]
-  ): MergedLinks {
-    const allow =
-      cloudTypes && cloudTypes.length > 0
-        ? new Set(cloudTypes.map((value) => value.toLowerCase()))
-        : undefined;
-    const out: MergedLinks = {};
-    for (const result of results) {
-      for (const link of result.links || []) {
-        const type = (link.type || "").toLowerCase();
-        if (allow && !allow.has(type)) continue;
-        if (!out[type]) out[type] = [];
-        out[type].push({
-          url: link.url,
-          password: link.password,
-          note: result.title,
-          datetime: result.datetime,
-          images: result.images,
-        });
-      }
-    }
-    return out;
-  }
-
-  private async runWithConcurrency<T>(
-    tasks: Array<() => Promise<T>>,
-    limit: number,
-    _signal?: AbortSignal
-  ): Promise<T[]> {
-    const limitFn = pLimit(limit);
-    const limitedTasks = tasks.map((task) => limitFn(task));
-    const results = await Promise.all(limitedTasks);
-    // 客户端断开后，后续调用方应检查 signal，这里返回已有结果
-    return results;
   }
 
   getCacheStats() {
