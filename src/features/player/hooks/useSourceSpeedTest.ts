@@ -4,20 +4,14 @@
  * 结果持久化到 localStorage，key: sourceCode::vodId，TTL 24h
  */
 import { useState, useEffect, useRef } from 'react'
+import type { VideoSource } from '@ouonnki/cms-core'
 import type { PlayerSourceOption } from './useTmdbPlayback'
 import type { VideoSourceTestResult } from '../lib/source-speed-test'
 import { testM3u8Source } from '../lib/source-speed-test'
 
 // ponytail: minimal interface — real CmsClient has richer types
 interface CmsClientLike {
-  getDetail: (id: string, source: any) => Promise<{ success: boolean; episodes: string[]; error?: string }>
-}
-interface VideoSourceConfig {
-  id: string
-  name?: string
-  url?: string
-  detailUrl?: string
-  isEnabled?: boolean
+  getDetail: (id: string, source: VideoSource) => Promise<{ success: boolean; episodes: string[]; error?: string }>
 }
 
 const MAX_SOURCES = 30
@@ -54,7 +48,7 @@ function saveToCache(sourceCode: string, vodId: string, result: VideoSourceTestR
 
 export function useSourceSpeedTest(
   sourceOptions: PlayerSourceOption[],
-  videoAPIs: VideoSourceConfig[],
+  videoAPIs: VideoSource[],
   cmsClient: CmsClientLike | null,
 ) {
   const [results, setResults] = useState<Map<string, VideoSourceTestResult>>(() => {

@@ -19,6 +19,7 @@ import type { EpisodePageItem } from '@/features/player/hooks'
 import type { VideoSourceTestResult } from '../lib/source-speed-test'
 import { SourceOptionButton } from './PlayerSourceOptionButton'
 
+/** 右侧面板类型：换源 / 选季 / 选集 */
 export type RightPanelId = 'episode' | 'source' | 'season'
 
 interface EpisodePanelOptions {

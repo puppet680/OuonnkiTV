@@ -1,4 +1,5 @@
-import type { Plugin } from 'vite'
+import type { Plugin, Connect } from 'vite'
+import type { ServerResponse } from 'node:http'
 import {
   handleProxyRequest,
   getProxyTimeoutMs,
@@ -53,7 +54,11 @@ export function proxyMiddleware(): Plugin {
     let proxyFetch: ((url: string) => Promise<{ status: number; headers: { get: (k: string) => string | undefined }; text: () => Promise<string> }>) | null = null
     let proxyFetchReady = false
 
-    return async (req: any, res: any, next: any) => {
+    return async (
+      req: Connect.IncomingMessage,
+      res: ServerResponse,
+      next: Connect.NextFunction,
+    ) => {
       if (!req.url?.startsWith('/proxy')) {
         return next()
       }

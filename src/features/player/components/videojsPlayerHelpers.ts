@@ -2,6 +2,7 @@ import { isTmdbHistoryItem } from '@/shared/lib/viewingHistory'
 import type { TmdbMediaType } from '@/shared/types/tmdb'
 import type { ViewingHistoryItem } from '@/shared/types'
 
+/** 播放页路由参数（/play/:type/:tmdbId/:sourceCode/:vodId） */
 export interface PlayerRouteParams {
   [key: string]: string | undefined
   type?: string
@@ -67,9 +68,11 @@ export const matchesTmdbHistory = (
   return true
 }
 
+/** TMDB 搜索页路由（成人内容拦截的返回目标） */
 export const TMDB_SEARCH_PATH = '/search?mode=tmdb'
 
 // 分辨率标签 → Tailwind 背景色
+/** 分辨率标签 → 徽章背景色 class 映射 */
 export const RES_COLORS: Record<string, string> = {
   '8K': 'bg-rose-500',
   '4K': 'bg-amber-500',

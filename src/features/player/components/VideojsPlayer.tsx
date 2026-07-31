@@ -54,6 +54,10 @@ let __lastSelectedLangLabel = ''
 
 // ── component ──
 
+/**
+ * 播放页主组件：解析路由 → 拉取详情 → 组装播放器/右侧面板/推荐区
+ * 支持 TMDB 智能模式与 CMS 直连模式，含换源/换季/选集/测速/收藏/右键菜单
+ */
 export default function VideojsPlayer() {
   const navigate = useNavigate()
   const location = useLocation()

@@ -11,6 +11,7 @@ interface UsePlayerCmsMatchParams {
   cmsClient: CmsClient
 }
 
+/** CMS 同名匹配出的备用源 */
 export interface CmsMatchedSource {
   sourceCode: string
   sourceName: string

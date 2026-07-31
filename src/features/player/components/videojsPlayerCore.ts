@@ -10,6 +10,8 @@ import {
 import { getCustomAdFilterCode } from '@/features/player/lib/custom-ad-filter'
 
 // ── Video.js player instance ──
+
+/** 全局 Video.js 播放器实例（倍速扩展至 4x），Provider/usePlayer 均经此 */
 export const Player = createPlayer({
   features: [
     ...videoFeatures,
@@ -32,6 +34,12 @@ const m3u8Processor = createM3u8Processor({
 let hlsConstructorPromise: Promise<typeof import('hls.js').default> | null = null
 let customLoaderClass: ReturnType<typeof createHlsLoaderClass> | null = null
 
+/**
+ * 加载 hls.js 去广告 loader（懒加载 light 构建），返回 HlsJsVideo config
+ * @param adFilteringEnabled - 是否启用去广告（关闭时直接返回空对象）
+ * @param sourceCode - 当前视频源编码，用于自定义脚本过滤器
+ * @returns 含自定义 loader 的 HlsConfig 子集
+ */
 export async function getAdFilterHlsConfig(
   adFilteringEnabled: boolean,
   sourceCode: string,

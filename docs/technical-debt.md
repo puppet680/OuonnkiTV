@@ -23,6 +23,19 @@
 
 **评估判据：** TMDB 匹配缓存与 RQ persist 的重复度、容量上限差异、`usePlaylistMatches` 的读写/驱逐语义能否无损映射到 RQ `setQueryData` + `maxAge`。触发时机：改动 TMDB 匹配/播放列表功能时。
 
+## export JSDoc 缺口
+
+存量 export 函数/组件未写 JSDoc，仅登记不改（改到该文件时顺手补）。本轮新增的 player 模块已全部合规。
+
+| 文件 | 数量 |
+|------|------|
+| src/features/media/components/tmdb-detail/helpers.ts | ~15 |
+| src/features/player/lib/{mobileGesture,playerRoute,playerSelection,playerViewState,playerMiniLayout,resolution-labels,custom-ad-filter}.ts | ~20 |
+| src/features/media/components/tmdb-detail/*Tab.tsx（Cast/Overview/Production/Seasons/Playlist 等） | ~8 |
+| src/features/history/*（components/History*, utils/history.ts） | ~6 |
+| src/features/{favorites,guide,person,search}/ 组件与视图 | ~8 |
+| src/features/player/{VideojsSkin,PlayerCommentsTab,PlayerResourcesTab,PlayerSourceSeasonPanel,SpeedTestBadge,useEpisodePagination,useTmdbPlayback}.tsx/ts | ~8 |
+
 ## 文件行数
 
 行数为 `wc -l` 实测值。

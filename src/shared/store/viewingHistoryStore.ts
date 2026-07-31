@@ -120,8 +120,7 @@ export const useViewingHistoryStore = create<ViewingHistoryStore>()(
           }
           if (version < 3) {
             for (const item of persistedHistory) {
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              const i = item as any
+              const i = item as ViewingHistoryItem & { recordType?: string }
               i.sourceName = i.sourceName || String(i.sourceCode ?? '').slice(0, 5)
               i.recordType = i.recordType === 'tmdb' ? 'tmdb' : 'cms'
             }

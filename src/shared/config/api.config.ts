@@ -139,25 +139,41 @@ export const getInitialVideoSources = async (): Promise<VideoApi[]> => {
   }
 }
 
+/** 环境变量视频源的原始结构（解析期宽松字段，运行时值经下方校验） */
+interface EnvVideoSource {
+  name?: unknown
+  url?: unknown
+  id?: unknown
+  detailUrl?: unknown
+  isEnabled?: unknown
+  updatedAt?: unknown
+  timeout?: unknown
+  retry?: unknown
+}
+
 // Helper to parse and validate video sources
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const parseVideoSources = (sources: any[]): VideoApi[] => {
+const parseVideoSources = (sources: unknown[]): VideoApi[] => {
   return sources
-    .map((source, index) => {
-      if (!source.name || !source.url) {
+    .map((raw, index) => {
+      const source = raw as EnvVideoSource
+      if (typeof source.name !== 'string' || typeof source.url !== 'string') {
         console.warn(`跳过无效的视频源配置: ${JSON.stringify(source)}`)
         return null
       }
 
       return {
-        id: (source.id as string) || `env_source_${index}`,
-        name: source.name as string,
-        url: source.url as string,
-        detailUrl: (source.detailUrl as string) || source.url,
-        isEnabled: source.isEnabled !== undefined ? (source.isEnabled as boolean) : true,
-        updatedAt: source.updatedAt ? new Date(source.updatedAt) : new Date(),
-        timeout: (source.timeout as number) || DEFAULT_SETTINGS.network.defaultTimeout,
-        retry: (source.retry as number) || DEFAULT_SETTINGS.network.defaultRetry,
+        id: typeof source.id === 'string' ? source.id : `env_source_${index}`,
+        name: source.name,
+        url: source.url,
+        detailUrl: typeof source.detailUrl === 'string' ? source.detailUrl : source.url,
+        isEnabled: typeof source.isEnabled === 'boolean' ? source.isEnabled : true,
+        updatedAt: source.updatedAt ? new Date(source.updatedAt as string) : new Date(),
+        timeout:
+          typeof source.timeout === 'number'
+            ? source.timeout
+            : DEFAULT_SETTINGS.network.defaultTimeout,
+        retry:
+          typeof source.retry === 'number' ? source.retry : DEFAULT_SETTINGS.network.defaultRetry,
       } as VideoApi
     })
     .filter((source): source is VideoApi => source !== null)
