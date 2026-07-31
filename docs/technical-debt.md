@@ -29,8 +29,8 @@
 
 | 编号 | 文件 | 行数 | 违反 | 阻塞新功能 |
 |------|------|------|------|-----------|
-| V008 | src/features/player/components/VideojsPlayer.tsx | 2435 | 500 行上限 | 低 |
+| V008 | src/features/player/components/VideojsPlayer.tsx | 759 | 500 行上限 | 低 |
 | V012 | src/features/media/components/tmdb-detail/usePlaylistMatches.ts | 617 | 500 行上限 | 低 |
 | … | 其余超 500 行文件（sidebar 701 等） | — | 500 行上限 | 低 |
 
-已拆分：tmdbStore 1018→32、useCmsCore 380→57、favoritesStore 640→498、api/tmdb 516→447、FeaturedCarousel 529→356、DetailPlaylistTab 680→215、searchService 547→449、VideojsSkin 733→461。
+已拆分：tmdbStore 1018→32、useCmsCore 380→57、favoritesStore 640→498、api/tmdb 516→447、FeaturedCarousel 529→356、DetailPlaylistTab 680→215、searchService 547→449、VideojsSkin 733→461、VideojsPlayer 2435→759（拆 13 文件：videojsPlayerCore/Trackers/Media/Helpers、PlayerAutoPiP/RightPanels/VideoStage/ErrorRender/SourceOptionButton + usePlayerDetailFetch/EpisodeProgress/CmsMatch/Favorites/Navigation/Derived/ContextMenu）。
