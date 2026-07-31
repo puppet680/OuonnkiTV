@@ -33,5 +33,6 @@
 | V010 | src/features/player/components/VideojsSkin.tsx | 733 | 500 行上限 | 低 |
 | V011 | src/features/media/components/tmdb-detail/DetailPlaylistTab.tsx | 680 | 500 行上限 | 低 |
 | V012 | src/features/media/components/tmdb-detail/usePlaylistMatches.ts | 617 | 500 行上限 | 低 |
-| V013 | src/features/home/components/FeaturedCarousel.tsx | 529 | 500 行上限 | 低 |
-| … | 其余超 500 行文件（20+ 个） | — | 500 行上限 | 低 |
+| … | 其余超 500 行文件 | — | 500 行上限 | 低 |
+
+已拆分：tmdbStore 1018→32（阶段 2 瘦身）、useCmsCore 380→57、favoritesStore 640→498、api/tmdb 516→447、FeaturedCarousel 529→356。
