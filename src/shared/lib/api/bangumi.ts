@@ -1,6 +1,8 @@
 import { getTmdbClient, normalizeToMediaItem, fillItemLogos } from '@/shared/lib/tmdb'
 import type { TmdbMediaItem } from '@/shared/types/tmdb'
 
+type TmdbClient = ReturnType<typeof getTmdbClient>
+
 /** 番剧周更分组所用网络 ID（排除 Tokyo MX 等） */
 const BANGUMI_WEEKDAY_NETWORKS = '213|193|145|167|86|74|85|94|118|1542|9938'
 
@@ -20,8 +22,12 @@ export async function fetchBangumiData(
   featured: TmdbMediaItem[]
 }> {
   const client = getTmdbClient()
-  const discoverTv = client.discover.tvShow as unknown as (p: Record<string, unknown>) => Promise<{ results: Array<Record<string, unknown>> }>
-  const discoverMovie = client.discover.movie as unknown as (p: Record<string, unknown>) => Promise<{ results: Array<Record<string, unknown>> }>
+  // 箭头函数包裹保留 this 绑定（tmdb-ts 方法内部用 this.api）
+  type DiscoverCall = (p: Record<string, unknown>) => Promise<{ results: Array<Record<string, unknown>> }>
+  const discoverTv: DiscoverCall = (p) =>
+    client.discover.tvShow(p as Parameters<TmdbClient['discover']['tvShow']>[0]) as unknown as Promise<{ results: Array<Record<string, unknown>> }>
+  const discoverMovie: DiscoverCall = (p) =>
+    client.discover.movie(p as Parameters<TmdbClient['discover']['movie']>[0]) as unknown as Promise<{ results: Array<Record<string, unknown>> }>
 
   const threeMonthsAgo = new Date()
   threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3)

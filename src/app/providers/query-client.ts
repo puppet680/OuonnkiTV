@@ -1,4 +1,4 @@
-import { QueryClient } from '@tanstack/react-query'
+import { QueryClient, type Query } from '@tanstack/react-query'
 import { persistQueryClient } from '@tanstack/query-persist-client-core'
 import { createAsyncStoragePersister } from '@tanstack/query-async-storage-persister'
 import { get, set, del } from 'idb-keyval'
@@ -33,8 +33,10 @@ const persister = createAsyncStoragePersister({
 // 仅持久化首页列表/配置类查询；搜索/详情/分页等瞬态数据不持久化
 const PERSIST_RESOURCES = ['list', 'trending', 'regional', 'discover', 'recommendations', 'genres']
 
-function shouldPersistQuery({ queryKey }: { queryKey: readonly unknown[] }): boolean {
-  const [domain, resource] = queryKey as [string, string]
+// 只持久化已成功的查询：pending/error 状态恢复后可能 reject（如信号中断），且无缓存价值
+function shouldPersistQuery(query: Query): boolean {
+  if (query.state.status !== 'success') return false
+  const [domain, resource] = query.queryKey as [string, string]
   return domain === 'tmdb' && PERSIST_RESOURCES.includes(resource)
 }
 

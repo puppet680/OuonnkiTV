@@ -252,9 +252,11 @@ export async function fetchTmdbDiscover(
   const movieParams = { ...discoverParams }
   if (hasChineseNetwork) movieParams.with_original_language = 'zh'
 
-  // tmdb-ts 的 discover 参数是严格类型，动态构建需断言（Movie/TV 类型无 index signature，需经 unknown）
-  const discoverMovie = client.discover.movie as unknown as (p: Record<string, unknown>) => Promise<{ results: Array<Record<string, unknown>> }>
-  const discoverTv = client.discover.tvShow as unknown as (p: Record<string, unknown>) => Promise<{ results: Array<Record<string, unknown>> }>
+  // 箭头函数包裹保留 this 绑定（tmdb-ts 方法内部用 this.api，直接解构会丢失）；参数/返回值断言适配动态参数
+  const discoverMovie = (p: Record<string, unknown>): Promise<{ results: Array<Record<string, unknown>> }> =>
+    client.discover.movie(p as Parameters<TmdbClient['discover']['movie']>[0]) as unknown as Promise<{ results: Array<Record<string, unknown>> }>
+  const discoverTv = (p: Record<string, unknown>): Promise<{ results: Array<Record<string, unknown>> }> =>
+    client.discover.tvShow(p as Parameters<TmdbClient['discover']['tvShow']>[0]) as unknown as Promise<{ results: Array<Record<string, unknown>> }>
 
   if (options.mediaType === 'all' || !options.mediaType) {
     const [movieRes, tvRes] = await Promise.all([
@@ -319,8 +321,10 @@ export async function fetchTmdbRegional(
   const hasWestern = networkIds.includes('213') || networkIds.includes('2552')
   const hasChinese = networkIds.includes('1330') || networkIds.includes('2007')
 
-  const discoverMovie = client.discover.movie as unknown as (p: Record<string, unknown>) => Promise<{ results: Array<Record<string, unknown>> }>
-  const discoverTv = client.discover.tvShow as unknown as (p: Record<string, unknown>) => Promise<{ results: Array<Record<string, unknown>> }>
+  const discoverMovie = (p: Record<string, unknown>): Promise<{ results: Array<Record<string, unknown>> }> =>
+    client.discover.movie(p as Parameters<TmdbClient['discover']['movie']>[0]) as unknown as Promise<{ results: Array<Record<string, unknown>> }>
+  const discoverTv = (p: Record<string, unknown>): Promise<{ results: Array<Record<string, unknown>> }> =>
+    client.discover.tvShow(p as Parameters<TmdbClient['discover']['tvShow']>[0]) as unknown as Promise<{ results: Array<Record<string, unknown>> }>
 
   const movieCalls: Promise<{ results: Array<Record<string, unknown>> }>[] = []
   const animeCalls: Promise<{ results: Array<Record<string, unknown>> }>[] = []
