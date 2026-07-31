@@ -1,5 +1,5 @@
 import type { VideoSource, VideoItem, DetailResult } from '@ouonnki/cms-core'
-import { getCmsClient, filterAdult } from '@/shared/hooks/useCmsCore'
+import { getCmsClient, filterAdult } from '@/shared/lib/cms'
 
 /**
  * 获取指定视频源的推荐/最新视频列表

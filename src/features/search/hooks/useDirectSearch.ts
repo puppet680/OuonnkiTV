@@ -3,7 +3,7 @@ import { type VideoItem, type SearchResultEvent, type Pagination, type VideoSour
 import { useApiStore } from '@/shared/store/apiStore'
 import { extractSubscriptionId, useSubscriptionStore } from '@/shared/store/subscriptionStore'
 import { useCmsClient } from '@/shared/hooks'
-import { filterAdult } from '@/shared/hooks/useCmsCore'
+import { filterAdult } from '@/shared/lib/cms'
 import { PaginationConfig } from '@/shared/config/video.config'
 import { getSourcesToFetch, aggregateByTitle, type SourcePaginationInfo, type AggregatedVideoItem } from './directSearch.utils'
 
