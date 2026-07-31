@@ -6,15 +6,12 @@
 
 ## 异步状态（React Query 边界）
 
-| 编号 | 文件 | 违规项 | 阻塞新功能 |
-|------|------|--------|-----------|
-| V001 | src/shared/store/tmdbStore.ts | 12 个 async action + 12 个 loading 布尔，重复 try/catch；服务端数据 persist | 高 |
-| V002 | src/shared/store/tmdbStore.ts | 手写请求 ID 防竞态（latestSearchRequestId） | 低 |
-| V003 | src/shared/hooks/useTmdbDetail.ts | 模块级 Map 做服务端缓存 | 中 |
-| V004 | src/shared/hooks/useCmsCore.ts | 三处 useState+useEffect+fetch 手写异步 | 中 |
-| V005 | src/features/search/hooks/useDirectSearch.ts | requestVersionRef 竞态 + ref 缓存（375 行，超 hook 80 行阈值） | 高 |
-| V006 | src/shared/store/tmdbMatchCacheStore.ts | IndexedDB 持久化服务端缓存，与 RQ 缓存并存；暂缓，待评估并入 RQ persist | 低 |
-| V007 | src/shared/hooks/useTmdbSearch.ts | 返回 11 个字段（超 6 个阈值）；store 转发型取数 | 低 |
+| 编号 | 文件 | 违规项 | 状态 |
+|------|------|--------|------|
+| V005 | src/features/search/hooks/useDirectSearch.ts | requestVersionRef 竞态 + ref 缓存（375 行，超 hook 80 行阈值） | 规则豁免：CMS 事件流式，CLAUDE.md 明示沿用现有 hook |
+| V006 | src/shared/store/tmdbMatchCacheStore.ts | IndexedDB 持久化服务端缓存，与 RQ 缓存并存 | 暂缓，待评估并入 RQ persist |
+| V014 | src/features/media/components/tmdb-detail/usePlaylistMatches.ts | 事件驱动匹配搜索 + 缓存 store（617 行） | 规则豁免：CMS 事件流式 |
+| V015 | src/features/player/hooks/useSourceSpeedTest.ts | 手动 worker 池 + localStorage 缓存 | 规则豁免：长任务进度，进度存本地 state |
 
 ## 待评估事项
 
