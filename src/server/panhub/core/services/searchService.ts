@@ -67,7 +67,7 @@ export class SearchService {
     sourceType: "all" | "tg" | "plugin" | undefined,
     plugins: string[] | undefined,
     cloudTypes: string[] | undefined,
-    ext: Record<string, any> | undefined,
+    ext: Record<string, unknown> | undefined,
     signal?: AbortSignal
   ): Promise<SearchResponse> {
     const { response } = await this.searchWithWarnings(
@@ -95,7 +95,7 @@ export class SearchService {
     sourceType: "all" | "tg" | "plugin" | undefined,
     plugins: string[] | undefined,
     cloudTypes: string[] | undefined,
-    ext: Record<string, any> | undefined,
+    ext: Record<string, unknown> | undefined,
     signal?: AbortSignal
   ): Promise<{ response: SearchResponse; warnings: WarningInfo[] }> {
     // 客户端已断开，直接返回空结果
@@ -200,7 +200,7 @@ export class SearchService {
     channels: string[] | undefined,
     forceRefresh: boolean,
     concurrencyOverride?: number,
-    ext?: Record<string, any>,
+    ext?: Record<string, unknown>,
     signal?: AbortSignal
   ): Promise<SearchResult[]> {
     const chList = Array.isArray(channels) ? channels : [];
@@ -215,7 +215,8 @@ export class SearchService {
     }
 
     const { fetchTgChannelPosts } = await import("./tg");
-    const requestedTimeout = Number((ext as any)?.__plugin_timeout_ms) || 0;
+    const requestedTimeout =
+      typeof ext?.__plugin_timeout_ms === "number" ? ext.__plugin_timeout_ms : 0;
     const timeoutMs = Math.max(
       3000,
       requestedTimeout > 0
@@ -302,7 +303,7 @@ export class SearchService {
     plugins: string[] | undefined,
     forceRefresh: boolean,
     concurrency: number,
-    ext: Record<string, any>,
+    ext: Record<string, unknown>,
     errorCollector: ErrorCollector,
     signal?: AbortSignal
   ): Promise<SearchResult[]> {
@@ -335,7 +336,8 @@ export class SearchService {
       available = healthyPlugins;
     }
 
-    const requestedTimeout = Number((ext as any)?.__plugin_timeout_ms) || 0;
+    const requestedTimeout =
+      typeof ext?.__plugin_timeout_ms === "number" ? ext.__plugin_timeout_ms : 0;
     const timeoutMs = Math.max(
       3000,
       requestedTimeout > 0
