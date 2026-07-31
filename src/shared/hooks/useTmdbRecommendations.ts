@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { useTmdbStore } from '../store/tmdbStore'
-import type { TmdbMediaType } from '../types/tmdb'
+import { useQuery } from '@tanstack/react-query'
+import { fetchTmdbRecommendations } from '@/shared/lib/api/tmdb'
+import { useSettingStore } from '@/shared/store/settingStore'
+import { useTmdbTrending } from '@/shared/hooks/useTmdbTrending'
+import type { TmdbMediaType } from '@/shared/types/tmdb'
 
 interface RecommendationSource {
   id: number
@@ -40,33 +43,25 @@ export function findNextRecommendationSource(
 /**
  * 猜你喜欢 Hook
  * 优先从传入的 TMDB 候选来源中随机选择一条；若没有候选来源则回退到 trending。
- * 为避免重渲染时随机抖动，候选集合不变时会优先复用上一次已选中的来源。
+ * 候选源返回空推荐时自动降级切换到下一个未尝试的候选源。
+ * @param preferredSources - 收藏/历史等偏好来源（空则回退 trending）
+ * @returns 推荐列表与加载态
  */
 export function useTmdbRecommendations(
   preferredSources: RecommendationSource[] = EMPTY_RECOMMENDATION_SOURCES,
 ) {
-  const recommendations = useTmdbStore(s => s.recommendations)
-  const loading = useTmdbStore(s => s.loading.recommendations)
-  const trending = useTmdbStore(s => s.trending)
-
-  const fetchRecommendations = useTmdbStore(s => s.fetchRecommendations)
-  // 从 Zustand 读取上次缓存的推荐源（拆成三个独立 selector，避免对象引用变化导致死循环）
-  const cachedSourceId = useTmdbStore(s => s.recommendationSourceId)
-  const cachedSourceMediaType = useTmdbStore(s => s.recommendationSourceMediaType)
-  const cachedHasRecommendations = useTmdbStore(s => s.recommendations.length > 0)
+  const language = useSettingStore(s => s.system.tmdbLanguage)
+  const { data: trending } = useTmdbTrending()
+  const [selectedSource, setSelectedSource] = useState<RecommendationSource | null>(null)
   const attemptedSourceKeysRef = useRef<Set<string>>(new Set())
 
   const sourceCandidates = useMemo<RecommendationSource[]>(() => {
     const sourceMap = new Map<string, RecommendationSource>()
-
     if (preferredSources.length > 0) {
-      preferredSources.forEach(source => {
-        sourceMap.set(buildRecommendationSourceKey(source), source)
-      })
+      preferredSources.forEach(source => sourceMap.set(buildRecommendationSourceKey(source), source))
       return Array.from(sourceMap.values())
     }
-
-    trending.forEach(item => {
+    ;(trending ?? []).forEach(item => {
       sourceMap.set(buildRecommendationSourceKey({ id: item.id, mediaType: item.mediaType }), {
         id: item.id,
         mediaType: item.mediaType,
@@ -75,83 +70,36 @@ export function useTmdbRecommendations(
     return Array.from(sourceMap.values())
   }, [preferredSources, trending])
 
-  // 初始化 selectedSource：优先复用 Zustand 缓存的上次选中源，避免随机重抽
-  const [selectedSource, setSelectedSource] = useState<RecommendationSource | null>(() => {
-    if (cachedHasRecommendations && cachedSourceId && cachedSourceMediaType) {
-      const cached = { id: cachedSourceId, mediaType: cachedSourceMediaType as 'movie' | 'tv' }
-      return sourceCandidates.some(
-        c => c.id === cached.id && c.mediaType === cached.mediaType,
-      )
-        ? cached
-        : null
-    }
-    return null
-  })
-
+  // 候选源变化时重置尝试集合，尽量复用上次选中源避免随机抖动
   useEffect(() => {
     attemptedSourceKeysRef.current = new Set()
     setSelectedSource(previous => selectRecommendationSource(previous, sourceCandidates))
   }, [sourceCandidates])
 
+  const recommendationsQuery = useQuery({
+    queryKey: ['tmdb', 'recommendations', selectedSource?.id, selectedSource?.mediaType, language],
+    queryFn: ({ signal }) => fetchTmdbRecommendations(selectedSource!.id, selectedSource!.mediaType, language, signal),
+    enabled: !!selectedSource,
+    staleTime: 30 * 60_000,
+    retry: 2,
+  })
+
+  // 标记当前源已尝试，避免同一源反复请求
   useEffect(() => {
     if (!selectedSource) return
+    attemptedSourceKeysRef.current.add(buildRecommendationSourceKey(selectedSource))
+  }, [selectedSource])
 
-    const sourceKey = buildRecommendationSourceKey(selectedSource)
-    if (attemptedSourceKeysRef.current.has(sourceKey)) {
-      return
-    }
-
-    const currentState = useTmdbStore.getState()
-    const sourceUnchangedAndHasData =
-      currentState.recommendationSourceId === selectedSource.id &&
-      currentState.recommendationSourceMediaType === selectedSource.mediaType &&
-      currentState.recommendations.length > 0
-    if (sourceUnchangedAndHasData) {
-      attemptedSourceKeysRef.current.add(sourceKey)
-      return
-    }
-
-    attemptedSourceKeysRef.current.add(sourceKey)
-    let cancelled = false
-
-    const fetchBySource = async () => {
-      try {
-        await fetchRecommendations(selectedSource.id, selectedSource.mediaType)
-      } catch {
-        // fetchRecommendations 已在 store 内处理错误状态，这里仅做降级切源。
-      }
-
-      if (cancelled) return
-
-      const latestState = useTmdbStore.getState()
-      const hasDataFromSelectedSource =
-        latestState.recommendationSourceId === selectedSource.id &&
-        latestState.recommendationSourceMediaType === selectedSource.mediaType &&
-        latestState.recommendations.length > 0
-      if (hasDataFromSelectedSource) {
-        return
-      }
-
-      const nextSource = findNextRecommendationSource(sourceCandidates, attemptedSourceKeysRef.current)
-      if (nextSource) {
-        setSelectedSource(nextSource)
-      }
-    }
-
-    void fetchBySource()
-
-    return () => {
-      cancelled = true
-    }
-  }, [
-    selectedSource,
-    fetchRecommendations,
-    sourceCandidates,
-  ])
+  // 当前源无推荐时降级切到下一个未尝试候选源
+  useEffect(() => {
+    if (!selectedSource || recommendationsQuery.isPending) return
+    if ((recommendationsQuery.data ?? []).length > 0) return
+    const next = findNextRecommendationSource(sourceCandidates, attemptedSourceKeysRef.current)
+    if (next) setSelectedSource(next)
+  }, [selectedSource, recommendationsQuery.isPending, recommendationsQuery.data, sourceCandidates])
 
   return {
-    recommendations,
-    loading,
-    refreshRecommendations: fetchRecommendations,
+    recommendations: recommendationsQuery.data ?? [],
+    loading: recommendationsQuery.isLoading,
   }
 }

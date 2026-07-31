@@ -1,33 +1,42 @@
-import { useEffect } from 'react'
-import { useTmdbStore } from '../store/tmdbStore'
+import { useQuery } from '@tanstack/react-query'
+import { fetchTmdbList } from '@/shared/lib/api/tmdb'
+import { useSettingStore } from '@/shared/store/settingStore'
+import { useTmdbTrending } from '@/shared/hooks/useTmdbTrending'
+import type { TmdbMediaType } from '@/shared/types/tmdb'
+
+/** 单个列表 query（每列表独立缓存，可独立刷新/失效） */
+function useTmdbListQuery(
+  mediaType: TmdbMediaType,
+  endpoint: 'nowPlaying' | 'popular' | 'topRated' | 'upcoming' | 'airingToday',
+) {
+  const language = useSettingStore(s => s.system.tmdbLanguage)
+  return useQuery({
+    queryKey: ['tmdb', 'list', endpoint, mediaType, language],
+    queryFn: ({ signal }) => fetchTmdbList(mediaType, endpoint, language, signal),
+    staleTime: 30 * 60_000,
+    retry: 2,
+  })
+}
+
+const firstError = (...qs: { error: Error | null }[]) =>
+  qs.map(q => q.error).find(Boolean)?.message ?? null
 
 /**
- * 热映/热门 Hook
+ * 热映/热门 Hook（电影热映 + 剧集热门 + 综合趋势）
  */
 export function useTmdbNowPlaying() {
-  const movies = useTmdbStore(s => s.nowPlayingMovies)
-  const tv = useTmdbStore(s => s.popularTv)
-  const trending = useTmdbStore(s => s.trending)
-  const loading = useTmdbStore(s => s.loading)
-  const error = useTmdbStore(s => s.error)
-
-  const fetchNowPlaying = useTmdbStore(s => s.fetchNowPlaying)
-  const fetchTrending = useTmdbStore(s => s.fetchTrending)
-
-  useEffect(() => {
-    // 惰性加载，如果有数据暂不刷新，或者可以添加 forceRefresh 参数
-    if (movies.length === 0) fetchNowPlaying()
-    if (trending.length === 0) fetchTrending()
-  }, [fetchNowPlaying, fetchTrending, movies.length, trending.length])
+  const movies = useTmdbListQuery('movie', 'nowPlaying')
+  const tv = useTmdbListQuery('tv', 'popular')
+  const trending = useTmdbTrending()
 
   return {
-    movies,
-    tv,
-    trending,
-    loading,
-    error,
-    refreshNowPlaying: fetchNowPlaying,
-    refreshTrending: fetchTrending,
+    movies: movies.data ?? [],
+    tv: tv.data ?? [],
+    trending: trending.data ?? [],
+    loading: movies.isLoading || tv.isLoading || trending.isLoading,
+    error: firstError(movies, tv, trending),
+    refreshNowPlaying: () => void movies.refetch(),
+    refreshTrending: () => void trending.refetch(),
   }
 }
 
@@ -35,43 +44,21 @@ export function useTmdbNowPlaying() {
  * 电影榜单 Hook (正在热映/最受欢迎/口碑最佳/即将上映)
  */
 export function useTmdbMovieLists() {
-  const nowPlaying = useTmdbStore(s => s.nowPlayingMovies)
-  const popular = useTmdbStore(s => s.popularMovies)
-  const topRated = useTmdbStore(s => s.topRatedMovies)
-  const upcoming = useTmdbStore(s => s.upcomingMovies)
-  const loading = useTmdbStore(s => s.loading)
-
-  const fetchNowPlaying = useTmdbStore(s => s.fetchNowPlaying)
-  const fetchPopular = useTmdbStore(s => s.fetchPopularMovies)
-  const fetchTopRated = useTmdbStore(s => s.fetchTopRatedMovies)
-  const fetchUpcoming = useTmdbStore(s => s.fetchUpcomingMovies)
-
-  useEffect(() => {
-    if (nowPlaying.length === 0) fetchNowPlaying()
-    if (popular.length === 0) fetchPopular()
-    if (topRated.length === 0) fetchTopRated()
-    if (upcoming.length === 0) fetchUpcoming()
-  }, [
-    nowPlaying.length,
-    popular.length,
-    topRated.length,
-    upcoming.length,
-    fetchNowPlaying,
-    fetchPopular,
-    fetchTopRated,
-    fetchUpcoming,
-  ])
+  const nowPlaying = useTmdbListQuery('movie', 'nowPlaying')
+  const popular = useTmdbListQuery('movie', 'popular')
+  const topRated = useTmdbListQuery('movie', 'topRated')
+  const upcoming = useTmdbListQuery('movie', 'upcoming')
 
   return {
-    nowPlaying,
-    popular,
-    topRated,
-    upcoming,
-    loading,
-    refreshNowPlaying: fetchNowPlaying,
-    refreshPopular: fetchPopular,
-    refreshTopRated: fetchTopRated,
-    refreshUpcoming: fetchUpcoming,
+    nowPlaying: nowPlaying.data ?? [],
+    popular: popular.data ?? [],
+    topRated: topRated.data ?? [],
+    upcoming: upcoming.data ?? [],
+    loading: nowPlaying.isLoading || popular.isLoading || topRated.isLoading || upcoming.isLoading,
+    refreshNowPlaying: () => void nowPlaying.refetch(),
+    refreshPopular: () => void popular.refetch(),
+    refreshTopRated: () => void topRated.refetch(),
+    refreshUpcoming: () => void upcoming.refetch(),
   }
 }
 
@@ -79,35 +66,17 @@ export function useTmdbMovieLists() {
  * 剧集榜单 Hook (今日播出/最受欢迎/口碑最佳)
  */
 export function useTmdbTvLists() {
-  const airingToday = useTmdbStore(s => s.airingTodayTv)
-  const popular = useTmdbStore(s => s.popularTv)
-  const topRated = useTmdbStore(s => s.topRatedTv)
-  const loading = useTmdbStore(s => s.loading)
-
-  const fetchAiringToday = useTmdbStore(s => s.fetchAiringTodayTv)
-  const fetchPopular = useTmdbStore(s => s.fetchPopularTv)
-  const fetchTopRated = useTmdbStore(s => s.fetchTopRatedTv)
-
-  useEffect(() => {
-    if (airingToday.length === 0) fetchAiringToday()
-    if (popular.length === 0) fetchPopular()
-    if (topRated.length === 0) fetchTopRated()
-  }, [
-    airingToday.length,
-    popular.length,
-    topRated.length,
-    fetchAiringToday,
-    fetchPopular,
-    fetchTopRated,
-  ])
+  const airingToday = useTmdbListQuery('tv', 'airingToday')
+  const popular = useTmdbListQuery('tv', 'popular')
+  const topRated = useTmdbListQuery('tv', 'topRated')
 
   return {
-    airingToday,
-    popular,
-    topRated,
-    loading,
-    refreshAiringToday: fetchAiringToday,
-    refreshPopular: fetchPopular,
-    refreshTopRated: fetchTopRated,
+    airingToday: airingToday.data ?? [],
+    popular: popular.data ?? [],
+    topRated: topRated.data ?? [],
+    loading: airingToday.isLoading || popular.isLoading || topRated.isLoading,
+    refreshAiringToday: () => void airingToday.refetch(),
+    refreshPopular: () => void popular.refetch(),
+    refreshTopRated: () => void topRated.refetch(),
   }
 }

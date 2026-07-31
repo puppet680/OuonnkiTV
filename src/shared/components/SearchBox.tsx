@@ -7,8 +7,8 @@ import { Button } from '@/shared/components/ui/button'
 import { Popover, PopoverContent, PopoverAnchor } from '@/shared/components/ui/popover'
 import { useSearch, useSearchHistory, useSearchSuggestions } from '@/shared/hooks'
 import { useSearchStore } from '@/shared/store/searchStore'
-import { useTmdbStore } from '@/shared/store/tmdbStore'
 import { useTmdbEnabled } from '@/shared/hooks/useTmdbMode'
+import { useTmdbTrending } from '@/shared/hooks/useTmdbTrending'
 import { ScrollArea } from '@/shared/components/ui/scroll-area'
 
 const MotionButton = motion.create(Button)
@@ -45,11 +45,12 @@ export default function SearchBox({ onMobileSearchChange }: SearchBoxProps) {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
   const [typeMenuOpen, setTypeMenuOpen] = useState(false)
   const [placeholderIdx, setPlaceholderIdx] = useState(0)
-  const trending = useTmdbStore(s => s.trending)
+  const { data: trending } = useTmdbTrending()
 
   const placeholders = useMemo(() => {
-    if (trending.length === 0) return [HINT_PLACEHOLDER]
-    const titles = trending.slice(0, 8).map(t => `大家都在搜：${t.title}`)
+    const list = trending ?? []
+    if (list.length === 0) return [HINT_PLACEHOLDER]
+    const titles = list.slice(0, 8).map(t => `大家都在搜：${t.title}`)
     const result: string[] = []
     for (let i = 0; i < titles.length; i++) {
       result.push(titles[i])
