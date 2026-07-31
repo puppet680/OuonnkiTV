@@ -34,7 +34,12 @@ export function filterAdult(items: VideoItem[]): VideoItem[] {
 let globalClient: CmsClient | null = null
 let globalNetworkKey: string | null = null
 
-function getCmsClient(config?: CmsClientConfig): CmsClient {
+/**
+ * 获取全局 CmsClient 单例（网络设置变化时重建）
+ * @param config - 可选客户端配置
+ * @returns CmsClient 实例
+ */
+export function getCmsClient(config?: CmsClientConfig): CmsClient {
   const { network } = useSettingStore.getState()
   const proxyUrl = network.isProxyEnabled
     ? normalizeProxyPrefix(network.proxyUrl)

@@ -101,7 +101,10 @@ function ensureTmdbApiPatched(): void {
   if (tmdbApiPatched) return
 
   Api.prototype.get = async function <T>(path: string, options?: Record<string, unknown>): Promise<T> {
-    const params = parseOptions(options)
+    // signal 不参与 URL query，单独提取后传给 fetch（支持 RQ 取消与超时）
+    const { signal, ...restOptions } = options ?? {}
+    const abortSignal = signal instanceof AbortSignal ? signal : undefined
+    const params = parseOptions(restOptions)
     const query = params ? `?${params}` : ''
     const requestUrl = `${resolveTmdbApiBaseUrl()}${path}${query}`
     const accessToken = (this as unknown as TmdbApiInternal).accessToken ?? ''
@@ -112,6 +115,7 @@ function ensureTmdbApiPatched(): void {
         Authorization: `Bearer ${accessToken}`,
         'Content-Type': 'application/json;charset=utf-8',
       },
+      signal: abortSignal,
     })
 
     if (!response.ok) {
