@@ -13,19 +13,18 @@
 | V003 | src/shared/hooks/useTmdbDetail.ts | 模块级 Map 做服务端缓存 | 中 |
 | V004 | src/shared/hooks/useCmsCore.ts | 三处 useState+useEffect+fetch 手写异步 | 中 |
 | V005 | src/features/search/hooks/useDirectSearch.ts | requestVersionRef 竞态 + ref 缓存（375 行，超 hook 80 行阈值） | 高 |
-| V006 | src/shared/store/tmdbMatchCacheStore.ts | IndexedDB 持久化服务端缓存，与 RQ 缓存并存待评估 | 低 |
+| V006 | src/shared/store/tmdbMatchCacheStore.ts | IndexedDB 持久化服务端缓存，与 RQ 缓存并存；暂缓，待评估并入 RQ persist | 低 |
 | V007 | src/shared/hooks/useTmdbSearch.ts | 返回 11 个字段（超 6 个阈值）；store 转发型取数 | 低 |
 
 ## 待评估事项
 
 ### V006 — tmdbMatchCacheStore（IndexedDB 服务端缓存）
 
-后续迭代专门评估，方向二选一：
+**状态：暂缓，待评估并入 RQ persist。**
 
-- **废弃**：若 TMDB 匹配结果不需要跨会话持久化，或可移入 RQ 内存缓存 + `persistQueryClient`，删除该 store，改走 RQ
-- **迁移**：若必须跨会话保留（IndexedDB 容量/离线需求），保留 IndexedDB 但将其纳入 RQ 边界规则（作为 RQ 的持久化后端之一）
+决策背景：匹配结果需跨会话存活（有 TTL 与容量上限、离线价值），维持独立 IndexedDB store。项目已引入 `persistQueryClient`（RQ 层持久化），后续评估是否将匹配缓存并入 RQ 查询 + persist 白名单。
 
-**评估判据：** TMDB 匹配缓存是否需在会话间存活、IndexedDB 容量上限、与 RQ 缓存的重复度。触发时机：引入 `persistQueryClient` 或改动 TMDB 匹配/播放列表功能时。
+**评估判据：** TMDB 匹配缓存与 RQ persist 的重复度、容量上限差异、`usePlaylistMatches` 的读写/驱逐语义能否无损映射到 RQ `setQueryData` + `maxAge`。触发时机：改动 TMDB 匹配/播放列表功能时。
 
 ## 文件行数
 
