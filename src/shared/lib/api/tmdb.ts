@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import type { TMDB, AppendToResponseMovieKey, AppendToResponseTvKey } from 'tmdb-ts'
+import type { TMDB } from 'tmdb-ts'
 import { getTmdbClient, normalizeToMediaItem, fillItemLogos } from '@/shared/lib/tmdb'
 import type {
   TmdbMediaItem,
@@ -8,6 +8,7 @@ import type {
   TmdbGenre,
   TmdbCountry,
   TmdbFilterOptions,
+  TmdbPersonResult,
 } from '@/shared/types/tmdb'
 
 // ---------- zod schema（外部 TMDB 响应结构校验，unknown 进校验后出） ----------
@@ -196,33 +197,6 @@ export async function fetchTmdbSearch(
 
   const res = await client.search.multi(withSignal(baseParams as Parameters<TmdbClient['search']['multi']>[0], signal))
   return parseTmdbPage(res, null)
-}
-
-/**
- * 按 TMDB ID 直接查找媒体（电影/剧集并行尝试）
- * 注：tmdb-ts 的 details 方法无 options 槽位，不支持 signal 取消/超时（与存量行为一致）
- * @param id - TMDB ID
- * @param language - 显示语言
- * @returns 命中的媒体条目（movie 与 tv 均可命中时都返回）
- */
-export async function fetchTmdbById(
-  id: number,
-  language: string,
-): Promise<TmdbMediaItem[]> {
-  const client = getTmdbClient()
-  const results = await Promise.allSettled([
-    client.movies.details(id, [], language),
-    client.tvShows.details(id, [], language),
-  ])
-
-  const items: TmdbMediaItem[] = []
-  for (const r of results) {
-    if (r.status === 'fulfilled' && r.value) {
-      const raw = r.value as unknown as Record<string, unknown>
-      items.push(normalizeToMediaItem(raw, 'title' in raw ? 'movie' : 'tv'))
-    }
-  }
-  return items
 }
 
 // ---------- 发现 / 区域发现 ----------
@@ -480,61 +454,59 @@ export async function fetchTmdbGenresAndCountries(
   }
 }
 
-const tmdbDetailSchema = z.object({
-  id: z.number(),
-  title: z.string().optional(),
-  name: z.string().optional(),
-})
+/** 人物搜索结果规范化（known_for 条目复用 normalizeToMediaItem，media_type 非 movie/tv 丢弃） */
+function normalizePerson(raw: Record<string, unknown>): TmdbPersonResult {
+  const knownFor = Array.isArray(raw.known_for) ? (raw.known_for as Array<Record<string, unknown>>) : []
+  const knownForItems: TmdbMediaItem[] = knownFor.flatMap(item => {
+    if (!isTmdbMediaType(item.media_type)) return []
+    return [normalizeToMediaItem(item, item.media_type)]
+  })
 
-/**
- * 获取媒体详情（两阶段：core 先渲染，secondary 静默后台合并）
- * 注：tmdb-ts 的 details 方法无 options 槽位，不支持 signal 取消/超时（与存量行为一致）
- * @param id - TMDB ID
- * @param mediaType - movie | tv
- * @param language - 显示语言
- * @param phase - core（credits/images/external_ids 等）| secondary（videos/reviews/recommendations 等）
- * @returns 原始 TMDB 详情与规范化字段合并后的对象（调用方按需收窄类型）
- */
-export async function fetchTmdbDetail(
-  id: number,
-  mediaType: TmdbMediaType,
-  language: string,
-  phase: 'core' | 'secondary',
-): Promise<Record<string, unknown>> {
-  const coreAppendMovie: AppendToResponseMovieKey[] = ['credits', 'images', 'external_ids', 'release_dates']
-  const coreAppendTv: AppendToResponseTvKey[] = ['aggregate_credits', 'images', 'external_ids', 'content_ratings']
-  const secondaryAppendMovie: AppendToResponseMovieKey[] = [
-    'videos', 'reviews', 'recommendations', 'keywords', 'alternative_titles', 'watch/providers', 'similar',
-  ]
-  const secondaryAppendTv: AppendToResponseTvKey[] = [
-    'videos', 'reviews', 'recommendations', 'keywords', 'alternative_titles', 'watch/providers', 'similar',
-  ]
-
-  const client = getTmdbClient()
-  const data = mediaType === 'movie'
-    ? await client.movies.details(id, phase === 'core' ? coreAppendMovie : secondaryAppendMovie, language)
-    : await client.tvShows.details(id, phase === 'core' ? coreAppendTv : secondaryAppendTv, language)
-
-  const raw = data as unknown as Record<string, unknown>
-  const parsed = tmdbDetailSchema.safeParse(raw)
-  if (!parsed.success) {
-    throw new Error('Invalid TMDB detail response')
+  return {
+    id: raw.id as number,
+    name: (raw.name as string) || '',
+    profilePath: (raw.profile_path as string) || null,
+    knownFor: knownForItems.slice(0, 3).map(i => i.title).join('、'),
+    knownForItems,
+    popularity: (raw.popularity as number) || 0,
+    adult: Boolean(raw.adult),
   }
-  return { ...raw, ...normalizeToMediaItem(raw, mediaType) }
 }
 
 /**
- * 获取人物详情（含综合演职员与形象照）
- * 注：tmdb-ts 的 people.details 方法无 options 槽位，不支持 signal 取消/超时（与存量行为一致）
- * @param personId - TMDB 人物 ID
+ * 按关键词搜索人物
+ * @param query - 搜索关键词
+ * @param page - 页码，从 1 开始
  * @param language - 显示语言
- * @returns 原始 TMDB 人物数据（调用方按 PersonDetails 收窄）
+ * @param includeAdult - 是否包含成人内容
+ * @param signal - 取消/超时信号
+ * @returns 单页人物结果与分页信息
  */
-export async function fetchTmdbPerson(
-  personId: number,
+export async function fetchTmdbPersonSearch(
+  query: string,
+  page: number,
   language: string,
-): Promise<Record<string, unknown>> {
+  includeAdult: boolean,
+  signal?: AbortSignal,
+): Promise<{ items: TmdbPersonResult[]; pagination: TmdbPagination }> {
   const client = getTmdbClient()
-  const data = await client.people.details(personId, ['combined_credits', 'images'], language)
-  return data as unknown as Record<string, unknown>
+  const res = await client.search.people(
+    withSignal(
+      { query: query.trim(), page, ...langOpts(language), include_adult: includeAdult } as Parameters<TmdbClient['search']['people']>[0],
+      signal,
+    ),
+  )
+  const parsed = tmdbPageSchema.safeParse(res)
+  if (!parsed.success) {
+    throw new Error('Invalid TMDB person search response')
+  }
+  return {
+    items: parsed.data.results.map(normalizePerson),
+    pagination: {
+      page: parsed.data.page ?? 1,
+      totalPages: parsed.data.total_pages ?? 0,
+      totalResults: parsed.data.total_results ?? 0,
+    },
+  }
 }
+

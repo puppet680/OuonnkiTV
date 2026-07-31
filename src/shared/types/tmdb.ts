@@ -79,3 +79,14 @@ export interface TmdbPagination {
   totalPages: number
   totalResults: number
 }
+
+// 人物搜索结果
+export interface TmdbPersonResult {
+  id: number
+  name: string
+  profilePath: string | null
+  knownFor: string
+  knownForItems: TmdbMediaItem[]
+  popularity: number
+  adult: boolean
+}

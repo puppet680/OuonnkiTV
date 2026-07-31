@@ -1,6 +1,7 @@
 import { Link } from 'react-router'
 import { User } from 'lucide-react'
-import { useTmdbPersonSearch, type TmdbPersonResult } from '@/shared/hooks/useTmdbPersonSearch'
+import { useTmdbPersonSearch } from '@/shared/hooks/useTmdbPersonSearch'
+import type { TmdbPersonResult } from '@/shared/types/tmdb'
 import { useInfiniteScroll } from '@/shared/hooks/useInfiniteScroll'
 import { getPosterUrl } from '@/shared/lib/tmdb'
 import { buildPersonPath, buildTmdbDetailPath } from '@/shared/lib/routes'
