@@ -29,7 +29,6 @@ interface SearchBoxProps {
 export default function SearchBox({ onMobileSearchChange }: SearchBoxProps) {
   const { search: searchQuery, searchMovie } = useSearch()
   const { searchHistory, removeSearchHistoryItem } = useSearchHistory()
-  const { suggestions, isLoading, fetchSuggestions, clearSuggestions } = useSearchSuggestions()
   const reducedMotion = useReducedMotion()
   const tmdbEnabled = useTmdbEnabled()
   const typeOptions = tmdbEnabled ? TYPE_OPTIONS : [{ value: 'media' as NavSearchType, label: '综合', icon: <Film className="size-3.5" /> }]
@@ -41,6 +40,7 @@ export default function SearchBox({ onMobileSearchChange }: SearchBoxProps) {
     if (!tmdbEnabled) return 'media'
     return (lastSearchType as NavSearchType) || 'media'
   })
+  const { suggestions, isLoading } = useSearchSuggestions(inputContent, searchType)
   const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false)
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
   const [typeMenuOpen, setTypeMenuOpen] = useState(false)
@@ -118,13 +118,10 @@ export default function SearchBox({ onMobileSearchChange }: SearchBoxProps) {
 
   const handleClear = () => {
     setInputContent('')
-    clearSuggestions()
   }
 
   const handleInputChange = (value: string) => {
     setInputContent(value)
-    if (value.trim()) fetchSuggestions(value, searchType)
-    else clearSuggestions()
   }
 
   const handleFocus = () => {
