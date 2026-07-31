@@ -1,5 +1,6 @@
 import { StrictMode, lazy, Suspense } from 'react'
 import { createRoot } from 'react-dom/client'
+import { QueryClientProvider } from '@tanstack/react-query'
 import '@fontsource/inter/400.css'
 import '@fontsource/inter/500.css'
 import '@fontsource/inter/600.css'
@@ -7,6 +8,7 @@ import '@fontsource/inter/700.css'
 import '@/app/styles/main.css'
 import { ThemeProvider } from 'next-themes'
 import AppRouter from './router'
+import { queryClient } from './providers/query-client'
 import { Toaster } from '@/shared/components/ui/sonner'
 import { RefreshCw } from 'lucide-react'
 import { TooltipProvider } from '@/shared/components/ui/tooltip'
@@ -44,21 +46,23 @@ const builtInContextMenuItems = [
 ]
 
 const app = (
-  <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
-    <ThemeColorMeta />
-    <PwaUpdateNotifier />
-    <TooltipProvider>
-      <GlobalContextMenu builtInItems={builtInContextMenuItems}>
-        <AppRouter />
-      </GlobalContextMenu>
-      <Toaster richColors position="top-center" />
-      {Analytics && (
-        <Suspense fallback={null}>
-          <Analytics />
-        </Suspense>
-      )}
-    </TooltipProvider>
-  </ThemeProvider>
+  <QueryClientProvider client={queryClient}>
+    <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
+      <ThemeColorMeta />
+      <PwaUpdateNotifier />
+      <TooltipProvider>
+        <GlobalContextMenu builtInItems={builtInContextMenuItems}>
+          <AppRouter />
+        </GlobalContextMenu>
+        <Toaster richColors position="top-center" />
+        {Analytics && (
+          <Suspense fallback={null}>
+            <Analytics />
+          </Suspense>
+        )}
+      </TooltipProvider>
+    </ThemeProvider>
+  </QueryClientProvider>
 )
 
 createRoot(root).render(import.meta.env.DEVELOPMENT ? <StrictMode>{app}</StrictMode> : app)
