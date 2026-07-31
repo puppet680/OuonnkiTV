@@ -67,7 +67,7 @@ export const FeaturedCarousel = memo(function FeaturedCarousel({
     if (items.length > 0) {
       const url = getBackdropUrl(items[0].backdropPath)
       if (url) {
-        try { sessionStorage.setItem('lcp_backdrop', url) } catch (_) {}
+        try { sessionStorage.setItem('lcp_backdrop', url) } catch { /* sessionStorage 不可用时忽略 */ }
       }
     }
   }, [items])
