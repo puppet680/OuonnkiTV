@@ -1,9 +1,10 @@
-import { useEffect, useState, useCallback, useMemo } from 'react'
+import { useCallback, useMemo } from 'react'
 import { useSearchParams } from 'react-router'
 import { AnimatePresence, motion, useReducedMotion } from "motion/react"
 import { ArrowUpDown, X } from 'lucide-react'
-import { useTmdbSearch, useTmdbDiscover } from '@/shared/hooks/useTmdbSearch'
+import { useTmdbSearch, useTmdbDiscover, useTmdbSearchById } from '@/shared/hooks/useTmdbSearch'
 import { useTmdbStore } from '@/shared/store/tmdbStore'
+import { applyTmdbFilters } from '@/shared/lib/tmdbFilters'
 import { SearchResultsGrid } from './SearchResultsGrid'
 import { StatePanel } from '@/shared/components/StatePanel'
 import { useSettingStore } from '@/shared/store/settingStore'
@@ -45,30 +46,57 @@ function getRecentYears(): number[] {
 export function SearchTmdbSection({ query }: SearchTmdbSectionProps) {
   const [, setSearchParams] = useSearchParams()
   const { cleanQuery, year } = useMemo(() => parseQueryWithYear(query), [query])
-
-  const [currentPage, setCurrentPage] = useState(1)
+  const isNumericId = !!cleanQuery && /^\d{1,10}$/.test(cleanQuery)
   const reducedMotion = useReducedMotion()
 
-  const {
-    search: tmdbSearch,
-    filteredResults: tmdbFilteredResults,
-    filterOptions,
-    loading: tmdbLoading,
-    pagination: tmdbPagination,
-    setFilter,
-    error: tmdbSearchError,
-  } = useTmdbSearch()
+  const filterOptions = useTmdbStore(s => s.filterOptions)
+  const setFilter = useTmdbStore(s => s.setFilter)
 
-  const {
-    results: discoverResults,
-    loading: discoverLoading,
-    pagination: discoverPagination,
-    fetchDiscover,
-    error: discoverError,
-  } = useTmdbDiscover()
+  const searchQuery = useTmdbSearch(cleanQuery, year, !!cleanQuery && !isNumericId)
+  const byIdQuery = useTmdbSearchById(isNumericId ? Number(cleanQuery) : 0, isNumericId)
+  const discoverQuery = useTmdbDiscover(filterOptions, !cleanQuery)
 
-  const fetchGenresAndCountries = useTmdbStore(s => s.fetchGenresAndCountries)
-  const findById = useTmdbStore(s => s.findById)
+  // 三种模式的结果合并：搜索/数字ID → 客户端筛选；发现 → API 已筛选
+  const rawResults = useMemo(() => {
+    if (cleanQuery) {
+      return isNumericId ? (byIdQuery.data ?? []) : searchQuery.data?.pages.flatMap(p => p.items) ?? []
+    }
+    return discoverQuery.data?.pages.flatMap(p => p.items) ?? []
+  }, [cleanQuery, isNumericId, byIdQuery.data, searchQuery.data, discoverQuery.data])
+
+  const filteredResults = useMemo(
+    () => (cleanQuery ? applyTmdbFilters(rawResults, filterOptions) : rawResults),
+    [rawResults, filterOptions, cleanQuery],
+  )
+
+  const loading = cleanQuery
+    ? isNumericId ? byIdQuery.isLoading : searchQuery.isLoading
+    : discoverQuery.isLoading
+  const searchingNew = cleanQuery
+    ? isNumericId
+      ? byIdQuery.isFetching
+      : searchQuery.isFetching && !searchQuery.isFetchingNextPage
+    : discoverQuery.isFetching && !discoverQuery.isFetchingNextPage
+  const error = cleanQuery
+    ? isNumericId ? byIdQuery.error : searchQuery.error
+    : discoverQuery.error
+  const hasMore = cleanQuery
+    ? isNumericId ? false : (searchQuery.hasNextPage ?? false)
+    : (discoverQuery.hasNextPage ?? false)
+  const totalResults = cleanQuery
+    ? isNumericId
+      ? byIdQuery.data?.length ?? 0
+      : searchQuery.data?.pages[0]?.pagination.totalResults ?? 0
+    : discoverQuery.data?.pages[0]?.pagination.totalResults ?? 0
+
+  const { sentinelRef } = useInfiniteScroll({
+    hasMore,
+    isLoading: loading,
+    onLoadMore: () => {
+      if (cleanQuery) void searchQuery.fetchNextPage()
+      else void discoverQuery.fetchNextPage()
+    },
+  })
 
   // 年份快捷按钮：固定近 15 年，不依赖搜索结果
   const yearChips = useMemo(() => getRecentYears(), [])
@@ -78,7 +106,6 @@ export function SearchTmdbSection({ query }: SearchTmdbSectionProps) {
     setSearchParams(prev => {
       const params = new URLSearchParams(prev)
       if (year === clickedYear) {
-        // 再次点击同一年份 → 清除
         params.set('q', cleanQuery || '')
         if (!cleanQuery) params.delete('q')
       } else {
@@ -88,55 +115,7 @@ export function SearchTmdbSection({ query }: SearchTmdbSectionProps) {
     }, { replace: true })
   }, [cleanQuery, year, setSearchParams])
 
-  const [isSearchingNewQuery, setIsSearchingNewQuery] = useState(false)
-  const [isDiscoverFiltering, setIsDiscoverFiltering] = useState(false)
-
-  // 初始化 genres/countries（discover 筛选仍然需要 genres 语义信息，但不展示 UI）
-  useEffect(() => {
-    fetchGenresAndCountries()
-  }, [fetchGenresAndCountries])
-
-  // 筛选条件变化时重置分页 + refetch discover（无搜索词时）
-  useEffect(() => {
-    setCurrentPage(1)
-    if (!cleanQuery) {
-      setIsDiscoverFiltering(true)
-      fetchDiscover(1).then(() => setIsDiscoverFiltering(false))
-    }
-  }, [filterOptions, cleanQuery, fetchDiscover])
-
-  // 执行搜索（year 传给 API 做服务端过滤）
-  useEffect(() => {
-    if (cleanQuery) {
-      const isNumericId = /^\d{1,10}$/.test(cleanQuery)
-      setIsSearchingNewQuery(true)
-      setCurrentPage(1)
-      const promise = isNumericId ? findById(Number(cleanQuery)) : tmdbSearch(cleanQuery, 1, year)
-      promise.then(() => setIsSearchingNewQuery(false))
-    }
-  }, [cleanQuery, year, tmdbSearch, findById])
-
-  // 分页
-  const pagination = cleanQuery ? tmdbPagination : discoverPagination
-  const hasMore = pagination.page < pagination.totalPages
-
-  const handleLoadMore = useCallback(async () => {
-    const nextPage = currentPage + 1
-    if (cleanQuery) {
-      await tmdbSearch(cleanQuery, nextPage, year)
-    } else {
-      await fetchDiscover(nextPage)
-    }
-    setCurrentPage(nextPage)
-  }, [currentPage, cleanQuery, year, tmdbSearch, fetchDiscover])
-
-  const { sentinelRef } = useInfiniteScroll({
-    hasMore,
-    isLoading: tmdbLoading || discoverLoading,
-    onLoadMore: handleLoadMore,
-  })
-
-  // 清除年份：更新 URL 去掉 y: 部分，search effect 会自动用无 year 重新搜索
+  // 清除年份：更新 URL 去掉 y: 部分
   const handleClearYear = useCallback(() => {
     setSearchParams(prev => {
       const params = new URLSearchParams(prev)
@@ -261,26 +240,26 @@ export function SearchTmdbSection({ query }: SearchTmdbSectionProps) {
 
       {/* 搜索结果区域 */}
       <section>
-        {cleanQuery && tmdbSearchError && !tmdbLoading && !isSearchingNewQuery ? (
+        {cleanQuery && error && !loading && !searchingNew ? (
           <StatePanel mode="error" title="搜索失败" description="TMDB 服务暂时不可用，可前往设置页检查代理地址是否正确。" secondaryAction={{ label: '临时关闭 TMDB 智能模式', onClick: () => useSettingStore.getState().setTmdbDisableOnce(true) }} />
-        ) : !cleanQuery && discoverError && !discoverLoading && !isDiscoverFiltering ? (
+        ) : !cleanQuery && error && !loading && !searchingNew ? (
           <StatePanel mode="error" title="获取数据失败" description="TMDB 服务暂时不可用，可前往设置页检查代理地址是否正确。" secondaryAction={{ label: '临时关闭 TMDB 智能模式', onClick: () => useSettingStore.getState().setTmdbDisableOnce(true) }} />
         ) : cleanQuery ? (
           <SearchResultsGrid
             mode="tmdb"
-            tmdbResults={tmdbFilteredResults}
-            loading={tmdbLoading}
-            totalResults={tmdbPagination.totalResults}
-            isSearchingNewQuery={isSearchingNewQuery}
+            tmdbResults={filteredResults}
+            loading={loading}
+            totalResults={totalResults}
+            isSearchingNewQuery={searchingNew}
             hasMore={hasMore}
             sentinelRef={sentinelRef}
           />
         ) : (
           <SearchResultsGrid
             mode="tmdb"
-            tmdbResults={discoverResults}
-            loading={discoverLoading}
-            isSearchingNewQuery={isDiscoverFiltering}
+            tmdbResults={filteredResults}
+            loading={loading}
+            isSearchingNewQuery={searchingNew}
             hasMore={hasMore}
             sentinelRef={sentinelRef}
           />
