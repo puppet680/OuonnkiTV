@@ -11,7 +11,6 @@ import AppRouter from './router'
 import { queryClient } from './providers/query-client'
 import { Toaster } from '@/shared/components/ui/sonner'
 import { RefreshCw } from 'lucide-react'
-import { del } from 'idb-keyval'
 import { TooltipProvider } from '@/shared/components/ui/tooltip'
 import { GlobalContextMenu } from '@/shared/components/GlobalContextMenu'
 import { ThemeColorMeta } from '@/shared/components/theme'
@@ -65,9 +64,5 @@ const app = (
     </ThemeProvider>
   </QueryClientProvider>
 )
-
-// ponytail: 一次性迁移清理——删除 tmdbStore 旧 IndexedDB persist 缓存（ouonnki-tv-tmdb-home-cache-store），
-// 避免 RQ 迁移后残留旧格式数据水合出混乱；阶段 2 迁移完成后移除本段
-void del('ouonnki-tv-tmdb-home-cache-store')
 
 createRoot(root).render(import.meta.env.DEVELOPMENT ? <StrictMode>{app}</StrictMode> : app)
