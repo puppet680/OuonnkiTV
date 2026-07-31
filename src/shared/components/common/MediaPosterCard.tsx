@@ -10,6 +10,7 @@ import {
   ContextMenuContent,
   ContextMenuItem,
 } from '@/shared/components/ui/context-menu'
+import { useIsMobile } from '@/shared/hooks/use-mobile'
 import type { SourceColorScheme } from '@/shared/lib/source-colors'
 
 interface MediaPosterCardProps {
@@ -75,14 +76,15 @@ export const MediaPosterCard = memo(function MediaPosterCard({
     if (open) setMenuKey((v) => v + 1)
   }, [])
 
-  // 3秒后自动关闭上下文菜单
+  // 3秒后自动关闭上下文菜单（移动端抽屉无 hover 且需点选，不自动关）
+  const isMobile = useIsMobile()
   useEffect(() => {
-    if (!menuOpen) return
+    if (!menuOpen || isMobile) return
     const timer = setTimeout(() => {
       document.body.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }))
     }, 3000)
     return () => clearTimeout(timer)
-  }, [menuOpen, menuKey])
+  }, [menuOpen, menuKey, isMobile])
 
   const copyTitle = useCallback(() => {
     const execCopy = () => {
@@ -206,7 +208,7 @@ export const MediaPosterCard = memo(function MediaPosterCard({
   ) : null
 
   const menuItems = (
-    <ContextMenuContent key={menuKey}>
+    <ContextMenuContent key={menuKey} title={title}>
       {onPlayNow && (
         <ContextMenuItem onClick={onPlayNow}>
           <Play className="size-4" />
@@ -243,9 +245,11 @@ export const MediaPosterCard = memo(function MediaPosterCard({
 
   // ContextMenu + HoverCard 共存：两个 trigger 链式嵌套到 NavLink
   // ContextMenuTrigger asChild → (HoverCardTrigger asChild) → NavLink，各自事件直达 DOM
+  // 移动端不渲染 HoverCard：触屏本就不会 hover 打开（Radix excludeTouch），
+  // 且其 Trigger 的 onTouchStart preventDefault 在 passive 监听里会报错
   return (
     <ContextMenu onOpenChange={handleMenuOpenChange}>
-      {overview ? (
+      {overview && !isMobile ? (
         <HoverCard openDelay={1000}>
           <ContextMenuTrigger
             asChild

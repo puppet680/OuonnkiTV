@@ -116,64 +116,65 @@ export function PlayerRightPanels({
           onOpenChange={open => onPanelChange(open ? 'source' : null)}
           className={getPanelClassName('source', activeRightPanel)}
         >
-          <CollapsibleTrigger asChild>
-            <button
-              type="button"
-              aria-label="展开或收起换源面板"
-              className="flex w-full min-w-0 items-center justify-between gap-2 px-3 py-3 text-sm font-semibold md:px-4"
-            >
-              <span className="flex min-w-0 items-center gap-1.5">
-                <span className="truncate">换源</span>
-                <span className="text-muted-foreground truncate text-xs">
-                  {source.options.length} 源
-                </span>
-              </span>
-              <ChevronDown
-                className={`size-4 transition-transform ${activeRightPanel === 'source' ? 'rotate-180' : ''}`}
-              />
-            </button>
-          </CollapsibleTrigger>
+          {/* 外层菜单绑到换源标题行，避免与源按钮的内层菜单嵌套（长按源按钮开两层） */}
+          <ContextMenu key="source-panel">
+            <ContextMenuTrigger asChild>
+              <CollapsibleTrigger asChild>
+                <button
+                  type="button"
+                  aria-label="展开或收起换源面板"
+                  className="flex w-full min-w-0 items-center justify-between gap-2 px-3 py-3 text-sm font-semibold md:px-4"
+                >
+                  <span className="flex min-w-0 items-center gap-1.5">
+                    <span className="truncate">换源</span>
+                    <span className="text-muted-foreground truncate text-xs">
+                      {source.options.length} 源
+                    </span>
+                  </span>
+                  <ChevronDown
+                    className={`size-4 transition-transform ${activeRightPanel === 'source' ? 'rotate-180' : ''}`}
+                  />
+                </button>
+              </CollapsibleTrigger>
+            </ContextMenuTrigger>
+            <ContextMenuContent>
+              {isTmdbRoute && (
+                <ContextMenuItem onClick={() => source.onRetryMatch()}>
+                  <RefreshCw className="mr-2 size-3.5" />
+                  重新匹配源
+                </ContextMenuItem>
+              )}
+              <ContextMenuItem onClick={() => source.onTestAll()}>
+                <Activity className="mr-2 size-3.5" />
+                源质量重测
+              </ContextMenuItem>
+            </ContextMenuContent>
+          </ContextMenu>
           <CollapsibleContent
             className={cn(
               collapsibleContentClassName,
               activeRightPanel === 'source' && 'xl:flex xl:min-h-0 xl:flex-1 xl:flex-col',
             )}
           >
-            <ContextMenu key="source-panel">
-              <ContextMenuTrigger asChild>
-                <ScrollArea className="max-h-44 sm:max-h-56 xl:h-full xl:max-h-none">
-                  <div className="grid grid-cols-2 gap-2 pr-2">
-                    {source.options
-                      .filter(o => source.enabledSourceIds.includes(o.sourceCode))
-                      .map(option => (
-                        <SourceOptionButton
-                          key={option.sourceCode}
-                          option={option}
-                          active={option.sourceCode === source.selectedCode}
-                          isTmdbRoute={isTmdbRoute}
-                          speedResults={source.speedResults}
-                          speedTesting={source.speedTesting}
-                          onSelect={source.onSelect}
-                          onTestSingle={source.onTestSingle}
-                          onDisable={source.onDisable}
-                        />
-                      ))}
-                  </div>
-                </ScrollArea>
-              </ContextMenuTrigger>
-              <ContextMenuContent>
-                {isTmdbRoute && (
-                  <ContextMenuItem onClick={() => source.onRetryMatch()}>
-                    <RefreshCw className="mr-2 size-3.5" />
-                    重新匹配源
-                  </ContextMenuItem>
-                )}
-                <ContextMenuItem onClick={() => source.onTestAll()}>
-                  <Activity className="mr-2 size-3.5" />
-                  源质量重测
-                </ContextMenuItem>
-              </ContextMenuContent>
-            </ContextMenu>
+            <ScrollArea className="max-h-44 sm:max-h-56 xl:h-full xl:max-h-none">
+              <div className="grid grid-cols-2 gap-2 pr-2">
+                {source.options
+                  .filter(o => source.enabledSourceIds.includes(o.sourceCode))
+                  .map(option => (
+                    <SourceOptionButton
+                      key={option.sourceCode}
+                      option={option}
+                      active={option.sourceCode === source.selectedCode}
+                      isTmdbRoute={isTmdbRoute}
+                      speedResults={source.speedResults}
+                      speedTesting={source.speedTesting}
+                      onSelect={source.onSelect}
+                      onTestSingle={source.onTestSingle}
+                      onDisable={source.onDisable}
+                    />
+                  ))}
+              </div>
+            </ScrollArea>
           </CollapsibleContent>
         </Collapsible>
       )}

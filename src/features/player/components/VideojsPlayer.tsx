@@ -472,6 +472,7 @@ export default function VideojsPlayer() {
     tmdbFavoriteActive,
     onToggleCmsFavorite: handleToggleCmsFavorite,
     onToggleTmdbFavorite: handleToggleTmdbFavorite,
+    title,
     detailLink,
     homepage: tmdbPlayback.tmdbRichDetail?.homepage,
   })

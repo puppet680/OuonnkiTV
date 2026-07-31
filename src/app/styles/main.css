@@ -271,6 +271,16 @@
   }
 }
 
+/* ===== 移动端右键菜单底部抽屉 ===== */
+/* Radix popper 的定位 wrapper 带 transform，会成为 fixed 子元素的包含块，
+   导致抽屉无法贴底，这里中和它（ContextMenuContent 移动端分支使用） */
+.oki-cm-sheet [data-radix-popper-content-wrapper] {
+  position: static !important;
+  transform: none !important;
+  min-width: 0 !important;
+  z-index: auto !important;
+}
+
 /* ===== Carousel 导航按钮图标大小 ===== */
 /* 使用 CSS 变量设置图标尺寸，默认 50% 容器大小 */
 [data-slot='carousel-previous'] svg,

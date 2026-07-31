@@ -3,6 +3,8 @@ import { CheckIcon, ChevronRightIcon, CircleIcon } from "lucide-react"
 import * as ContextMenuPrimitive from "@radix-ui/react-context-menu"
 
 import { cn } from "@/shared/lib/utils"
+import { useIsMobile } from "@/shared/hooks/use-mobile"
+import { MobileMenuSheet } from "@/shared/components/common/MobileMenuSheet"
 
 function ContextMenu({
   ...props
@@ -93,18 +95,57 @@ function ContextMenuSubContent({
 
 function ContextMenuContent({
   className,
+  children,
+  title,
   ...props
-}: React.ComponentProps<typeof ContextMenuPrimitive.Content>) {
+}: React.ComponentProps<typeof ContextMenuPrimitive.Content> & { title?: string }) {
+  const isMobile = useIsMobile()
+  // 移动端长按改底部抽屉：items 必须留在 Radix Content 内才能拿到菜单上下文，
+  // 而 popper 外层的 transform wrapper 会让固定定位失效，故用 .oki-cm-sheet
+  // + main.css 中和 wrapper（见 main.css），遮罩点击走 Radix dismissable 自动关闭
+  if (isMobile) {
+    return (
+      <ContextMenuPrimitive.Portal>
+        <div className="oki-cm-sheet">
+          <MobileMenuSheet title={title}>
+            <ContextMenuPrimitive.Content
+              data-slot="context-menu-content"
+              onInteractOutside={(e) => {
+                // 点面板内（标题栏/留白）不关闭抽屉，仅遮罩与面板外点击关闭
+                if (e.target instanceof Element && e.target.closest('.oki-cm-panel')) {
+                  e.preventDefault()
+                }
+              }}
+              className={cn(
+                'data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom',
+                className
+              )}
+              {...props}
+            >
+              {children}
+            </ContextMenuPrimitive.Content>
+          </MobileMenuSheet>
+        </div>
+      </ContextMenuPrimitive.Portal>
+    )
+  }
   return (
     <ContextMenuPrimitive.Portal>
       <ContextMenuPrimitive.Content
         data-slot="context-menu-content"
         className={cn(
-          "bg-popover text-popover-foreground data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:duration-200 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 z-50 max-h-(--radix-context-menu-content-available-height) min-w-[8rem] origin-(--radix-context-menu-content-transform-origin) overflow-x-hidden overflow-y-auto rounded-md border p-1 shadow-md",
+          'bg-popover text-popover-foreground data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:duration-200 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 z-50 max-h-(--radix-context-menu-content-available-height) min-w-[8rem] origin-(--radix-context-menu-content-transform-origin) overflow-x-hidden overflow-y-auto rounded-md border p-1 shadow-md',
           className
         )}
         {...props}
-      />
+      >
+        {title && (
+          <div className="border-border mx-1 mb-1 border-b px-2 py-1.5 text-xs font-semibold text-muted-foreground">
+            {title}
+          </div>
+        )}
+        {children}
+      </ContextMenuPrimitive.Content>
     </ContextMenuPrimitive.Portal>
   )
 }

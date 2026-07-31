@@ -216,11 +216,14 @@ export default function TmdbDetailView() {
     const store = useGlobalContextMenuStore.getState()
     store.unregisterItems('detail-official-page', 'detail-toggle-favorite')
     const ids = store.registerItems(items)
+    store.setMenuTitle(detail?.title || '')
 
     return () => {
-      useGlobalContextMenuStore.getState().unregisterItems(...ids)
+      const s = useGlobalContextMenuStore.getState()
+      s.unregisterItems(...ids)
+      s.setMenuTitle('')
     }
-  }, [(detail as TmdbRichDetail | null)?.homepage, favorited])
+  }, [(detail as TmdbRichDetail | null)?.homepage, detail?.title, favorited])
 
   if (!isValidRoute) {
     return (

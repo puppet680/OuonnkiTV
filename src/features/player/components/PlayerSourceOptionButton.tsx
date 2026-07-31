@@ -37,7 +37,8 @@ export function SourceOptionButton({
   const hasMultiLang = option.alternatives.length > 0
   return (
     <ContextMenu>
-      <ContextMenuTrigger asChild>
+      {/* stopPropagation：源按钮被外层"换源列表"的 ContextMenu 包裹，防止 contextmenu 冒泡开两层菜单 */}
+      <ContextMenuTrigger asChild onContextMenu={(e: React.MouseEvent) => e.stopPropagation()}>
         <Button
           size="sm"
           variant={active ? 'default' : 'secondary'}
@@ -82,7 +83,7 @@ export function SourceOptionButton({
           )}
         </Button>
       </ContextMenuTrigger>
-      <ContextMenuContent>
+      <ContextMenuContent title={option.sourceName}>
         <ContextMenuItem onClick={() => onTestSingle(option.sourceCode)}>
           <Activity className="mr-2 size-3.5" />
           {speedResults.has(option.sourceCode) ? '重新检测' : '检测'}

@@ -12,6 +12,7 @@ import {
   ContextMenuItem,
 } from '@/shared/components/ui/context-menu'
 import { cn } from '@/shared/lib/utils'
+import { useIsMobile } from '@/shared/hooks/use-mobile'
 import { buildHistoryPlayPath, isTmdbHistoryItem } from '@/shared/lib/viewingHistory'
 import { buildTmdbDetailPath } from '@/shared/lib/routes'
 import { useViewingHistoryStore } from '@/shared/store'
@@ -76,14 +77,15 @@ export function ViewingHistoryCard({
     if (open) setMenuKey((v) => v + 1)
   }, [])
 
-  // 3秒后自动关闭上下文菜单 — Radix 通过 pointerdown 外部检测关闭
+  // 3秒后自动关闭上下文菜单 — Radix 通过 pointerdown 外部检测关闭（移动端抽屉需点选，不自动关）
+  const isMobile = useIsMobile()
   useEffect(() => {
-    if (!menuOpen) return
+    if (!menuOpen || isMobile) return
     const timer = setTimeout(() => {
       document.body.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }))
     }, 3000)
     return () => clearTimeout(timer)
-  }, [menuOpen, menuKey])
+  }, [menuOpen, menuKey, isMobile])
   const progressValue = getProgressValue(item)
   const progressPercentLabel = `${Math.round(progressValue)}%`
   const progressDetailLabel = `${formatProgressTime(item.playbackPosition)} / ${formatProgressTime(item.duration)}`
@@ -263,7 +265,7 @@ export function ViewingHistoryCard({
       >
         {cardLink}
       </ContextMenuTrigger>
-      <ContextMenuContent key={menuKey}>
+      <ContextMenuContent key={menuKey} title={item.title}>
         <ContextMenuItem onClick={() => navigate(getPlayPath(item))}>
           <Play className="size-4" />
           继续观看

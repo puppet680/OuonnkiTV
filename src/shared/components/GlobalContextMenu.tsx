@@ -1,7 +1,12 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
-import { createPortal } from 'react-dom'
+import { useState, useRef, useEffect } from 'react'
+import {
+  ContextMenu,
+  ContextMenuTrigger,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+} from '@/shared/components/ui/context-menu'
 import { useGlobalContextMenuStore } from '@/shared/store/contextMenuStore'
-import { cn } from '@/shared/lib/utils'
 
 interface GlobalContextMenuProps {
   children: React.ReactNode
@@ -16,70 +21,77 @@ interface GlobalContextMenuProps {
 }
 
 /**
- * 全局右键菜单。
+ * 全局右键菜单 — 与卡片菜单共用同一套 Radix ContextMenu（含移动端底部抽屉）。
  *
- * 不使用 Radix ContextMenu（其嵌套 Root + Trigger 的事件模型在菜单
- * 已打开时重复右键会泄漏浏览器原生菜单）。改为原生 document capture
- * 阶段监听 contextmenu，仅在非卡片区域弹出定位菜单。
+ * 不用「包裹整个 App 的 Root + Trigger」：那会让卡片区域与全局同时响应
+ * 长按/右键。改用不可见的 anchor trigger，由 document capture 监听
+ * contextmenu / iOS 长按 fallback 决定何时打开；卡片区域仍由卡片各自的
+ * ContextMenuTrigger 接管，长按开始时已有菜单打开则跳过，互不冲突。
  */
 export function GlobalContextMenu({ children, builtInItems }: GlobalContextMenuProps) {
   const dynamicItems = useGlobalContextMenuStore((s) => s.items)
+  const menuTitle = useGlobalContextMenuStore((s) => s.menuTitle)
   const [open, setOpen] = useState(false)
-  const [point, setPoint] = useState({ x: 0, y: 0 })
-  const menuRef = useRef<HTMLDivElement>(null)
-  const [focused, setFocused] = useState(false)
-
-  const closeMenu = useCallback(() => {
-    setOpen(false)
-    setFocused(false)
-  }, [])
-
-  // 不聚焦时 3 秒后自动关闭；聚焦（hover）时取消计时
-  useEffect(() => {
-    if (!open || focused) return
-    const timer = setTimeout(closeMenu, 3000)
-    return () => clearTimeout(timer)
-  }, [open, focused, closeMenu])
+  const anchorRef = useRef<HTMLSpanElement>(null)
 
   useEffect(() => {
     let longPressTimer: ReturnType<typeof setTimeout> | null = null
     let longPressPos = { x: 0, y: 0 }
 
-    const showMenu = (_target: Element, x: number, y: number) => {
-      // 卡片区域由 Radix ContextMenu 接管，全局菜单不介入
-      if (_target.closest('[data-slot="context-menu-trigger"]')) return
-      if (_target.closest('[role="menu"]')) return
-      // 已打开旧菜单 → 先关再开（React 18 自动批量，同帧 close→open）
-      setOpen(false)
-      setPoint({ x, y })
-      setOpen(true)
+    // 任一卡片菜单已打开 → 不开全局（排除自身 anchor，保证右键别处可重新定位）
+    const anyCardMenuOpen = () =>
+      Boolean(
+        document.querySelector(
+          '[data-slot="context-menu-trigger"][data-state="open"]:not(.oki-global-menu-anchor)',
+        ),
+      )
+    // 任一菜单（含全局自己）已打开 → 长按 fallback 跳过，避免叠两层
+    const anyMenuOpen = () =>
+      Boolean(document.querySelector('[data-slot="context-menu-trigger"][data-state="open"]'))
+
+    const openGlobal = (x: number, y: number) => {
+      if (anyCardMenuOpen()) return
+      // 走 Radix Trigger 的 contextmenu 路径，Content 据此定位到 (x, y)
+      anchorRef.current?.dispatchEvent(
+        new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: x, clientY: y }),
+      )
     }
 
     const onContextMenu = (e: MouseEvent) => {
       const target = e.target
       if (!(target instanceof Element)) return
-
+      // 卡片区域由各自的 Radix 接管
       if (target.closest('[data-slot="context-menu-trigger"]')) return
       if (target.closest('[role="menu"]')) {
         e.preventDefault()
         return
       }
-
       e.preventDefault()
-      showMenu(target, e.clientX, e.clientY)
+      openGlobal(e.clientX, e.clientY)
     }
 
-    // iOS touch long-press fallback：Safari 不会在普通元素上触发 contextmenu 事件
+    // iOS long-press fallback：Safari 普通元素不触发 contextmenu
     const onTouchStart = (e: TouchEvent) => {
       if (e.touches.length !== 1) return
       const touch = e.touches[0]
-      const touchedEl = e.target
+      const target = e.target
       longPressPos = { x: touch.clientX, y: touch.clientY }
+      const menuOpenAtStart = anyMenuOpen()
       longPressTimer = setTimeout(() => {
-        const target = touchedEl
         if (!(target instanceof Element)) return
-
-        // 卡片级 ContextMenuTrigger：补发合成 contextmenu 让 Radix 接管
+        // 长按开始时已有菜单（卡片或全局）打开 → 不重复开
+        if (menuOpenAtStart) return
+        // 长按后的 touchend 会触发 click，连带触发按钮 onClick（换源/导航/测速）。
+        // 在 capture 阶段吃掉这次 click，让"长按出菜单"不误触底层操作。
+        document.addEventListener(
+          'click',
+          (ev: MouseEvent) => {
+            ev.preventDefault()
+            ev.stopImmediatePropagation()
+          },
+          { capture: true, once: true },
+        )
+        // 卡片区域：补发合成 contextmenu 让卡片 Radix 接管
         if (target.closest('[data-slot="context-menu-trigger"]')) {
           target.dispatchEvent(
             new MouseEvent('contextmenu', {
@@ -91,8 +103,7 @@ export function GlobalContextMenu({ children, builtInItems }: GlobalContextMenuP
           )
           return
         }
-
-        showMenu(target, longPressPos.x, longPressPos.y)
+        openGlobal(longPressPos.x, longPressPos.y)
       }, 500)
     }
 
@@ -116,23 +127,11 @@ export function GlobalContextMenu({ children, builtInItems }: GlobalContextMenuP
       }
     }
 
-    const onPointerDown = (e: PointerEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        closeMenu()
-      }
-    }
-
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') closeMenu()
-    }
-
     document.addEventListener('contextmenu', onContextMenu, true)
     document.addEventListener('touchstart', onTouchStart, { passive: true })
     document.addEventListener('touchmove', onTouchMove, { passive: true })
     document.addEventListener('touchend', onTouchEnd)
     document.addEventListener('touchcancel', onTouchEnd)
-    document.addEventListener('pointerdown', onPointerDown, true)
-    document.addEventListener('keydown', onKeyDown, true)
 
     return () => {
       document.removeEventListener('contextmenu', onContextMenu, true)
@@ -140,14 +139,7 @@ export function GlobalContextMenu({ children, builtInItems }: GlobalContextMenuP
       document.removeEventListener('touchmove', onTouchMove)
       document.removeEventListener('touchend', onTouchEnd)
       document.removeEventListener('touchcancel', onTouchEnd)
-      document.removeEventListener('pointerdown', onPointerDown, true)
-      document.removeEventListener('keydown', onKeyDown, true)
     }
-  }, [])
-
-  const handleItemClick = useCallback((onClick: () => void) => {
-    onClick()
-    setOpen(false)
   }, [])
 
   const hasBuiltIn = (builtInItems?.length ?? 0) > 0
@@ -156,98 +148,45 @@ export function GlobalContextMenu({ children, builtInItems }: GlobalContextMenuP
   return (
     <>
       {children}
-      {open && createPortal(
-        <div
-          ref={menuRef}
-          role="menu"
-          onMouseEnter={() => setFocused(true)}
-          onMouseLeave={() => setFocused(false)}
-          className={cn(
-            'bg-popover text-popover-foreground fixed z-[9999]',
-            'min-w-[8rem] overflow-x-hidden overflow-y-auto rounded-md border p-1 shadow-md',
-            'animate-in fade-in-0 zoom-in-95',
-          )}
-          style={{
-            ...(point.x > window.innerWidth - 200
-              ? { right: `${window.innerWidth - point.x}px` }
-              : { left: `${point.x}px` }),
-            ...(point.y > window.innerHeight - 240
-              ? { bottom: `${window.innerHeight - point.y}px` }
-              : { top: `${point.y}px` }),
-            maxHeight: 'var(--radix-context-menu-content-available-height, auto)',
-          }}
-        >
+      <ContextMenu open={open} onOpenChange={setOpen}>
+        <ContextMenuTrigger asChild>
+          <span
+            ref={anchorRef}
+            className="oki-global-menu-anchor pointer-events-none absolute size-0"
+          />
+        </ContextMenuTrigger>
+        <ContextMenuContent title={menuTitle || undefined}>
           {!hasBuiltIn && !hasDynamic ? (
-            <MenuItem disabled>无可用操作</MenuItem>
+            <ContextMenuItem disabled>无可用操作</ContextMenuItem>
           ) : (
             <>
               {builtInItems?.map((item) => (
-                <MenuItem
+                <ContextMenuItem
                   key={item.id}
-                  disabled={item.disabled}
                   variant={item.variant}
-                  onClick={() => handleItemClick(item.onClick)}
+                  disabled={item.disabled}
+                  onClick={item.onClick}
                 >
                   {item.icon}
                   {item.label}
-                </MenuItem>
+                </ContextMenuItem>
               ))}
-              {hasBuiltIn && hasDynamic && <div className="bg-border -mx-1 my-1 h-px" />}
+              {hasBuiltIn && hasDynamic && <ContextMenuSeparator />}
               {dynamicItems.map((item) => (
-                <MenuItem
+                <ContextMenuItem
                   key={item.id}
-                  disabled={item.disabled}
                   variant={item.variant}
-                  onClick={() => handleItemClick(item.onClick)}
+                  disabled={item.disabled}
+                  onClick={item.onClick}
                 >
                   {item.icon}
                   {item.label}
-                </MenuItem>
+                </ContextMenuItem>
               ))}
             </>
           )}
-        </div>,
-        document.body,
-      )}
+        </ContextMenuContent>
+      </ContextMenu>
     </>
-  )
-}
-
-/** 菜单项 — 复用 ContextMenuItem 的视觉样式 */
-function MenuItem({
-  children,
-  disabled,
-  variant = 'default',
-  onClick,
-}: {
-  children: React.ReactNode
-  disabled?: boolean
-  variant?: 'default' | 'destructive'
-  onClick?: () => void
-}) {
-  const handleClick = onClick
-    ? (e: React.MouseEvent) => {
-        if (e.button !== 0) return
-        onClick()
-      }
-    : undefined
-
-  return (
-    <button
-      role="menuitem"
-      disabled={disabled}
-      onClick={handleClick}
-      className={cn(
-        'focus:bg-accent focus:text-accent-foreground',
-        'data-[variant=destructive]:text-destructive data-[variant=destructive]:focus:bg-destructive/10 dark:data-[variant=destructive]:focus:bg-destructive/20 data-[variant=destructive]:focus:text-destructive',
-        '[&_svg:not([class*="text-"])]:text-muted-foreground',
-        'relative flex w-full cursor-default items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-hidden select-none',
-        'data-[disabled]:pointer-events-none data-[disabled]:opacity-50',
-        '[&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*="size-"])]:size-4',
-      )}
-      data-variant={variant}
-    >
-      {children}
-    </button>
   )
 }

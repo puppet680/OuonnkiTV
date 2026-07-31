@@ -11,6 +11,8 @@ interface UsePlayerContextMenuParams {
   tmdbFavoriteActive: boolean
   onToggleCmsFavorite: () => void
   onToggleTmdbFavorite: () => void
+  /** 视频标题，作为全局菜单抽屉标题 */
+  title?: string
   detailLink?: string
   homepage?: string
 }
@@ -26,6 +28,7 @@ export function usePlayerContextMenu({
   tmdbFavoriteActive,
   onToggleCmsFavorite,
   onToggleTmdbFavorite,
+  title,
   detailLink,
   homepage,
 }: UsePlayerContextMenuParams) {
@@ -44,10 +47,11 @@ export function usePlayerContextMenu({
 
   const contextMenuIdsRef = useRef<string[]>([])
   useEffect(() => {
-    const { registerItems, unregisterItems } = useGlobalContextMenuStore.getState()
+    const { registerItems, unregisterItems, setMenuTitle } = useGlobalContextMenuStore.getState()
     if (contextMenuIdsRef.current.length > 0) {
       unregisterItems(...contextMenuIdsRef.current)
     }
+    setMenuTitle(title || '')
 
     const { playback } = useSettingStore.getState()
     const items = []
@@ -122,6 +126,7 @@ export function usePlayerContextMenu({
     contextMenuIdsRef.current = ids
     return () => {
       unregisterItems(...ids)
+      setMenuTitle('')
       contextMenuIdsRef.current = []
     }
   }, [
@@ -129,6 +134,7 @@ export function usePlayerContextMenu({
     isTmdbRoute,
     cmsFavoriteActive,
     tmdbFavoriteActive,
+    title,
     detailLink,
     homepage,
   ])
