@@ -30,7 +30,6 @@
 | 编号 | 文件 | 行数 | 违反 | 阻塞新功能 |
 |------|------|------|------|-----------|
 | V008 | src/features/player/components/VideojsPlayer.tsx | 2435 | 500 行上限 | 低 |
-| V009 | src/shared/store/tmdbStore.ts | 1018 | 500 行上限 | 低 |
 | V010 | src/features/player/components/VideojsSkin.tsx | 733 | 500 行上限 | 低 |
 | V011 | src/features/media/components/tmdb-detail/DetailPlaylistTab.tsx | 680 | 500 行上限 | 低 |
 | V012 | src/features/media/components/tmdb-detail/usePlaylistMatches.ts | 617 | 500 行上限 | 低 |
