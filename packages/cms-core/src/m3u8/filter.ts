@@ -31,7 +31,6 @@ export function createDefaultAdFilter(): M3u8Filter {
     const result: string[] = []
     let inAdBlock = false
 
-    console.log("过滤前：",result.join('\n'))
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i]
 
@@ -69,7 +68,6 @@ export function createDefaultAdFilter(): M3u8Filter {
 
       result.push(line)
     }
-    console.log("过滤后：",result.join('\n'))
 
     return result.join('\n')
   }
