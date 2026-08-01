@@ -273,12 +273,19 @@
 
 /* ===== 移动端右键菜单底部抽屉 ===== */
 /* Radix popper 的定位 wrapper 带 transform，会成为 fixed 子元素的包含块，
-   导致抽屉无法贴底，这里中和它（ContextMenuContent 移动端分支使用） */
+   导致抽屉无法贴底，这里中和它（ContextMenuContent 移动端分支使用，
+   面板是 .oki-cm-sheet 的直接子元素，Content 的 popper wrapper 在其中） */
 .oki-cm-sheet [data-radix-popper-content-wrapper] {
   position: static !important;
   transform: none !important;
   min-width: 0 !important;
   z-index: auto !important;
+}
+
+/* 面板高度由 JS 拖拽更新 CSS 变量；未拖拽时（变量未设）按内容自适应，上限 92vh */
+.oki-cm-panel {
+  height: var(--oki-cm-panel-h, auto);
+  max-height: 92vh;
 }
 
 /* ===== Carousel 导航按钮图标大小 ===== */

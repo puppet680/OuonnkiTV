@@ -1,5 +1,5 @@
 import { memo } from 'react'
-import { ArrowLeft, Sparkles, Tv, Film, Globe, WifiOff } from 'lucide-react'
+import { Sparkles, Tv, Film, Globe, WifiOff } from 'lucide-react'
 import { Badge } from '@/shared/components/ui/badge'
 import { Button } from '@/shared/components/ui/button'
 import { ClickToCopy } from '@/shared/components/ui/click-to-copy'
@@ -7,6 +7,8 @@ import { ScrollableText } from '@/shared/components/common'
 import { getBackdropUrl, getPosterUrl } from '@/shared/lib/tmdb'
 import { getCertColor } from '@/features/media/components'
 import type { TmdbMediaType } from '@/shared/types/tmdb'
+import { AnimateIcon } from '@/components/animate-ui/icons/icon'
+import { ArrowLeft } from '@/components/animate-ui/icons/arrow-left'
 
 interface PlayerHeroSectionProps {
   modeLabel: string
@@ -42,7 +44,7 @@ export const PlayerHeroSection = memo(function PlayerHeroSection({
   const mediaTypeText = tmdbMediaType === 'tv' ? '剧集' : tmdbMediaType === 'movie' ? '电影' : null
 
   return (
-    <section className="relative overflow-hidden rounded-lg border border-border/60">
+    <section className="border-border/60 relative overflow-hidden rounded-lg border">
       {backdropPath ? (
         <img
           src={getBackdropUrl(backdropPath, 'w1280')}
@@ -58,25 +60,31 @@ export const PlayerHeroSection = memo(function PlayerHeroSection({
       <div className="absolute inset-0 bg-gradient-to-t from-black/92 via-black/45 to-transparent" />
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_85%_20%,rgba(239,68,68,0.22),transparent_42%)]" />
 
-      <Button
-        variant="ghost"
-        className="absolute top-2.5 left-2.5 z-20 h-8 rounded-full px-2.5 !bg-transparent text-white/90 transition-colors hover:!bg-transparent hover:text-white sm:top-3 sm:left-3 sm:h-9 sm:px-3"
-        onClick={onBack}
-      >
-        <ArrowLeft className="size-4" />
-        返回
-      </Button>
+      <AnimateIcon animateOnHover>
+        <Button
+          variant="ghost"
+          className="absolute top-2.5 left-2.5 z-20 h-8 rounded-full !bg-transparent px-2.5 text-white/90 transition-colors hover:!bg-transparent hover:text-white sm:top-3 sm:left-3 sm:h-9 sm:px-3"
+          onClick={onBack}
+        >
+          <ArrowLeft className="size-4" />
+          返回
+        </Button>
+      </AnimateIcon>
 
       <div className="relative z-10 flex min-h-[235px] flex-col justify-end p-3.5 pt-14 sm:min-h-[280px] sm:p-4 sm:pt-16 md:min-h-[340px] md:p-6 md:pt-16 lg:min-h-[400px] lg:p-7 lg:pt-20">
         <div className="grid items-end gap-3 sm:gap-4 lg:grid-cols-[minmax(0,1fr)_132px] lg:gap-6">
           <div className="space-y-4 lg:max-w-4xl">
-            <div className="flex items-center gap-1.5 overflow-x-auto whitespace-nowrap pb-1 sm:gap-2">
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 whitespace-nowrap sm:gap-2">
               <Badge className="h-5 shrink-0 rounded-full bg-white/16 px-2 text-[10px] text-white hover:bg-white/24 sm:h-6 sm:px-2.5 sm:text-[11px] md:h-7 md:px-3 md:text-xs">
                 {modeLabel}
               </Badge>
               {mediaTypeText && (
                 <Badge className="h-5 shrink-0 rounded-full bg-white/16 px-2 text-[10px] text-white hover:bg-white/24 sm:h-6 sm:px-2.5 sm:text-[11px] md:h-7 md:px-3 md:text-xs">
-                  {tmdbMediaType === 'tv' ? <Tv className="size-3.5" /> : <Film className="size-3.5" />}
+                  {tmdbMediaType === 'tv' ? (
+                    <Tv className="size-3.5" />
+                  ) : (
+                    <Film className="size-3.5" />
+                  )}
                   {mediaTypeText}
                 </Badge>
               )}
@@ -85,7 +93,9 @@ export const PlayerHeroSection = memo(function PlayerHeroSection({
                 {sourceName}
               </Badge>
               {adultLevel && (
-                <Badge className={`h-5 shrink-0 rounded-full px-2 text-[10px] text-white sm:h-6 sm:px-2.5 sm:text-[11px] md:h-7 md:px-3 md:text-xs ${getCertColor(adultLevel)}`}>
+                <Badge
+                  className={`h-5 shrink-0 rounded-full px-2 text-[10px] text-white sm:h-6 sm:px-2.5 sm:text-[11px] md:h-7 md:px-3 md:text-xs ${getCertColor(adultLevel)}`}
+                >
                   {adultLevel}
                 </Badge>
               )}
@@ -95,7 +105,10 @@ export const PlayerHeroSection = memo(function PlayerHeroSection({
               <h1 className="line-clamp-2 text-xl leading-tight font-semibold tracking-tight text-white sm:text-2xl md:text-3xl lg:text-4xl">
                 <ClickToCopy text={title} />
               </h1>
-              <ScrollableText maxHeight="max-h-16 sm:max-h-[4.5rem] md:max-h-24" className="text-xs leading-5 text-white/80 sm:text-sm sm:leading-6 md:text-[15px]">
+              <ScrollableText
+                maxHeight="max-h-16 sm:max-h-[4.5rem] md:max-h-24"
+                className="text-xs leading-5 text-white/80 sm:text-sm sm:leading-6 md:text-[15px]"
+              >
                 {overview || '暂无剧情简介'}
               </ScrollableText>
             </div>
@@ -108,7 +121,7 @@ export const PlayerHeroSection = memo(function PlayerHeroSection({
                 总计 {totalEpisodeText}
               </Badge>
               <Badge
-                className={`gap-1 h-5 rounded-full px-2 text-[10px] sm:h-auto sm:px-3 sm:text-xs ${
+                className={`h-5 gap-1 rounded-full px-2 text-[10px] sm:h-auto sm:px-3 sm:text-xs ${
                   proxyStatus?.canToggle ? 'cursor-pointer' : ''
                 } ${
                   proxyStatus?.usingProxy
@@ -116,9 +129,19 @@ export const PlayerHeroSection = memo(function PlayerHeroSection({
                     : 'bg-zinc-500/60 text-white/80 hover:bg-zinc-500/75'
                 }`}
                 onClick={proxyStatus?.canToggle ? onToggleProxy : undefined}
-                title={proxyStatus?.canToggle ? (proxyStatus.usingProxy ? '点击切换为直连' : '点击切换为代理') : undefined}
+                title={
+                  proxyStatus?.canToggle
+                    ? proxyStatus.usingProxy
+                      ? '点击切换为直连'
+                      : '点击切换为代理'
+                    : undefined
+                }
               >
-                {proxyStatus?.usingProxy ? <Globe className="size-3.5" /> : <WifiOff className="size-3.5" />}
+                {proxyStatus?.usingProxy ? (
+                  <Globe className="size-3.5" />
+                ) : (
+                  <WifiOff className="size-3.5" />
+                )}
                 {proxyStatus?.usingProxy ? '代理' : '直连'}
               </Badge>
             </div>
@@ -126,7 +149,11 @@ export const PlayerHeroSection = memo(function PlayerHeroSection({
 
           {posterPath ? (
             <div className="hidden overflow-hidden rounded-lg border border-white/20 bg-black/35 shadow-xl lg:block">
-              <img src={getPosterUrl(posterPath, 'w342')} alt={title} className="aspect-[2/3] w-full object-cover" />
+              <img
+                src={getPosterUrl(posterPath, 'w342')}
+                alt={title}
+                className="aspect-[2/3] w-full object-cover"
+              />
             </div>
           ) : (
             <div className="hidden lg:block" />

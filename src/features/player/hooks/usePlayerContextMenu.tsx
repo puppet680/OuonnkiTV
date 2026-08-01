@@ -1,8 +1,10 @@
 import { useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router'
-import { Camera, PictureInPicture2, ExternalLink, Globe, Heart, HeartOff } from 'lucide-react'
+import { Camera, PictureInPicture2, Globe, HeartOff } from 'lucide-react'
 import { useGlobalContextMenuStore } from '@/shared/store/contextMenuStore'
 import { useSettingStore } from '@/shared/store/settingStore'
+import { ExternalLink } from '@/components/animate-ui/icons/external-link'
+import { Heart } from '@/components/animate-ui/icons/heart'
 
 interface UsePlayerContextMenuParams {
   isCmsRoute: boolean
@@ -102,7 +104,7 @@ export function usePlayerContextMenu({
     items.push({
       id: 'player-favorite',
       label: favActiveRef.current ? '取消收藏' : '加入收藏',
-      icon: favActiveRef.current ? <HeartOff className="size-4" /> : <Heart className="size-4" />,
+      icon: favActiveRef.current ? <HeartOff className="size-4" /> : <Heart className="size-4" animation="fill"/>,
       onClick: () => favToggleRef.current(),
     })
     if (detailLinkRef.current) {

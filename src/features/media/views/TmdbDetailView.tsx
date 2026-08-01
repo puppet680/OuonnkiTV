@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router'
 import { AnimatePresence, motion, useReducedMotion } from "motion/react"
-import { ExternalLink, Heart, HeartOff } from 'lucide-react'
 import { useDocumentTitle } from '@/shared/hooks'
 import { useTmdbEnabled } from '@/shared/hooks/useTmdbMode'
 import { useTmdbDetail } from '@/shared/hooks/useTmdbDetail'
+import { useTmdbEpisodeGroups } from '@/shared/hooks/useTmdbEpisodeGroups'
 import { buildTmdbPlayPath } from '@/shared/lib/routes'
 import { buildHistoryPlayPath, isTmdbHistoryItem } from '@/shared/lib/viewingHistory'
 import type {
@@ -36,6 +36,7 @@ import {
   extractRecommendations,
   extractTranslationTitles,
   augmentSeasonsFromTitles,
+  mergeEpisodeGroupSeasons,
   formatCurrencyUSD,
   formatLargeNumber,
   formatRuntime,
@@ -50,6 +51,9 @@ import {
   pickHeroLogo,
   usePlaylistMatches,
 } from '@/features/media/components'
+import { ExternalLink } from '@/components/animate-ui/icons/external-link'
+import { Heart } from '@/components/animate-ui/icons/heart'
+import { HeartOff } from 'lucide-react'
 
 const isSupportedMediaType = (value: string): value is TmdbMediaType => value === 'movie' || value === 'tv'
 const TMDB_SEARCH_PATH = '/search?mode=tmdb'
@@ -126,10 +130,24 @@ export default function TmdbDetailView() {
     [translationEntries],
   )
 
+  // 聚合 TMDB 剧集组官方季（TMDB 只有单季但剧集组含多制作季的剧，如日本动画）
+  // 注：normalizeToMediaItem 未映射 numberOfEpisodes，用原始 number_of_episodes 做集数匹配
+  const totalEpisodes = (detail as unknown as { number_of_episodes?: number } | null)?.number_of_episodes
+  const epGroup = useTmdbEpisodeGroups(mediaType === 'tv' ? parsedTmdbId : undefined, totalEpisodes)
+
   const safeSeasons = useMemo(() => {
-    if (!safeRichDetail?.seasons) return []
-    return augmentSeasonsFromTitles(safeRichDetail.seasons, alternativeTitles)
-  }, [safeRichDetail?.seasons, alternativeTitles])
+    const base = safeRichDetail?.seasons ?? []
+    const epDetail = epGroup.detail
+    // 只数正季（order > 0），排除 OVA 等 order 0 组，避免误判"更多季"触发聚合
+    const officialCount = epDetail?.groups.filter(group => group.order > 0).length ?? 0
+    const existingPos = base.filter(season => season.season_number > 0).length
+    // 官方制作季多于现有正季（TMDB 季数不足，如咒术回战 TMDB 仅 1 季）→ 聚合；
+    // TMDB 已完整（如无职转生 3 季）→ 回退 TMDB 原始季
+    if (officialCount > existingPos && epDetail) {
+      return mergeEpisodeGroupSeasons(base, epDetail)
+    }
+    return augmentSeasonsFromTitles(base, alternativeTitles)
+  }, [safeRichDetail?.seasons, alternativeTitles, epGroup.detail])
 
   const translationFields: DetailInfoField[] = useMemo(
     () =>
@@ -208,7 +226,7 @@ export default function TmdbDetailView() {
     items.push({
       id: 'detail-toggle-favorite',
       label: favorited ? '取消收藏' : '加入收藏',
-      icon: favorited ? <HeartOff className="size-4" /> : <Heart className="size-4" />,
+      icon: favorited ? <HeartOff  className="size-4"  /> : <Heart className="size-4" animation="fill"/>,
       variant: favorited ? 'destructive' as const : 'default' as const,
       onClick: () => detail && toggleTmdbFavorite(mediaSnapshot),
     })
@@ -465,6 +483,7 @@ export default function TmdbDetailView() {
                 candidates={playlistMatches.candidates}
                 movieSourceMatches={playlistMatches.movieSourceMatches}
                 seasonSourceMatches={playlistMatches.seasonSourceMatches}
+                searchTitle={detail?.title || ''}
                 onRetry={playlistMatches.retry}
               />
             )}

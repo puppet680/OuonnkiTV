@@ -20,7 +20,7 @@ import {
   PlayerInfoAndRecommendations,
   PlayerLoadingSkeleton,
 } from '@/features/player/components'
-import { useEpisodePagination, useTmdbPlayback } from '@/features/player/hooks'
+import { useEpisodePagination, usePlayerSourceEpisodes, useTmdbPlayback } from '@/features/player/hooks'
 import { usePlayerContextMenu } from '@/features/player/hooks/usePlayerContextMenu'
 import { usePlayerDetailFetch } from '@/features/player/hooks/usePlayerDetailFetch'
 import { usePlayerEpisodeProgress } from '@/features/player/hooks/usePlayerEpisodeProgress'
@@ -393,17 +393,106 @@ export default function VideojsPlayer() {
     navigate(buildCurrentPlayPath(0), { replace: true })
   }, [buildCurrentPlayPath, episodes.length, navigate, selectedEpisode])
 
+  // ── source episode groups（主选集=默认完整条目，拆分条目常驻下方）──
+  const { defaultGroup, splitGroups } = usePlayerSourceEpisodes({
+    enabled: isTmdbRoute,
+    candidates: tmdbPlayback.playlist.candidates,
+    currentSourceCode: resolvedSourceCode,
+    currentVodId: resolvedVodId,
+    sourceConfig,
+    cmsClient,
+  })
+
+  // 主选集集数：默认条目分组未就绪时兜底为当前条目集数（默认条目=当前条目时内容一致）
+  const panelEpisodes = useMemo(
+    () => (defaultGroup?.episodes?.length ? defaultGroup.episodes : episodes),
+    [defaultGroup, episodes],
+  )
+  const defaultVodId = defaultGroup?.vodId
+
   const episodePagination = useEpisodePagination({
-    episodes,
+    episodes: panelEpisodes,
     selectedEpisode,
     defaultDescOrder: playback.defaultEpisodeOrder === 'desc',
   })
 
-  const handleEpisodeChange = (displayIndex: number) => {
-    const actualIndex = episodePagination.toActualIndex(displayIndex)
-    if (actualIndex === selectedEpisode) return
-    navigate(buildCurrentPlayPath(actualIndex), { replace: true })
-  }
+  // 当前条目（播放区）内的集数映射：皮肤菜单/上下集/自动连播按当前条目切集
+  const toCurrentActualIndex = useCallback(
+    (displayIndex: number) =>
+      episodePagination.isReversed ? episodes.length - 1 - displayIndex : displayIndex,
+    [episodePagination.isReversed, episodes.length],
+  )
+  const handleEpisodeChange = useCallback(
+    (displayIndex: number) => {
+      const actualIndex = toCurrentActualIndex(displayIndex)
+      if (actualIndex === selectedEpisode) return
+      navigate(buildCurrentPlayPath(actualIndex), { replace: true })
+    },
+    [buildCurrentPlayPath, navigate, selectedEpisode, toCurrentActualIndex],
+  )
+
+  // 主选集（默认条目）内点击集数：导航到默认条目对应集；默认条目未知时退回当前条目
+  const handleMainEpisodeSelect = useCallback(
+    (displayIndex: number) => {
+      const actualIndex = episodePagination.toActualIndex(displayIndex)
+      const targetVodId = defaultVodId || resolvedVodId
+      if (!isTmdbRoute || !tmdbMediaType || !targetVodId) return
+      if (targetVodId === resolvedVodId && actualIndex === selectedEpisode) return
+      navigate(
+        buildTmdbPlayPath(tmdbMediaType, parsedTmdbId, {
+          sourceCode: resolvedSourceCode,
+          vodId: targetVodId,
+          episodeIndex: actualIndex,
+          seasonNumber: tmdbPlayback.selectedSeasonNumber || undefined,
+        }),
+      )
+    },
+    [
+      defaultVodId,
+      episodePagination,
+      isTmdbRoute,
+      navigate,
+      parsedTmdbId,
+      resolvedSourceCode,
+      resolvedVodId,
+      selectedEpisode,
+      tmdbMediaType,
+      tmdbPlayback.selectedSeasonNumber,
+    ],
+  )
+
+  // 拆分条目分组（含当前播放条目的集数高亮），主选集是否高亮取决于当前条目是否即默认条目
+  const mainActive = !defaultGroup || defaultGroup.vodId === resolvedVodId
+  const splitGroupsForPanel = useMemo(
+    () =>
+      splitGroups.map(group => ({
+        ...group,
+        activeEpisode: group.vodId === resolvedVodId ? selectedEpisode : null,
+      })),
+    [resolvedVodId, selectedEpisode, splitGroups],
+  )
+
+  const handleSplitSelect = useCallback(
+    (vodId: string, episodeIndex: number) => {
+      if (!isTmdbRoute || !tmdbMediaType) return
+      navigate(
+        buildTmdbPlayPath(tmdbMediaType, parsedTmdbId, {
+          sourceCode: resolvedSourceCode,
+          vodId,
+          episodeIndex,
+          seasonNumber: tmdbPlayback.selectedSeasonNumber || undefined,
+        }),
+      )
+    },
+    [
+      isTmdbRoute,
+      navigate,
+      parsedTmdbId,
+      resolvedSourceCode,
+      tmdbMediaType,
+      tmdbPlayback.selectedSeasonNumber,
+    ],
+  )
 
   // ── favorites ──
   const { handleToggleCmsFavorite, handleToggleTmdbFavorite } = usePlayerFavorites({
@@ -717,7 +806,7 @@ export default function VideojsPlayer() {
               onSelect: handleSeasonChange,
             }}
             episode={{
-              totalEpisodes: detail.episodes.length,
+              totalEpisodes: panelEpisodes.length,
               selectedEpisode,
               isReversed: episodePagination.isReversed,
               onToggleOrder: () => episodePagination.setIsReversed(prev => !prev),
@@ -725,8 +814,12 @@ export default function VideojsPlayer() {
               currentPageRange: episodePagination.currentPageRange,
               onPageRangeChange: episodePagination.setCurrentPageRange,
               episodes: episodePagination.currentPageEpisodes,
-              onEpisodeSelect: handleEpisodeChange,
-              episodeProgressMap,
+              onEpisodeSelect: handleMainEpisodeSelect,
+              episodeProgressMap: mainActive ? episodeProgressMap : null,
+              mainLabel: splitGroupsForPanel.length > 0 ? defaultGroup?.title : undefined,
+              mainActive,
+              splitGroups: splitGroupsForPanel,
+              onSplitSelect: handleSplitSelect,
             }}
           />
         </aside>

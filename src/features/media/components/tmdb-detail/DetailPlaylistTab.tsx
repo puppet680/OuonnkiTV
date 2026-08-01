@@ -22,6 +22,8 @@ interface DetailPlaylistTabProps {
   candidates: PlaylistMatchItem[]
   movieSourceMatches: SourceBestMatch[]
   seasonSourceMatches: SeasonSourceMatches[]
+  /** TMDB 主标题，匹配详情弹窗的"对应名" */
+  searchTitle: string
   onRetry: () => void
 }
 
@@ -38,6 +40,7 @@ export function DetailPlaylistTab({
   candidates,
   movieSourceMatches,
   seasonSourceMatches,
+  searchTitle,
   onRetry,
 }: DetailPlaylistTabProps) {
   const reducedMotion = useReducedMotion()
@@ -49,6 +52,7 @@ export function DetailPlaylistTab({
   const firstSeasonId = seasonSourceMatches.find(seasonMatch => seasonMatch.season.season_number === 1)?.season.id ?? null
   const [expandedSeasonId, setExpandedSeasonId] = useState<number | null>(firstSeasonId)
   const [showComplete, setShowComplete] = useState(false)
+  const [showNoMatchSources, setShowNoMatchSources] = useState(false)
 
   useEffect(() => {
     if (!completedAt) return
@@ -161,6 +165,7 @@ export function DetailPlaylistTab({
                       tmdbType={tmdbType}
                       tmdbId={tmdbId}
                       sourceMatch={sourceMatch}
+                      searchTitle={searchTitle}
                     />
                   </motion.div>
                 ))}
@@ -184,6 +189,7 @@ export function DetailPlaylistTab({
                   onToggle={() =>
                     setExpandedSeasonId(prev => (prev === seasonMatch.season.id ? null : seasonMatch.season.id))
                   }
+                  searchTitle={searchTitle}
                 />
               ))}
             </div>
@@ -195,20 +201,58 @@ export function DetailPlaylistTab({
       )}
 
       {shouldShowNoMatchState && (
-        <DetailStatePanel
-          mode="empty"
-          tag="暂无可用播放项"
-          title="找不到匹配结果"
-          description="当前已启用视频源中没有可播放条目。你可以重新匹配，或调整视频源后再试。"
-          primaryAction={{
-            label: '重新匹配',
-            onClick: onRetry,
-          }}
-          secondaryAction={{
-            label: '视频源设置',
-            to: '/settings/source',
-          }}
-        />
+        <>
+          <DetailStatePanel
+            mode="empty"
+            tag="暂无可用播放项"
+            title="找不到匹配结果"
+            description="当前已启用视频源中没有可播放条目。你可以重新匹配，或调整视频源后再试。"
+            primaryAction={{
+              label: '重新匹配',
+              onClick: onRetry,
+            }}
+            secondaryAction={{
+              label: '视频源设置',
+              to: '/settings/source',
+            }}
+            extraAction={{
+              label: showNoMatchSources ? '收起匹配详情' : '查看各源匹配详情',
+              onClick: () => setShowNoMatchSources(v => !v),
+            }}
+          />
+
+          {showNoMatchSources && tmdbType === 'movie' && movieSourceMatches.length > 0 && (
+            <div className="grid gap-3 md:grid-cols-2">
+              {movieSourceMatches.map(sourceMatch => (
+                <SourceMatchBlock
+                  key={`nomatch-movie-${sourceMatch.sourceCode}`}
+                  tmdbType={tmdbType}
+                  tmdbId={tmdbId}
+                  sourceMatch={sourceMatch}
+                  searchTitle={searchTitle}
+                />
+              ))}
+            </div>
+          )}
+
+          {showNoMatchSources && tmdbType === 'tv' && seasonSourceMatches.length > 0 && (
+            <div className="space-y-4">
+              {seasonSourceMatches.map(seasonMatch => (
+                <TvSeasonBlock
+                  key={`nomatch-tv-${seasonMatch.season.id}`}
+                  tmdbType={tmdbType}
+                  tmdbId={tmdbId}
+                  seasonMatch={seasonMatch}
+                  expanded={expandedSeasonId === seasonMatch.season.id}
+                  onToggle={() =>
+                    setExpandedSeasonId(prev => (prev === seasonMatch.season.id ? null : seasonMatch.season.id))
+                  }
+                  searchTitle={searchTitle}
+                />
+              ))}
+            </div>
+          )}
+        </>
       )}
     </section>
   )

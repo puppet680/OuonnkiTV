@@ -29,8 +29,8 @@ interface GlobalContextMenuProps {
  * ContextMenuTrigger 接管，长按开始时已有菜单打开则跳过，互不冲突。
  */
 export function GlobalContextMenu({ children, builtInItems }: GlobalContextMenuProps) {
-  const dynamicItems = useGlobalContextMenuStore((s) => s.items)
-  const menuTitle = useGlobalContextMenuStore((s) => s.menuTitle)
+  const dynamicItems = useGlobalContextMenuStore(s => s.items)
+  const menuTitle = useGlobalContextMenuStore(s => s.menuTitle)
   const [open, setOpen] = useState(false)
   const anchorRef = useRef<HTMLSpanElement>(null)
 
@@ -83,11 +83,22 @@ export function GlobalContextMenu({ children, builtInItems }: GlobalContextMenuP
         if (menuOpenAtStart) return
         // 长按后的 touchend 会触发 click，连带触发按钮 onClick（换源/导航/测速）。
         // 在 capture 阶段吃掉这次 click，让"长按出菜单"不误触底层操作。
+        // 菜单项（[data-slot="context-menu-item"]）一律放行：移动端长按松手常不产生
+        // click，监听会残留，若连菜单项点击也拦，会表现为"菜单项要点两次才生效"。
         document.addEventListener(
           'click',
           (ev: MouseEvent) => {
-            ev.preventDefault()
-            ev.stopImmediatePropagation()
+            const target = ev.target
+            if (target instanceof Element && target.closest('[data-slot="context-menu-item"]')) {
+              return
+            }
+            if (
+              Math.abs(ev.clientX - longPressPos.x) < 16 &&
+              Math.abs(ev.clientY - longPressPos.y) < 16
+            ) {
+              ev.preventDefault()
+              ev.stopImmediatePropagation()
+            }
           },
           { capture: true, once: true },
         )
@@ -160,19 +171,19 @@ export function GlobalContextMenu({ children, builtInItems }: GlobalContextMenuP
             <ContextMenuItem disabled>无可用操作</ContextMenuItem>
           ) : (
             <>
-              {builtInItems?.map((item) => (
-                <ContextMenuItem
-                  key={item.id}
-                  variant={item.variant}
-                  disabled={item.disabled}
-                  onClick={item.onClick}
-                >
-                  {item.icon}
-                  {item.label}
-                </ContextMenuItem>
+              {builtInItems?.map(item => (
+                  <ContextMenuItem
+                    key={item.id}
+                    variant={item.variant}
+                    disabled={item.disabled}
+                    onClick={item.onClick}
+                  >
+                    {item.icon}
+                    {item.label}
+                  </ContextMenuItem>
               ))}
               {hasBuiltIn && hasDynamic && <ContextMenuSeparator />}
-              {dynamicItems.map((item) => (
+              {dynamicItems.map(item => (
                 <ContextMenuItem
                   key={item.id}
                   variant={item.variant}

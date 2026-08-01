@@ -131,7 +131,7 @@ function ensureTmdbApiPatched(): void {
  * 获取有效的 TMDB token
  * 优先使用用户手动配置的 token，其次使用环境变量 token
  */
-function resolveTmdbToken(): string | undefined {
+export function resolveTmdbToken(): string | undefined {
   const userToken = useSettingStore.getState().system.tmdbApiToken
   if (userToken) return userToken
   const envToken = import.meta.env.OKI_TMDB_API_TOKEN

@@ -111,13 +111,13 @@ export function VideojsSkin({
             <div className="flex items-center gap-3 min-w-0 flex-1">
             <SettingsMenu episodes={episodes} selectedEpisode={selectedEpisode} onEpisodeSelect={onEpisodeSelect} />
 
-              {/* 返回按钮 (复用底栏圆形微光悬浮态) */}
+              {/* 退出全屏按钮（顶部控制栏全屏时显示） */}
               <Tooltip.Root side="bottom">
                 <Tooltip.Trigger render={
                   <button
                     type="button"
                     aria-label="返回"
-                    onClick={() => window.history.back()}
+                    onClick={() => document.exitFullscreen?.()}
                     className="media-button media-button--subtle media-button--icon hover:bg-[var(--media-color-primary)]/10 active:scale-95 transition-all duration-150 rounded-full flex items-center justify-center w-8 h-8 shrink-0"
                   >
                     <ChevronIcon className="media-icon media-icon--flipped w-4 h-4" />

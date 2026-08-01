@@ -10,12 +10,12 @@ import { ThemeProvider } from 'next-themes'
 import AppRouter from './router'
 import { queryClient } from './providers/query-client'
 import { Toaster } from '@/shared/components/ui/sonner'
-import { RefreshCw } from 'lucide-react'
 import { TooltipProvider } from '@/shared/components/ui/tooltip'
 import { GlobalContextMenu } from '@/shared/components/GlobalContextMenu'
 import { ThemeColorMeta } from '@/shared/components/theme'
 import { PwaUpdateNotifier } from '@/shared/components/PwaUpdateNotifier'
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
+import { RefreshCw } from '@/components/animate-ui/icons/refresh-cw'
 
 // ponytail: analytics 与首屏渲染无关，lazy-load 避免阻塞 INP/LCP
 const Analytics =

@@ -208,7 +208,20 @@ export const MediaPosterCard = memo(function MediaPosterCard({
   ) : null
 
   const menuItems = (
-    <ContextMenuContent key={menuKey} title={title}>
+    <ContextMenuContent
+      key={menuKey}
+      title={title}
+      description={
+        overview
+          ? {
+              posterUrl,
+              year: year !== undefined && year !== '' ? String(year) : undefined,
+              rating,
+              overview,
+            }
+          : undefined
+      }
+    >
       {onPlayNow && (
         <ContextMenuItem onClick={onPlayNow}>
           <Play className="size-4" />

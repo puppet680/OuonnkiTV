@@ -1,4 +1,7 @@
+import { Copy } from 'lucide-react'
+import { toast } from 'sonner'
 import { HorizontalMediaCard } from '@/shared/components/media'
+import { getPosterUrl } from '@/shared/lib/tmdb'
 import type { TmdbMediaType } from '@/shared/types/tmdb'
 import type { DetailSeason } from './types'
 
@@ -22,6 +25,24 @@ export function DetailSeasonsTab({ tmdbType, seasons }: DetailSeasonsTabProps) {
               key={season.id}
               posterPath={season.poster_path}
               posterAlt={season.name}
+              contextMenuDescription={{
+                posterUrl: season.poster_path ? getPosterUrl(season.poster_path, 'w185') : null,
+                year: season.air_date?.slice(0, 4),
+                overview: season.overview || undefined,
+              }}
+              contextMenuItems={[
+                {
+                  id: 'copy-name',
+                  label: '复制季名',
+                  icon: <Copy className="size-4" />,
+                  onClick: () => {
+                    navigator.clipboard.writeText(season.name).then(
+                      () => toast.success(`已复制：${season.name}`),
+                      () => toast.error('复制失败，请重试'),
+                    )
+                  },
+                },
+              ]}
             >
               <div className="space-y-1 text-sm">
                 <p className="line-clamp-1 font-semibold">

@@ -1,4 +1,5 @@
 import { getCountryChineseName } from '@/shared/constants/countries'
+import type { TmdbEpisodeGroupDetail } from '@/shared/lib/api/tmdb-detail'
 import type { TmdbMediaItem, TmdbMediaType } from '@/shared/types/tmdb'
 import type {
   DetailImage,
@@ -275,9 +276,9 @@ export interface TranslationTitleEntry {
 }
 
 /**
- * 从 TMDB alternative_titles 中提取中国大陆别名
- * CN 返回的 title 已是简体中文，无需繁简转换
- * 过滤掉与已有标题重复的条目
+ * 从 TMDB alternative_titles 中提取中国大陆别名，CN 无有效译名时用香港（HK）译名兜底。
+ * CN 返回的 title 已是简体中文，无需繁简转换；HK 保留繁体原样。
+ * 过滤掉与已有标题重复的条目。
  */
 export function extractTranslationTitles(
   alternativeTitles: TmdbRichDetail['alternative_titles'] | undefined,
@@ -297,24 +298,29 @@ export function extractTranslationTitles(
 
   const normalizedExisting = new Set(existingTitles.map(normalize))
 
-  const entries: TranslationTitleEntry[] = []
+  const collect = (isoCode: string, fallbackCountry: string): TranslationTitleEntry[] => {
+    const entries: TranslationTitleEntry[] = []
+    for (const t of titles) {
+      if (t.iso_3166_1 !== isoCode) continue
 
-  for (const t of titles) {
-    if (t.iso_3166_1 !== 'CN') continue
+      const title = t.title?.trim()
+      if (!title) continue
+      if (normalizedExisting.has(normalize(title))) continue
 
-    const title = t.title?.trim()
-    if (!title) continue
-
-    if (normalizedExisting.has(normalize(title))) continue
-
-    entries.push({
-      countryCode: 'CN',
-      countryName: t.type || '中国大陆',
-      title,
-    })
+      entries.push({
+        countryCode: isoCode,
+        countryName: t.type || fallbackCountry,
+        title,
+      })
+    }
+    return entries
   }
 
-  return entries
+  const cnEntries = collect('CN', '中国大陆')
+  if (cnEntries.length > 0) return cnEntries
+
+  // CN 无有效译名 → HK 兜底（港澳台常用译名，播放匹配也受益）
+  return collect('HK', '中国香港')
 }
 
 const CN_NUMBER_MAP: Record<string, number> = {
@@ -416,6 +422,38 @@ export function extractSeasonsFromTitle(title: string): number[] {
   }
 
   return Array.from(found).sort((a, b) => a - b)
+}
+
+/**
+ * 用 TMDB 剧集组（episode_groups）的官方制作季替换正季，保留特别篇
+ * 比 augmentSeasonsFromTitles（译名猜测）更准确，季名/集数来自 TMDB 官方分组；
+ * 尽量复用 TMDB 对应季的海报/简介/Season ID（否则为占位空信息）
+ * @param existing - TMDB seasons 原始列表（含 season 0 特别篇）
+ * @param detail - 剧集组详情，groups 按官方制作季分组（order 从 1 起）
+ * @returns 特别篇 + 官方制作季合并后的季列表
+ */
+export function mergeEpisodeGroupSeasons(
+  existing: DetailSeason[],
+  detail: TmdbEpisodeGroupDetail,
+): DetailSeason[] {
+  const specials = existing.filter(season => season.season_number === 0)
+  const bySeasonNumber = new Map(existing.map(season => [season.season_number, season]))
+  // 只聚合正季（order > 0），忽略 OVA 等 order 0 组（特别篇已由 TMDB specials 保留）
+  const seasons = detail.groups
+    .filter(group => group.order > 0)
+    .map(group => {
+      const tmdbSeason = bySeasonNumber.get(group.order)
+      return {
+        id: tmdbSeason?.id ?? -group.order, // 复用 TMDB Season ID，无则负数占位
+        season_number: group.order,
+        name: group.name || tmdbSeason?.name || `第 ${group.order} 季`,
+        episode_count: group.episodes.length,
+        overview: tmdbSeason?.overview ?? '',
+        air_date: tmdbSeason?.air_date,
+        poster_path: tmdbSeason?.poster_path ?? null,
+      }
+    })
+  return [...specials, ...seasons]
 }
 
 /**

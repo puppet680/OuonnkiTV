@@ -15,7 +15,7 @@ import { Button } from '@/shared/components/ui/button'
 import { cn } from '@/shared/lib/utils'
 import { CmsEpisodePanel, PlayerEpisodePanel } from '@/features/player/components'
 import type { PlayerSourceOption, PlayerSeasonOption } from '@/features/player/hooks'
-import type { EpisodePageItem } from '@/features/player/hooks'
+import type { EpisodePageItem, SplitEpisodeGroup } from '@/features/player/hooks'
 import type { VideoSourceTestResult } from '../lib/source-speed-test'
 import { SourceOptionButton } from './PlayerSourceOptionButton'
 
@@ -33,6 +33,10 @@ interface EpisodePanelOptions {
   episodes: EpisodePageItem[]
   onEpisodeSelect: (displayIndex: number) => void
   episodeProgressMap: Map<number, number> | null
+  mainLabel?: string
+  mainActive?: boolean
+  splitGroups?: SplitEpisodeGroup[]
+  onSplitSelect?: (vodId: string, episodeIndex: number) => void
 }
 
 interface SourcePanelOptions {
@@ -275,6 +279,10 @@ export function PlayerRightPanels({
                 episodes={episode.episodes}
                 onEpisodeSelect={episode.onEpisodeSelect}
                 episodeProgressMap={episode.episodeProgressMap}
+                mainLabel={episode.mainLabel}
+                mainActive={episode.mainActive}
+                splitGroups={episode.splitGroups}
+                onSplitSelect={episode.onSplitSelect}
                 compact
                 fillHeight={activeRightPanel === 'episode'}
                 hideHeader

@@ -38,7 +38,7 @@ export function StatePanel({
   const Icon = isError ? AlertCircle : Inbox
 
   // 渲染操作按钮
-  const renderAction = (action: StatePanelAction, type: 'primary' | 'secondary') => {
+  const renderAction = (action: StatePanelAction, type: 'primary' | 'secondary' | 'extra') => {
     const defaultVariant = type === 'primary' ? (isError ? 'destructive' : 'secondary') : 'ghost'
     const variant = action.variant || defaultVariant
 
@@ -107,7 +107,7 @@ export function StatePanel({
           <div className="mt-5 flex flex-wrap items-center justify-center gap-2 w-full">
             {primaryAction && renderAction(primaryAction, 'primary')}
             {secondaryAction && renderAction(secondaryAction, 'secondary')}
-            {extraAction && renderAction(extraAction, 'secondary')}
+            {extraAction && renderAction(extraAction, 'extra')}
           </div>
         )}
       </div>

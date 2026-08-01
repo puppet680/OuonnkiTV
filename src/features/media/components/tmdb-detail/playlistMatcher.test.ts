@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { TmdbMediaType } from '@/shared/types/tmdb'
 import type { VideoItem } from '@ouonnki/cms-core'
 import type { DetailSeason } from './types'
-import { buildPlaylistMatches, isEnglishText } from './playlistMatcher'
+import { buildPlaylistMatches, hasSplitSuffix, isEnglishText } from './playlistMatcher'
 
 function makeVideoItem(overrides: Partial<VideoItem> = {}): VideoItem {
   return {
@@ -322,6 +322,22 @@ describe('buildPlaylistMatches', () => {
     })
     expect(candidates[0].seasonHints).toEqual([1, 2, 3])
   })
+
+  it('中文标题后紧跟罗马数字识别季号（无职转生II…），ASCII 与 Unicode 均支持', () => {
+    const makeItems = (name: string, vodId: string) => [makeVideoItem({ vod_name: name, vod_id: vodId })]
+    const ascii = buildPlaylistMatches({
+      mediaType: 'tv' as TmdbMediaType,
+      items: makeItems('无职转生II到了异世界就拿出真本事Part2', '1'),
+      title: '无职转生', sources: defaultSources, seasons: [makeSeason()],
+    })
+    const unicode = buildPlaylistMatches({
+      mediaType: 'tv' as TmdbMediaType,
+      items: makeItems('无职转生Ⅱ到了异世界就拿出真本事Part2', '2'),
+      title: '无职转生', sources: defaultSources, seasons: [makeSeason()],
+    })
+    expect(ascii.candidates[0].seasonHints).toContain(2)
+    expect(unicode.candidates[0].seasonHints).toContain(2)
+  })
 })
 
 describe('isEnglishText', () => {
@@ -353,5 +369,20 @@ describe('isEnglishText', () => {
   it('纯符号返回 false', () => {
     expect(isEnglishText('!@#$%')).toBe(false)
     expect(isEnglishText('---')).toBe(false)
+  })
+})
+
+describe('hasSplitSuffix', () => {
+  it('识别拆分后缀', () => {
+    expect(hasSplitSuffix('你的名字 Part.2')).toBe(true)
+    expect(hasSplitSuffix('你的名字 Part2')).toBe(true)
+    expect(hasSplitSuffix('封神 下部')).toBe(true)
+    expect(hasSplitSuffix('西游记 后篇')).toBe(true)
+  })
+
+  it('完整标题不带拆分后缀', () => {
+    expect(hasSplitSuffix('你的名字')).toBe(false)
+    expect(hasSplitSuffix('你的名字 剧场版')).toBe(false)
+    expect(hasSplitSuffix('')).toBe(false)
   })
 })

@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import type { AppendToResponseMovieKey, AppendToResponseTvKey } from 'tmdb-ts'
-import { getTmdbClient, normalizeToMediaItem } from '@/shared/lib/tmdb'
+import { getTmdbClient, normalizeToMediaItem, resolveTmdbApiBaseUrl, resolveTmdbToken } from '@/shared/lib/tmdb'
 import type { TmdbMediaItem, TmdbMediaType } from '@/shared/types/tmdb'
 import type {
   PersonDetails,
@@ -77,6 +77,126 @@ export async function fetchTmdbById(
     }
   }
   return items
+}
+
+/** 剧集组摘要（tv/{id}/episode_groups 列表项） */
+export interface TmdbEpisodeGroupSummary {
+  id: string
+  name: string
+  description: string
+  episode_count: number
+  group_count: number
+  type: number
+}
+
+/** 剧集组详情（tv/episode_group/{id}），groups 按制作季分组 */
+export interface TmdbEpisodeGroupDetail {
+  id: string
+  name: string
+  episode_count: number
+  group_count: number
+  groups: Array<{
+    id: string
+    name: string
+    order: number
+    episodes: Array<{ season_number: number; episode_number: number }>
+  }>
+}
+
+const tmdbEpisodeGroupSummarySchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  description: z.string().optional(),
+  episode_count: z.number().optional(),
+  group_count: z.number().optional(),
+  type: z.number().optional(),
+})
+
+const tmdbEpisodeGroupDetailSchema = z.object({
+  id: z.string(),
+  name: z.string().optional(),
+  episode_count: z.number().optional(),
+  group_count: z.number().optional(),
+  groups: z
+    .array(
+      z.object({
+        id: z.string(),
+        name: z.string().optional(),
+        order: z.number(),
+        episodes: z
+          .array(z.object({ season_number: z.number(), episode_number: z.number() }))
+          .optional(),
+      }),
+    )
+    .optional(),
+})
+
+/**
+ * 获取 TV 的剧集组列表（episode_groups），用于聚合官方制作季
+ * 注：tmdb-ts 的 episodeGroups 方法无 signal 槽位（与存量 details 行为一致）
+ * @param tvId - TV 的 TMDB ID
+ * @returns 剧集组摘要列表（含 group_count / episode_count，用于挑选匹配分组）
+ */
+export async function fetchTmdbEpisodeGroups(tvId: number): Promise<TmdbEpisodeGroupSummary[]> {
+  const client = getTmdbClient()
+  const data = await client.tvShows.episodeGroups(tvId)
+  const raw = data as unknown as { results?: Array<Record<string, unknown>> }
+  const parsed = z.array(tmdbEpisodeGroupSummarySchema).safeParse(Array.isArray(raw?.results) ? raw.results : [])
+  if (!parsed.success) {
+    throw new Error('Invalid TMDB episode_groups response')
+  }
+  return parsed.data.map(group => ({
+    id: group.id,
+    name: group.name,
+    description: group.description ?? '',
+    episode_count: group.episode_count ?? 0,
+    group_count: group.group_count ?? 0,
+    type: group.type ?? 0,
+  }))
+}
+
+/**
+ * 获取剧集组详情（tv/episode_group/{id}），groups 按官方制作季分组
+ * tmdb-ts 无此端点，直接裸调（复用 Api.prototype.get patch 的 token/超时模式）
+ * @param groupId - 剧集组 ID（如 "6961c83d72e76980b8bd3780"）
+ * @param language - 显示语言
+ * @param signal - AbortSignal（RQ 取消/超时）
+ * @returns 剧集组详情（含各组的集数/名称/顺序）
+ */
+export async function fetchTmdbEpisodeGroup(
+  groupId: string,
+  language: string,
+  signal?: AbortSignal,
+): Promise<TmdbEpisodeGroupDetail> {
+  const token = resolveTmdbToken()
+  if (!token) {
+    throw new Error('TMDB API Token 未配置')
+  }
+  const params = new URLSearchParams({ language })
+  const response = await fetch(`${resolveTmdbApiBaseUrl()}/tv/episode_group/${groupId}?${params}`, {
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json;charset=utf-8' },
+    signal,
+  })
+  if (!response.ok) {
+    throw new Error(`TMDB episode_group 请求失败：${response.status}`)
+  }
+  const raw: unknown = await response.json()
+  const parsed = tmdbEpisodeGroupDetailSchema.safeParse(raw)
+  if (!parsed.success) {
+    throw new Error('Invalid TMDB episode_group response')
+  }
+  return {
+    id: parsed.data.id,
+    name: parsed.data.name ?? '',
+    episode_count: parsed.data.episode_count ?? 0,
+    group_count: parsed.data.group_count ?? 0,
+    groups: (parsed.data.groups ?? []).map(group => ({
+      id: group.id,
+      name: group.name ?? '',
+      order: group.order,
+      episodes: group.episodes ?? [],
+    })),
+  }
 }
 
 const tmdbPersonSchema = z.object({

@@ -213,11 +213,17 @@ export function usePlaylistMatches({
       const classParams = genres?.map(g => g.name).filter(Boolean)
       const normalizedKeyword = normalizeCacheText(keyword)
       const sourceSignature = buildSourceSignature(getEnabledSources())
+      // 季列表也参与缓存 key：episode_groups 聚合后季数会变（如 1→3 季），否则命中旧缓存返回过期季
+      const seasonSignature = seasons
+        .filter(s => s.season_number > 0)
+        .map(s => `${s.season_number}:${s.episode_count}`)
+        .join(',')
       const currentKey = [
         tmdbType,
         tmdbId,
         normalizedKeyword,
         releaseYear || '',
+        seasonSignature,
         sourceSignature,
       ].join('::')
 

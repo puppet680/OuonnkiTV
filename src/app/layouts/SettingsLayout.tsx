@@ -2,11 +2,20 @@ import { useLocation, useNavigate } from 'react-router'
 import { cn } from '@/shared/lib'
 import { Badge } from '@/shared/components/ui/badge'
 import { Button } from '@/shared/components/ui/button'
-import { ArrowLeft, Compass, FolderCog, ListVideo, Play, Settings2, type LucideIcon } from 'lucide-react'
-import { AnimatePresence, motion, useReducedMotion } from "motion/react"
+import {
+  Compass,
+  FolderCog,
+  ListVideo,
+  Play,
+  Settings2,
+  type LucideIcon,
+} from 'lucide-react'
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { CustomAnimatedOutlet } from '@/shared/components/AnimatedOutlet'
 import { animationPresets } from '@/shared/lib/animationVariants'
 import { UnderlineTabs } from '@/shared/components/common/UnderlineTabs'
+import { AnimateIcon } from '@/components/animate-ui/icons/icon'
+import { ArrowLeft } from '@/components/animate-ui/icons/arrow-left'
 
 interface SettingsModule {
   id: string
@@ -86,9 +95,12 @@ export default function SettingsLayout() {
   const navigate = useNavigate()
   const location = useLocation()
   const reducedMotion = useReducedMotion()
-  const activeModule = settingsModules.find(m =>
-    location.pathname.startsWith(m.path) || m.subPaths?.some(p => location.pathname.startsWith(p)),
-  ) || settingsModules[0]
+  const activeModule =
+    settingsModules.find(
+      m =>
+        location.pathname.startsWith(m.path) ||
+        m.subPaths?.some(p => location.pathname.startsWith(p)),
+    ) || settingsModules[0]
 
   const tabOptions = settingsModules.map(module => ({
     key: module.id,
@@ -106,15 +118,17 @@ export default function SettingsLayout() {
       <header className="border-border bg-sidebar/80 sticky top-0 z-20 border-b backdrop-blur-md">
         <div className="py-1.5 md:py-3">
           <div className="flex flex-wrap items-center gap-1.5 md:gap-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-8 shrink-0 px-2 text-xs md:h-9 md:px-3 md:text-sm"
-              onClick={() => navigate('/')}
-            >
-              <ArrowLeft />
-              返回
-            </Button>
+            <AnimateIcon animateOnHover>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 shrink-0 px-2 text-xs md:h-9 md:px-3 md:text-sm"
+                onClick={() => navigate('/')}
+              >
+                <ArrowLeft />
+                返回
+              </Button>
+            </AnimateIcon>
 
             <div className="min-w-0 flex-1 text-right md:flex-none md:text-left">
               <h1 className="truncate text-base font-bold md:text-xl">设置中心</h1>
@@ -149,7 +163,9 @@ export default function SettingsLayout() {
               initial={reducedMotion ? false : { opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={reducedMotion ? undefined : { opacity: 0, y: -8 }}
-              transition={reducedMotion ? { duration: 0 } : { duration: 0.22, ease: [0.25, 0.1, 0.25, 1] }}
+              transition={
+                reducedMotion ? { duration: 0 } : { duration: 0.22, ease: [0.25, 0.1, 0.25, 1] }
+              }
               className="from-muted/35 to-muted/20 border-border/70 mb-4 rounded-xl border border-dashed bg-gradient-to-r px-3 py-2.5 md:px-4 md:py-3"
             >
               <div className="flex items-start gap-2.5 md:gap-3">

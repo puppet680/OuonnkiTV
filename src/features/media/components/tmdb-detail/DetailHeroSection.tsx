@@ -1,17 +1,5 @@
-import { motion, useReducedMotion } from "motion/react"
-import {
-  ArrowLeft,
-  CalendarDays,
-  Clock3,
-  Copy,
-  ExternalLink,
-  Film,
-  Flame,
-  Heart,
-  Play,
-  Star,
-  Tv,
-} from 'lucide-react'
+import { motion, useReducedMotion } from 'motion/react'
+import { CalendarDays, Clock3, Copy, Film, Flame, Heart, Play, Star, Tv } from 'lucide-react'
 import { getBackdropUrl, getPosterUrl } from '@/shared/lib/tmdb'
 import type { TmdbMediaItem, TmdbMediaType } from '@/shared/types/tmdb'
 import { Badge } from '@/shared/components/ui/badge'
@@ -21,11 +9,20 @@ import { ScrollableText } from '@/shared/components/common'
 import { getCertColor } from './helpers'
 import { toast } from 'sonner'
 import type { DetailImage, TmdbRichDetail } from './types'
+import { ExternalLink } from '@/components/animate-ui/icons/external-link'
+import { AnimateIcon } from '@/components/animate-ui/icons/icon'
+import { ArrowLeft } from '@/components/animate-ui/icons/arrow-left'
 
 interface DetailHeroSectionProps {
   detail: Pick<
     TmdbMediaItem,
-    'title' | 'overview' | 'posterPath' | 'backdropPath' | 'releaseDate' | 'voteAverage' | 'popularity'
+    | 'title'
+    | 'overview'
+    | 'posterPath'
+    | 'backdropPath'
+    | 'releaseDate'
+    | 'voteAverage'
+    | 'popularity'
   >
   richDetail: TmdbRichDetail
   tmdbType: TmdbMediaType
@@ -78,31 +75,37 @@ export function DetailHeroSection({
       <div className="absolute inset-0 bg-gradient-to-r from-black/90 via-black/65 via-50% to-black/20" />
       <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-transparent to-transparent" />
 
-      <Button
-        variant="ghost"
-        onClick={onBack}
-        className="absolute top-4 left-4 z-20 h-8 rounded-full px-2.5 !bg-transparent text-white/90 transition-colors hover:!bg-transparent hover:text-primary dark:hover:!bg-transparent sm:h-9 sm:px-3"
-      >
-        <ArrowLeft className="size-4" />
-        返回
-      </Button>
-      {richDetail.homepage && (
+      <AnimateIcon animateOnHover>
         <Button
-          asChild
           variant="ghost"
-          className="absolute top-4 right-24 z-20 h-8 rounded-full px-2.5 !bg-transparent text-white/90 transition-colors hover:!bg-transparent hover:text-white sm:right-16 sm:h-9 sm:px-3 md:right-4"
+          className="absolute top-3 left-3 z-20 h-8 rounded-full !bg-transparent px-2.5 text-white/90 hover:text-white"
+          onClick={onBack}
         >
-          <a href={richDetail.homepage} target="_blank" rel="noreferrer">
-            <ExternalLink className="size-4" />
-            <span className="md:hidden">官网</span>
-            <span className="hidden md:inline">官方页面</span>
-            <span className="sr-only md:hidden">官方页面</span>
-          </a>
+          <ArrowLeft className="size-4" />
+          返回
         </Button>
+      </AnimateIcon>
+
+      {richDetail.homepage && (
+        <AnimateIcon animateOnHover>
+          <Button
+            asChild
+            variant="ghost"
+            className="absolute top-4 right-24 z-20 h-8 rounded-full !bg-transparent px-2.5 text-white/90 transition-colors hover:!bg-transparent hover:text-white sm:right-16 sm:h-9 sm:px-3 md:right-4"
+          >
+            <a href={richDetail.homepage} target="_blank" rel="noreferrer">
+              <ExternalLink className="size-4" />
+              <span className="md:hidden">官网</span>
+              <span className="hidden md:inline">官方页面</span>
+              <span className="sr-only md:hidden">官方页面</span>
+            </a>
+          </Button>
+        </AnimateIcon>
       )}
+
       <Button
         variant="ghost"
-        className="absolute top-4 right-4 z-20 h-8 gap-1 rounded-full px-1.5 !bg-transparent text-white/90 hover:!bg-transparent hover:text-white focus-visible:!bg-transparent active:!bg-transparent sm:h-9 sm:px-2 md:hidden"
+        className="absolute top-4 right-4 z-20 h-8 gap-1 rounded-full !bg-transparent px-1.5 text-white/90 hover:!bg-transparent hover:text-white focus-visible:!bg-transparent active:!bg-transparent sm:h-9 sm:px-2 md:hidden"
         onClick={onToggleFavorite}
         aria-label={favorited ? '取消收藏' : '加入收藏'}
       >
@@ -110,9 +113,13 @@ export function DetailHeroSection({
           key={favorited ? 'mobile-favorited' : 'mobile-unfavorited'}
           initial={reducedMotion ? false : { scale: 0.65, rotate: -14, opacity: 0.6 }}
           animate={{ scale: 1, rotate: 0, opacity: 1 }}
-          transition={reducedMotion ? { duration: 0 } : { type: 'spring', stiffness: 520, damping: 24 }}
+          transition={
+            reducedMotion ? { duration: 0 } : { type: 'spring', stiffness: 520, damping: 24 }
+          }
         >
-          <Heart className={`size-4 transition-colors ${favorited ? 'fill-rose-500 text-rose-500' : ''}`} />
+          <Heart
+            className={`size-4 transition-colors ${favorited ? 'fill-rose-500 text-rose-500' : ''}`}
+          />
         </motion.span>
         <span className="text-xs font-medium">{favorited ? '已收藏' : '收藏'}</span>
       </Button>
@@ -121,41 +128,44 @@ export function DetailHeroSection({
         <div className="flex flex-col gap-4 md:max-w-2xl">
           <div className="space-y-3">
             {heroLogo ? (
-                <span className="group relative inline-block max-w-full">
-                  <img
-                    src={getPosterUrl(heroLogo.file_path, 'w500')}
-                    alt={detail.title}
-                    className="max-h-24 max-w-[78vw] object-contain sm:max-w-[320px] md:max-h-36 md:max-w-[420px]"
-                  />
-                  <span
-                    role="button"
-                    tabIndex={0}
-                    title="点击复制标题"
-                    className="absolute top-0 right-0 cursor-pointer rounded p-0.5 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none"
-                    onClick={async e => {
+              <span className="group relative inline-block max-w-full">
+                <img
+                  src={getPosterUrl(heroLogo.file_path, 'w500')}
+                  alt={detail.title}
+                  className="max-h-24 max-w-[78vw] object-contain sm:max-w-[320px] md:max-h-36 md:max-w-[420px]"
+                />
+                <span
+                  role="button"
+                  tabIndex={0}
+                  title="点击复制标题"
+                  className="absolute top-0 right-0 cursor-pointer rounded p-0.5 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none"
+                  onClick={async e => {
+                    e.preventDefault()
+                    await navigator.clipboard.writeText(detail.title)
+                    toast.success(`已复制：${detail.title}`)
+                  }}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter' || e.key === ' ') {
                       e.preventDefault()
-                      await navigator.clipboard.writeText(detail.title)
+                      navigator.clipboard.writeText(detail.title)
                       toast.success(`已复制：${detail.title}`)
-                    }}
-                    onKeyDown={e => {
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault()
-                        navigator.clipboard.writeText(detail.title)
-                        toast.success(`已复制：${detail.title}`)
-                      }
-                    }}
-                  >
-                    <Copy className="size-3.5 text-white drop-shadow" />
-                  </span>
+                    }
+                  }}
+                >
+                  <Copy className="size-3.5 text-white drop-shadow" />
                 </span>
-              ) : (
-                <h1 className="text-3xl leading-tight font-bold text-white md:text-5xl">
-                  <ClickToCopy text={detail.title} />
-                </h1>
-              )}
-            {richDetail.tagline && !/(https?:\/\/|\.(com|net|org|cn|xyz|top|info|cc|tv|live|app)\b)/i.test(richDetail.tagline) && (
-              <p className="text-sm italic text-white/80 md:text-base">{richDetail.tagline}</p>
+              </span>
+            ) : (
+              <h1 className="text-3xl leading-tight font-bold text-white md:text-5xl">
+                <ClickToCopy text={detail.title} />
+              </h1>
             )}
+            {richDetail.tagline &&
+              !/(https?:\/\/|\.(com|net|org|cn|xyz|top|info|cc|tv|live|app)\b)/i.test(
+                richDetail.tagline,
+              ) && (
+                <p className="text-sm text-white/80 italic md:text-base">{richDetail.tagline}</p>
+              )}
           </div>
 
           <div className="flex items-center gap-1.5 overflow-hidden text-xs md:hidden">
@@ -244,7 +254,10 @@ export function DetailHeroSection({
             )}
           </div>
 
-          <ScrollableText maxHeight="max-h-20 md:max-h-28" className="text-sm leading-6 text-white/85 md:text-base">
+          <ScrollableText
+            maxHeight="max-h-20 md:max-h-28"
+            className="text-sm leading-6 text-white/85 md:text-base"
+          >
             {detail.overview || '暂无简介'}
           </ScrollableText>
 
@@ -284,9 +297,13 @@ export function DetailHeroSection({
                 key={favorited ? 'favorited' : 'unfavorited'}
                 initial={reducedMotion ? false : { scale: 0.65, rotate: -14, opacity: 0.6 }}
                 animate={{ scale: 1, rotate: 0, opacity: 1 }}
-                transition={reducedMotion ? { duration: 0 } : { type: 'spring', stiffness: 520, damping: 24 }}
+                transition={
+                  reducedMotion ? { duration: 0 } : { type: 'spring', stiffness: 520, damping: 24 }
+                }
               >
-                <Heart className={`size-4 transition-colors ${favorited ? 'fill-rose-500 text-rose-500' : ''}`} />
+                <Heart
+                  className={`size-4 transition-colors ${favorited ? 'fill-rose-500 text-rose-500' : ''}`}
+                />
               </motion.span>
               {favorited ? '已加入收藏' : '加入收藏'}
             </Button>
@@ -301,7 +318,9 @@ export function DetailHeroSection({
               className="h-full w-full object-cover"
             />
           ) : (
-            <div className="bg-muted text-muted-foreground flex aspect-[2/3] items-center justify-center text-xs">无海报</div>
+            <div className="bg-muted text-muted-foreground flex aspect-[2/3] items-center justify-center text-xs">
+              无海报
+            </div>
           )}
         </div>
       </div>

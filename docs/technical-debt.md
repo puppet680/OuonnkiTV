@@ -47,3 +47,9 @@
 | … | 其余超 500 行文件（sidebar 701 等） | — | 500 行上限 | 低 |
 
 已拆分：tmdbStore 1018→32、useCmsCore 380→57、favoritesStore 640→498、api/tmdb 516→447、FeaturedCarousel 529→356、DetailPlaylistTab 680→215、searchService 547→449、VideojsSkin 733→461、VideojsPlayer 2435→759（拆 13 文件：videojsPlayerCore/Trackers/Media/Helpers、PlayerAutoPiP/RightPanels/VideoStage/ErrorRender/SourceOptionButton + usePlayerDetailFetch/EpisodeProgress/CmsMatch/Favorites/Navigation/Derived/ContextMenu）。
+
+## 存量测试失败
+
+| 编号 | 测试 | 说明 | 状态 |
+|------|------|------|------|
+| T001 | playlistMatcher.test.ts「范围季条目对包含的季获得高分，超出范围被排除」 | S1/S2/S3 期望有 bestMatch 但为 null；测试注释"相邻季扣 -20"与实际 applySeasonScore（-35/-50）不同步，属匹配逻辑迭代后未更新 | 存量，改到该文件时顺手修 |
