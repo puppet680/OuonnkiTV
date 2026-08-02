@@ -23,6 +23,22 @@ export function filterAdultKeywords(
 }
 
 /**
+ * 过滤标题/原名含任一关键词的条目（如"总集""合集"等），返回新数组
+ * 匹配不区分大小写（英文关键词如 SP 可匹配 sp/Sp/SP）
+ * @param items - 待过滤条目
+ * @param keywords - 关键词列表，命中任一即剔除
+ * @returns 过滤后的新数组
+ */
+export function filterTitleKeywords(items: TmdbMediaItem[], keywords: string[]): TmdbMediaItem[] {
+  const active = keywords.map(k => k.trim().toLowerCase()).filter(Boolean)
+  if (active.length === 0) return items
+  return items.filter(item => {
+    const haystack = [item.title, item.originalTitle].filter(Boolean).join(' ').toLowerCase()
+    return !active.some(kw => haystack.includes(kw))
+  })
+}
+
+/**
  * 客户端筛选（媒体类型/分类/评分/年份/产地/排序），返回新数组
  * 从 RQ 搜索结果派生时使用，不修改原数组
  * @param items - 待筛选条目

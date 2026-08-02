@@ -3,8 +3,11 @@ import { useQuery, useInfiniteQuery } from '@tanstack/react-query'
 import { fetchTmdbSearch, fetchTmdbDiscover, fetchTmdbGenresAndCountries } from '@/shared/lib/api/tmdb'
 import { fetchTmdbById } from '@/shared/lib/api/tmdb-detail'
 import { useSettingStore } from '@/shared/store/settingStore'
-import { filterAdultKeywords } from '@/shared/lib/tmdbFilters'
+import { filterAdultKeywords, filterTitleKeywords } from '@/shared/lib/tmdbFilters'
 import type { TmdbFilterOptions } from '@/shared/types/tmdb'
+
+/** TMDB 搜索结果要过滤的标题关键词（总集编/合集等） */
+const FILTER_TITLE_KEYWORDS = ['总集', '合集', "SP", "特别篇"]
 
 /**
  * TMDB 搜索 Hook（分页追加；year 传给 API 做服务端年份过滤）
@@ -31,7 +34,10 @@ export function useTmdbSearch(query: string, year?: number, enabled = true) {
       ...data,
       pages: data.pages.map(page => ({
         ...page,
-        items: filterAdultKeywords(page.items, isAdultFilterEnabled, cmsFilterKeywords),
+        items: filterTitleKeywords(
+          filterAdultKeywords(page.items, isAdultFilterEnabled, cmsFilterKeywords),
+          FILTER_TITLE_KEYWORDS,
+        ),
       })),
     }),
   })
@@ -55,6 +61,10 @@ export function useTmdbDiscover(options: TmdbFilterOptions, enabled = true) {
       last.pagination.page < last.pagination.totalPages ? last.pagination.page + 1 : undefined,
     enabled,
     staleTime: 5 * 60_000,
+    select: data => ({
+      ...data,
+      pages: data.pages.map(page => ({ ...page, items: filterTitleKeywords(page.items, FILTER_TITLE_KEYWORDS) })),
+    }),
   })
 }
 
