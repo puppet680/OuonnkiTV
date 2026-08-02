@@ -35,6 +35,7 @@ import {
   type TmdbRichDetail,
   extractRecommendations,
   extractTranslationTitles,
+  extractJpTitle,
   augmentSeasonsFromTitles,
   mergeEpisodeGroupSeasons,
   formatCurrencyUSD,
@@ -122,12 +123,22 @@ export default function TmdbDetailView() {
 
   const translationEntries = useMemo(() => {
     if (!detail) return []
-    return extractTranslationTitles(safeRichDetail?.alternative_titles, [detail.title, detail.originalTitle])
-  }, [detail, safeRichDetail?.alternative_titles])
+    return extractTranslationTitles(
+      safeRichDetail?.alternative_titles,
+      [detail.title, detail.originalTitle],
+      safeRichDetail?.adult === true,
+    )
+  }, [detail, safeRichDetail?.alternative_titles, safeRichDetail?.adult])
 
   const alternativeTitles = useMemo(
     () => translationEntries.map(entry => entry.title),
     [translationEntries],
+  )
+
+  // 成人内容网盘资源搜索用日本标题，否则退回默认标题
+  const jpSearchTitle = useMemo(
+    () => extractJpTitle(safeRichDetail?.adult === true, safeRichDetail?.alternative_titles),
+    [safeRichDetail?.adult, safeRichDetail?.alternative_titles],
   )
 
   // 聚合 TMDB 剧集组官方季（TMDB 只有单季但剧集组含多制作季的剧，如日本动画）
@@ -510,7 +521,7 @@ export default function TmdbDetailView() {
         </AnimatePresence>
 
         <div className={activeTab === 'resources' ? '' : 'hidden'}>
-          <PlayerResourcesTab keyword={detail.title} noScroll />
+          <PlayerResourcesTab keyword={jpSearchTitle || detail.title} noScroll />
         </div>
       </div>
     </div>

@@ -22,6 +22,8 @@ const TAB_ITEMS: Array<{ key: PlayerInfoTab; label: string; icon: React.ReactNod
 
 interface PlayerInfoAndRecommendationsProps {
   title: string
+  /** 网盘资源搜索关键词，成人内容用日本标题，否则回退 title */
+  panSearchKeyword?: string
   originalTitle?: string
   overview: string
   sourceName: string
@@ -46,6 +48,7 @@ interface PlayerInfoAndRecommendationsProps {
 
 export const PlayerInfoAndRecommendations = memo(function PlayerInfoAndRecommendations({
   title,
+  panSearchKeyword,
   originalTitle,
   overview,
   sourceName,
@@ -201,7 +204,7 @@ export const PlayerInfoAndRecommendations = memo(function PlayerInfoAndRecommend
                     />
                   </div>
                   <div className={activeTab === 'resources' ? '' : 'hidden'}>
-                    <PlayerResourcesTab keyword={title} />
+                    <PlayerResourcesTab keyword={panSearchKeyword || title} />
                   </div>
                 </div>
               </div>

@@ -276,13 +276,25 @@ export interface TranslationTitleEntry {
 }
 
 /**
- * 从 TMDB alternative_titles 中提取中国大陆别名，CN 无有效译名时用香港（HK）译名兜底。
+ * 是否日本番号（品番）标题：拉丁字母 + 可选分隔符 + 数字，如 SDDE-001、ABP-152。
+ * 部分 JP alternative title 没有 type 字段，故从标题内容本身判断。
+ */
+const isBangumiCode = (title: string): boolean => /^[A-Za-z]{2,}[-_ ]?\d+$/.test(title.trim())
+
+/**
+ * 从 TMDB alternative_titles 中提取中国大陆别名，CN 无有效译名时用香港（HK）译名兜底，
+ * 成人内容额外附加首个日本标题。
  * CN 返回的 title 已是简体中文，无需繁简转换；HK 保留繁体原样。
  * 过滤掉与已有标题重复的条目。
+ * @param alternativeTitles - TMDB 详情 alternative_titles
+ * @param existingTitles - 已存在的标题（主标题/原名），用于去重
+ * @param isAdult - 媒体是否为成人类型，成人时附加日本标题
+ * @returns 各地译名条目列表
  */
 export function extractTranslationTitles(
   alternativeTitles: TmdbRichDetail['alternative_titles'] | undefined,
   existingTitles: string[],
+  isAdult = false,
 ): TranslationTitleEntry[] {
   // TV shows 返回 results，movies 返回 titles
   const titles = alternativeTitles?.results ?? alternativeTitles?.titles
@@ -317,10 +329,31 @@ export function extractTranslationTitles(
   }
 
   const cnEntries = collect('CN', '中国大陆')
-  if (cnEntries.length > 0) return cnEntries
-
   // CN 无有效译名 → HK 兜底（港澳台常用译名，播放匹配也受益）
-  return collect('HK', '中国香港')
+  const primary = cnEntries.length > 0 ? cnEntries : collect('HK', '中国香港')
+  // 成人内容才附加首个日本标题；JP 条目本身是番号（品番）时标签显示"番号"，否则"日本"
+  const jpEntries = isAdult
+    ? collect('JP', '日本')
+        .slice(0, 1)
+        .map(entry => ({ ...entry, countryName: isBangumiCode(entry.title) ? '番号' : '日本' }))
+    : []
+  return [...primary, ...jpEntries]
+}
+
+/**
+ * 提取日本标题用于网盘资源搜索：成人内容返回首个 JP 标题，否则空串（回退默认标题搜索）。
+ * @param isAdult - 媒体是否为成人类型（TMDB adult 标志）
+ * @param alternativeTitles - TMDB 详情 alternative_titles
+ * @returns 首个 JP 标题，非成人或无则返回空字符串
+ */
+export function extractJpTitle(
+  isAdult: boolean,
+  alternativeTitles: TmdbRichDetail['alternative_titles'] | undefined,
+): string {
+  if (!isAdult) return ''
+  const titles = alternativeTitles?.results ?? alternativeTitles?.titles
+  const entry = titles?.find(t => t.iso_3166_1 === 'JP' && t.title?.trim())
+  return entry?.title?.trim() ?? ''
 }
 
 const CN_NUMBER_MAP: Record<string, number> = {

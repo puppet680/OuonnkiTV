@@ -93,8 +93,9 @@ export function useTmdbPlayback({
     return extractTranslationTitles(
       richDetail?.alternative_titles,
       [detail.title, detail.originalTitle],
+      richDetail?.adult === true,
     ).map(entry => entry.title)
-  }, [detail, richDetail?.alternative_titles])
+  }, [detail, richDetail?.alternative_titles, richDetail?.adult])
 
   const seasons = useMemo(
     () =>

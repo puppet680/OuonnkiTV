@@ -13,7 +13,7 @@ import { useFavoritesStore } from '@/features/favorites/store/favoritesStore'
 import type { TmdbMediaType } from '@/shared/types/tmdb'
 import type { VideoResolutionInfo } from '../lib/resolution-labels'
 import { useTmdbRecommendations } from '@/shared/hooks/useTmdbRecommendations'
-import { isAdultCert } from '@/features/media/components'
+import { isAdultCert, extractJpTitle } from '@/features/media/components'
 import {
   PlayerErrorState,
   PlayerHeroSection,
@@ -119,6 +119,15 @@ export default function VideojsPlayer() {
     queryVodId,
     querySeasonNumber,
   })
+
+  // 成人内容网盘资源搜索用日本标题，否则退回标题
+  const jpSearchTitle = useMemo(
+    () => extractJpTitle(
+      tmdbPlayback.tmdbRichDetail?.adult === true,
+      tmdbPlayback.tmdbRichDetail?.alternative_titles,
+    ),
+    [tmdbPlayback.tmdbRichDetail?.adult, tmdbPlayback.tmdbRichDetail?.alternative_titles],
+  )
 
   const { recommendations: fallbackRecommendations } = useTmdbRecommendations()
 
@@ -828,6 +837,7 @@ export default function VideojsPlayer() {
       {/* Info & Recommendations */}
       <PlayerInfoAndRecommendations
         title={title}
+        panSearchKeyword={jpSearchTitle}
         originalTitle={tmdbPlayback.tmdbDetail?.originalTitle}
         overview={overview}
         sourceName={sourceName}
