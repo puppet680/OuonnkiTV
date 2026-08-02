@@ -288,7 +288,7 @@ function ContextMenuContent({
             </div>
           )}
           {title && (
-            <div className={cn('mb-1 line-clamp-1 px-3 pr-10 pb-1 text-center text-base font-semibold shrink-0', canDrag ? 'pt-1.5' : 'pt-3')}>
+            <div className={cn('mb-1 line-clamp-1 px-10 pb-1 text-center text-base font-semibold shrink-0', canDrag ? 'pt-1.5' : 'pt-3')}>
               {title}
             </div>
           )}
